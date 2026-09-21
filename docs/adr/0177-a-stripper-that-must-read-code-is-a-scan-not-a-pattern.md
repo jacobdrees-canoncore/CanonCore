@@ -196,3 +196,12 @@ this is a rule a reviewer applies, which is the same missing half ADR-0168 names
 and one `apps/web` suite abort on an unset `DATABASE_URL` in a worktree provisioned only with
 `.env.example`. None of them can reach this module -- it is package-private to `@canoncore/config`
 and absent from that package's `exports` -- and the abort is unprovisioned rather than red.
+
+## Copied to the provider repositories, under CNCORE-321
+
+**The scan's code now runs in two more repositories**, `provider-wiki` and `provider-tmdb`, each at
+`test/setup/without-comments.ts`, copied line for line so each can refuse a stacked docblock
+([[0196-a-docblock-sits-on-the-declaration-it-describes]]). [[0031-a-provider-is-a-url]] rules out
+the shared package that would have kept one copy. "One scan, four callers, no copies" above is
+true of this tree and not across the three. Nothing keeps them in step, and
+`testing/without-comments.ts`'s own docblock says so where an edit would start.

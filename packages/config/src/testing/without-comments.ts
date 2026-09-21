@@ -79,6 +79,14 @@
  * left it standing for want of a closing delimiter. Either is arbitrary: a
  * source with an unterminated block comment does not compile, so no caller can
  * be reading one.
+ *
+ * TWO MORE REPOSITORIES RUN THIS CODE, and a change here is a change to carry
+ * there by hand. `provider-wiki` and `provider-tmdb` each hold it at
+ * `test/setup/without-comments.ts`, copied line for line under CNCORE-321,
+ * because ADR-0031 lets no code cross that boundary. The two copies are
+ * byte-identical to each other and nothing holds any of the three together. Only
+ * the prose differs from this one: below this docblock, a diff shows the two
+ * docblocks rewritten to drop the JSX cases, which neither provider has.
  */
 export function withoutComments(source: string): string {
   return scan(source).code;
