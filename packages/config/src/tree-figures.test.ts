@@ -575,6 +575,13 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
+    // Thirty-seven since CNCORE-334, whose `worktree-retirement.test.ts` runs the
+    // dispatcher's retirement out of `.claude/skills/dispatch/`, as the merge
+    // gate's suite beside it does. It and CNCORE-336's entry below were BOTH
+    // written as "thirty-six", each branch correct about the tree it could see
+    // and neither able to see the other -- which is the rung ADR-0153 names,
+    // and the reason this figure is re-derived from a red run at each rebase
+    // rather than carried across one. The red run said 37.
     // Thirty-five since CNCORE-327, whose `corpus-import-cost.test.ts` sweeps every
     // tracked TEXT file -- source, prose and the frozen migration ladder alike --
     // for the superseded cost of importing the corpus. Thirty-four since
@@ -598,7 +605,7 @@ describe("a figure this tree states about itself", () => {
     // Thirty-six since CNCORE-336, which added `temp-directory-cleanup.test.ts`:
     // it sweeps every tracked source for a temporary directory the file making
     // it never removes.
-    expect(suitesReadingTheRepository()).toBe(36);
+    expect(suitesReadingTheRepository()).toBe(37);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

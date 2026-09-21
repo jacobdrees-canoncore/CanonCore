@@ -38,8 +38,9 @@ breaks across Next.js dependency graphs, and four lines below it overrides
 finding the next line refutes.
 
 **2. Merge, and remove the worktree in the same action.** Squash where the repo refuses merge
-commits — then ancestry is the wrong safety test, so compare CONTENT against `origin/main` before
-removing.
+commits — then ancestry is the wrong safety test, so CONTENT is compared against `origin/main`
+before anything is removed. Two scripts beside this file do both halves and neither is run by hand:
+`merge-if-green.sh` merges, `retire.sh` retires.
 
 **MERGE WITH `merge-if-green.sh <n> [repo] [worktree]` (beside this file), NEVER `gh pr merge` BY
 HAND.** It resolves the PR's head and asks about THAT COMMIT's check-runs, because a check is
@@ -55,27 +56,46 @@ and sixteen green checks, so every other field calls it mergeable — #230 read 
 while its agent was still writing it. `READY` above is the line that says a PR has left draft; the
 gate now says it too.
 
-**REMOVING THE WORKTREE IS TWO COMMANDS, BECAUSE `orca worktree rm` TAKES ONLY THE FILES.** The
-worktree's databases stay in the shared container: its own, and one for each suite that builds
-one. Straight after the removal, run this from the main checkout:
+**RETIRE WITH `retire.sh <worktree> [--aux <name>]...` (beside this file), NEVER BY HAND.** It is the
+merge gate's other half and it does the whole retirement: compares CONTENT file by file against
+`origin/main`, STOPS on a difference `main` does not explain and removes nothing, then takes the
+worktree and drops its databases. Until CNCORE-334 this paragraph was a rule with no mechanism, and
+the rule is the one thing a dispatcher cannot run from memory at speed — on 2026-09-21 cncore-316's
+removal was chained into the same command as the comparison, so it ran before the DIFF lines were
+read. Two files differed, both were `main` running ahead, and nothing was lost by the order the
+shell happened to run things.
 
-```sh
-pnpm db:drop-worktree "$(gh pr view <n> --json headRefName -q .headRefName)"
-```
+**A DIFF LINE HAS TWO READINGS AND ONLY ONE IS SAFE**, so the script explains each one or stops:
+`main-ahead` when some commit on `main` holds the file EXACTLY as the branch has it, `ticket-named`
+when `main`'s history on it carries this ticket's subject. "`main` holds a later commit touching it"
+is NOT one of them — that is equally true of a file another ticket edited while this branch's change
+to it never merged (ADR-0198).
 
-It drops that branch's database and every `_test…` database derived from it, however young. It
-refuses while a live worktree still owns them, by its branch or by its `.env`, so it goes AFTER
-`orca worktree rm`, never before. That refusal is one `refusing: …` sentence and exit 1, never a
-stack trace. It also refuses, dropping nothing, any list that names `canoncore`, the name of the
-Owner's catalogue ([[0191-removing-a-worktree-drops-its-databases-and-refuses-a-list-naming-canoncore]]).
-Take the branch from the PR, because by now the merge and the removal have usually deleted the
-local one. `db:setup`'s sweep takes whatever this misses, but only once it is an hour old and only
-when somebody next sets up a worktree.
+It needs no branch argument and no repo: the branch comes off the worktree before the removal takes
+it, and `--git-dir` against `--git-common-dir` both refuses a MAIN CHECKOUT and derives where the
+drop runs, so one script retires a provider worktree and a CanonCore one. The drop itself is
+ADR-0191's: it refuses while a live worktree still owns the databases, so it goes AFTER the removal,
+and it refuses any list naming `canoncore`, the Owner's own catalogue. A repo with no
+`db:drop-worktree` has no databases and the script says so rather than guessing from the repo's name.
+`db:setup`'s sweep takes whatever is missed, but only once it is an hour old.
+
+**AND IT FINDS THE WORKTREES `orca worktree list` CANNOT SEE.** A ticket that runs `git worktree add`
+for a job of its own — the comment scan's parser oracle wants HEAD, main and the previous commit at
+once — leaves trees registered in the repo's `.git/worktrees/` and living anywhere on disk, which
+Orca never learns about. cncore-333 had three at `/private/tmp/wt-head`, `wt-main` and `wt-prev` on
+2026-09-21. **OWNERSHIP OF ONE IS RECORDED NOWHERE**: the entry holds a path and a detached sha and
+no ticket, two of those three sat on commits every branch shares, they were two minutes old, and all
+three were clean but for a scratch `node_modules` — so neither reachability, age nor dirtiness
+attributes them. The script therefore NEVER infers it. An unattributed tree stops the retirement and
+is named; `--aux <name>` is how the dispatcher who made one says so, and a name matching no
+registration is refused rather than passed over. A tracked change in one stops it even when
+asserted. **Put an auxiliary tree inside your own worktree and none of this arises**, because its
+removal takes it.
 
 **A CROSS-REPO TICKET'S MERGE TAKES ITS PROVIDER WORKTREES TOO.** Each provider PR goes through
-`merge-if-green.sh <pr> <repo> ~/orca/workspaces/<repo>/cncore-<ticket>`, and its worktree goes with
-it by `orca worktree rm --worktree path:<worktree>` alone. A provider worktree has no databases, so
-nothing follows it, and the removal takes its branch.
+`merge-if-green.sh <pr> <repo> ~/orca/workspaces/<repo>/cncore-<ticket>`, and its worktree through
+`retire.sh ~/orca/workspaces/<repo>/cncore-<ticket>` exactly as a CanonCore one does — the script
+derives the repo from the worktree and finds no databases there by asking rather than by its name.
 
 **`PARKED <repo> <branch>` IS A MAIN CHECKOUT SOMEBODY WORKED IN**, and it goes back to `main` in
 the same action as the merge of the ticket whose branch it names, once `git status` is clean and
