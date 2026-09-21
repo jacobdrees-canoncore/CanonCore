@@ -104,3 +104,19 @@ export function markdownIn(directory: string, { recursive = false } = {}): strin
   if (refusal !== "") throw new Error(refusal);
   return documents.map((path) => relative(directory, path));
 }
+
+const PROSE = ["docs", ".claude"] as const;
+
+export const NOT_PROSE: readonly string[] = [
+  // Written and re-added by `next dev`, which says so in its own text.
+  "apps/web/AGENTS.md",
+];
+
+export function proseIn(root: string): string[] {
+  return [
+    ...PROSE.flatMap((directory) =>
+      markdownIn(join(root, directory), { recursive: true }).map((path) => join(directory, path)),
+    ),
+    ...markdownIn(root),
+  ].sort();
+}

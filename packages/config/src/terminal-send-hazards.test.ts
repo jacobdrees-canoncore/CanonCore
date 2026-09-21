@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { records } from "./testing/adr-records";
 import { flatten } from "./testing/flatten";
-import { markdownIn } from "./testing/markdown-corpus";
+import { proseIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -40,9 +40,6 @@ import { repoRoot } from "./testing/repo-root";
  * passage and watching this go red naming that file rather than by watching it
  * pass.
  */
-
-/** Everything the corpus is swept from: the records, the agent docs, the root. */
-const SWEPT = ["docs", ".claude"] as const;
 
 /**
  * A document cut into BLOCKS -- paragraphs, bullets, headings, table rows.
@@ -112,26 +109,9 @@ function sentencesOf(block: string): string[] {
   return sentences;
 }
 
-/**
- * Every markdown document under `docs/` and `.claude/`, plus the root's own.
- *
- * TODO(CNCORE-313): this is the THIRD suite to spell the directory list for
- * itself -- `adr-citations.test.ts` and `doc-line-citations.test.ts` have their
- * own -- and the three have already diverged, because only this one sweeps
- * `.claude/`. `markdown-corpus.ts` ended the duplication one level down, at the
- * walk; the level above it is still copied per suite. Not folded here because
- * it would edit two suites this ticket does not otherwise touch.
- */
+/** Every document in the prose corpus, cut into blocks of sentences. */
 function corpus(): { path: string; blocks: string[][] }[] {
-  const paths = [
-    ...SWEPT.flatMap((directory) =>
-      markdownIn(join(repoRoot, directory), { recursive: true }).map((path) =>
-        join(directory, path),
-      ),
-    ),
-    ...markdownIn(repoRoot),
-  ];
-  return paths.map((path) => ({
+  return proseIn(repoRoot).map((path) => ({
     path,
     blocks: blocksOf(readFileSync(join(repoRoot, path), "utf8")).map(sentencesOf),
   }));

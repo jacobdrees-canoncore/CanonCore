@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { records } from "./testing/adr-records";
-import { markdownIn } from "./testing/markdown-corpus";
+import { markdownIn, proseIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -63,18 +63,6 @@ import { repoRoot } from "./testing/repo-root";
  * paths the tree actually holds decides it the same way everywhere.
  */
 
-/**
- * The prose this rule governs is everything under `docs/` plus every markdown
- * document at the root, READ FROM THE TREE rather than listed here: `CONTEXT.md`
- * and `CLAUDE.md` are cited by line more than any record is, and a fourth root
- * document added later would otherwise be silently uncovered. A symlinked one
- * is the case that sentence promised to cover and did not, and `markdownIn`
- * below refuses it rather than letting it leave this sweep unremarked.
- */
-function rootProse(): string[] {
-  return markdownIn(repoRoot);
-}
-
 type Citation = { readonly file: string; readonly line: number; readonly cite: string };
 
 /**
@@ -103,14 +91,6 @@ const FORMS = [
   { by: "number", pattern: /(?<![\w:.-])(\d{4}):(\d+)(?:-\d+)?(?![\d.:])/g },
 ] as const;
 
-/** Every markdown file this rule governs, spelled as the tree spells it. */
-function prose(): string[] {
-  const underDocs = markdownIn(join(repoRoot, "docs"), { recursive: true }).map((path) =>
-    join("docs", path),
-  );
-  return [...underDocs, ...rootProse()].sort();
-}
-
 /**
  * Each document's path keyed by its BARE FILENAME, for the corpus's habit of
  * citing `verify-plex-claims.md:317` once the directory is established by an
@@ -120,7 +100,7 @@ function prose(): string[] {
  */
 function byBasename(): Map<string, string> {
   const seen = new Map<string, string | null>();
-  for (const path of prose()) {
+  for (const path of proseIn(repoRoot)) {
     const name = path.slice(path.lastIndexOf("/") + 1);
     seen.set(name, seen.has(name) ? null : path);
   }
@@ -135,9 +115,15 @@ function recordsByNumber(): Map<string, string> {
 /**
  * Every line citation whose target this tree holds. A citation the tree cannot
  * resolve is history, and is left where `docs/research/README.md` leaves it.
+ *
+ * "HOLDS" MEANS "THE CORPUS HOLDS", so a document the corpus leaves out is not
+ * merely unswept: a citation into it reads as history and is EXCUSED. That is
+ * why the corpus is `proseIn`'s rather than this file's -- `.claude/` sat
+ * outside this sweep's own copy and inside another suite's until CNCORE-313
+ * (ADR-0190).
  */
 function resolvableLineCitations(): Citation[] {
-  const held = new Set(prose());
+  const held = new Set(proseIn(repoRoot));
   const records = recordsByNumber();
   const named = byBasename();
   const found: Citation[] = [];
@@ -154,7 +140,7 @@ function resolvableLineCitations(): Citation[] {
     return cited === base && named.has(base);
   };
 
-  for (const file of prose()) {
+  for (const file of proseIn(repoRoot)) {
     readFileSync(join(repoRoot, file), "utf8")
       .split("\n")
       .forEach((text, index) => {
@@ -176,7 +162,7 @@ describe("a document citing another document", () => {
     // below by having nothing left to check. Non-empty rather than a pinned
     // count: the historical citations this deliberately permits are the subject
     // here, and their number is not this suite's to police.
-    expect(prose().length).toBeGreaterThan(0);
+    expect(proseIn(repoRoot).length).toBeGreaterThan(0);
     expect(recordsByNumber().size).toBeGreaterThan(0);
   });
 
