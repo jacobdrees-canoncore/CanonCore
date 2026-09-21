@@ -304,7 +304,9 @@ describe("dropRemovedWorktree", () => {
           [1, 2, 3].some((n) => name === root(n) || name.startsWith(`${root(n)}_test`)),
         );
       for (const database of ours) {
-        await client.query(`drop database if exists "${database}" with (force)`);
+        await client.query(
+          `drop database if exists "${database.replaceAll('"', '""')}" with (force)`,
+        );
       }
     });
   });
@@ -321,6 +323,19 @@ describe("dropRemovedWorktree", () => {
 
     expect(swept).toEqual({ dropped: family, inUse: [] });
     expect(await existing(...family, root(2))).toEqual([root(2)]);
+  });
+
+  it("leaves a database somebody built by hand under the family's name", async () => {
+    // Starting with the root is not enough. The sweep drops only a name the
+    // harness could have derived, and this is held to the same narrowness.
+    const { main, linked } = repositoryWithAWorktree(branch(1));
+    git(main, "worktree", "remove", linked);
+    await create(root(1), `${root(1)}_testing`);
+
+    const swept = await dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) });
+
+    expect(swept).toEqual({ dropped: [root(1)], inUse: [] });
+    expect(await existing(root(1), `${root(1)}_testing`)).toEqual([`${root(1)}_testing`]);
   });
 
   it("refuses while a worktree still has the branch checked out, and drops nothing", async () => {

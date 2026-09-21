@@ -61,7 +61,9 @@ export async function sweepDeadDatabases({
  * rebuild their databases on every run, so its last run before the merge left
  * them inside the sweep's hour. Nothing here needs that grace: the caller
  * names one family, and `worktreeDatabaseName`'s fingerprint of the whole
- * branch makes the family exact.
+ * branch makes the family exact. It is held to the sweep's narrowness too,
+ * `isNamedAfterABranch`, so a name somebody built by hand under the family's
+ * root is never a member.
  *
  * REFUSED WHILE ANY LIVE WORKTREE OWNS IT, so running this before
  * `orca worktree rm` rather than after drops nothing. The owners are asked
@@ -84,7 +86,7 @@ export async function dropRemovedWorktree({
   }
   const family = (await listDatabases(serverUrl))
     .map(({ name }) => name)
-    .filter((name) => derivesFrom(name, [root]));
+    .filter((name) => isNamedAfterABranch(name) && derivesFrom(name, [root]));
   return dropDatabases(
     serverUrl,
     family,
@@ -190,8 +192,8 @@ export interface Swept {
   inUse: string[];
 }
 
-/** The Owner's catalogue, by the name the install gives it (ADR-0191). */
-const PROTECTED = "canoncore";
+/** What the Owner's install calls its catalogue (ADR-0191). */
+const THE_OWNERS_CATALOGUE = "canoncore";
 
 /** Drops each of `databases` that is still dead when its turn comes. */
 export async function dropDatabases(
@@ -203,8 +205,8 @@ export async function dropDatabases(
   // the Owner's install calls its catalogue, so no list that names it is ever
   // one to act on, whichever server answers. Every caller's filter already
   // excludes it; this is the check that holds when one of them is wrong.
-  if (databases.includes(PROTECTED)) {
-    throw new Error(`refusing to drop anything: the list names ${PROTECTED}`);
+  if (databases.includes(THE_OWNERS_CATALOGUE)) {
+    throw new Error(`refusing to drop anything: the list names ${THE_OWNERS_CATALOGUE}`);
   }
   const swept: Swept = { dropped: [], inUse: [] };
   const admin = new Client({ connectionString: serverUrl });

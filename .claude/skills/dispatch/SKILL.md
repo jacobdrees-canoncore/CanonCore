@@ -57,8 +57,7 @@ gate now says it too.
 
 **REMOVING THE WORKTREE IS TWO COMMANDS, BECAUSE `orca worktree rm` TAKES ONLY THE FILES.** The
 worktree's databases stay in the shared container: its own, and one for each suite that builds
-one. Straight after the
-removal, run this from the main checkout:
+one. Straight after the removal, run this from the main checkout:
 
 ```sh
 pnpm db:drop-worktree "$(gh pr view <n> --json headRefName -q .headRefName)"
@@ -67,7 +66,7 @@ pnpm db:drop-worktree "$(gh pr view <n> --json headRefName -q .headRefName)"
 It drops that branch's database and every `_test…` database derived from it, however young. It
 refuses while a worktree still has the branch checked out, so it goes AFTER `orca worktree rm`,
 never before. It also refuses, dropping nothing, any list that names `canoncore`, the name of the
-Owner's catalogue ([[0191-removing-a-worktree-drops-its-databases-and-no-drop-may-name-canoncore]]).
+Owner's catalogue ([[0191-removing-a-worktree-drops-its-databases-and-refuses-a-list-naming-canoncore]]).
 Take the branch from the PR, because by now the merge and the removal have usually deleted the
 local one. `db:setup`'s sweep takes whatever this misses, but only once it is an hour old and only
 when somebody next sets up a worktree.

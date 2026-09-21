@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Removing a worktree drops its databases, and no drop may name canoncore
+# Removing a worktree drops its databases, and refuses a list naming canoncore
 
 The dispatcher runs `pnpm db:drop-worktree <branch>` straight after `orca worktree rm`, naming the
 branch the removed worktree had checked out. It drops that branch's database and every `_test…`
@@ -53,7 +53,8 @@ The dispatcher had been dropping by hand with a pattern on `canoncore_cncore_<n>
 checks. A ticket number is not a family. A re-dispatched ticket has two branches, and one of them
 can be live. `worktreeDatabaseName` ends every name in eight hex characters fingerprinting the whole
 branch, so a family is the branch's database plus every name starting with it and `_test`, and
-nothing else matches.
+nothing else matches. It is held to the sweep's own test as well, `isNamedAfterABranch`, so a
+database somebody built by hand under the family's root, `<root>_testing` say, is not a member.
 
 The owner question is asked twice. The first time is before listing, to give the refusal above.
 The second is for each name, under `db:setup`'s advisory lock, which is how the sweep asks it. A
@@ -78,6 +79,15 @@ CNCORE-312 says the install is "in the same container", and the measurement abov
 that out. The rule does not depend on it. A drop is keyed on a name, and which server answers is
 decided by `CANONCORE_DB_PORT`, a shell variable. So the guard goes on the name, where a command can
 check it.
+
+**IT GUARDS THE TWO DROPS THAT CHOOSE THEIR NAMES FROM A LISTING, AND NOT THE OTHERS.**
+`dropDatabases` is what the sweep and this command drop through, and both pick their names out of
+`pg_database`. Two other paths in `packages/db` drop by their own route and are not covered:
+`restore.ts` drops the worktree's own database, which it derives from the branch, and
+`testing/build-database.ts` drops a test database it derives from the run database, refusing the run
+database itself. Neither derives `canoncore`, since a worktree's name always carries the prefix and
+the fingerprint. They were left alone because the refusal belongs where a name arrives from outside
+the code, and neither of them takes one that way.
 
 **Every caller's filter already excludes the name**, so today the refusal can never fire.
 `isNamedAfterABranch` requires the fingerprint, and a branch's family requires its root as a

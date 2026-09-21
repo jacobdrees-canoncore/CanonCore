@@ -682,7 +682,7 @@ and nobody has to remember it. At any moment the dead are the families of worktr
 the last `db:setup` anywhere, plus any that were younger than an hour when it ran. A removed
 worktree's test databases usually were, because its last suite run rebuilt them just before the
 merge. That is why the dispatcher now also drops a removed worktree's databases at the removal
-([[0191-removing-a-worktree-drops-its-databases-and-no-drop-may-name-canoncore]]), and this sweep
+([[0191-removing-a-worktree-drops-its-databases-and-refuses-a-list-naming-canoncore]]), and this sweep
 is the backstop. `src/sweep.ts` is the mechanism; `scripts/setup.ts` prints
 `swept N databases no live worktree owns`. The other places it could have gone:
 
@@ -791,7 +791,7 @@ templates. A future hand-built database is its author's to drop.
 |---|---|---|---|
 | `max_connections` | 300, 288 usable | four agents' `pnpm test:e2e` at 55 to 67 each | `DATABASE_MAX_CONNECTIONS=4` in the e2e harness (CNCORE-137) |
 | `shm_size` | 256mb | about 4,500 databases at 57 KiB | this sweep (CNCORE-231) |
-| Databases on disk | nothing | the volume | `db:drop-worktree` at each removal (ADR-0191), then this sweep: 21 per live worktree |
+| Databases on disk | nothing | the volume | `db:drop-worktree` at each removal (ADR-0191), then this sweep, so what stands is the live worktrees' own |
 
 **Evidence**, all 2026-09-19. The counts and sizes are `select count(*),
 pg_size_pretty(sum(pg_database_size(datname))) from pg_database`, `df -h /dev/shm` and `du -sh
