@@ -79,8 +79,8 @@ record claims to have isolated.
 
 Driving it correctly means supplying the error handling the parser supplies, or parsing outright.
 That is more machinery than taking comments out of a file deserves, against an API the package marks
-unstable. **The sixty lines that do it here have no dependency, and the population they read passes
-through them in the time the suite already took.**
+unstable. **The scan that does it here has no dependency, and the population it reads passes
+through it in the time the suite already took.**
 
 **THE TRIGGER WAS ISOLATED AFTERWARDS, UNDER CNCORE-298, AND IT IS NOT A POPULATION FACT.** The
 sentence above is corrected here rather than beside itself: a plain `scan()` never re-scans a `/`, so
@@ -99,7 +99,7 @@ for a template's `}`, and `scanJsxToken` for JSX text, none of which taking comm
 should have to know about. `bounded-parameters.test.ts` pays that cost because it needs a token's
 POSITION and not a stripped string, which
 [[0178-a-parameter-a-page-speaks-is-reported-where-it-is-unbounded]] argues where it chooses the
-scanner. The sixty lines here remain the right answer for this question.
+scanner. The scan here remains the right answer for this question.
 
 ## The first version of this scan shipped the same class of defect
 

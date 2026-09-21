@@ -184,7 +184,7 @@ true of nothing, and reporting success about it.
 
 [[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]] landed the same day and reached the
 opposite answer, and this is not a reversal of it. **That record's question is "what does this file
-say with its comments taken out", whose answer is a STRING.** Sixty lines with no dependency beat an
+say with its comments taken out", whose answer is a STRING.** A scan with no dependency beats an
 API the package marks unstable, and `withoutComments` is the right tool for it.
 
 **This check's question is where a token STANDS**, and an attribute is not a child. No stripped
