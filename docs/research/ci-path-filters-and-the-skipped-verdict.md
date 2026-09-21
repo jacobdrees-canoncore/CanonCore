@@ -53,12 +53,12 @@ status, quoted; and a cascade skip is always accompanied on the same commit by t
 caused it, which `gate.sh` tests *before* it reaches the skipped logic. Section 7 has the argument
 and the measurement.
 
-**But the gate may have a different defect, and it is worth measuring before anything else here.** A
-job killed by its own `timeout-minutes` appears to conclude **`cancelled`** rather than `timed_out`,
-which `gate.sh` tolerates by name — so a job that hung until ADR-0141's ceiling killed it would
-report the commit as `PASSED`. **This is NOT established**: GitHub documents that the ceiling
-"cancels" the job but never states the conclusion, its own limits page says "fails" elsewhere, and
-the probe that measured it has been deleted. §10.1 carries what would settle it.
+**But the gate has a different defect, and it is MEASURED.** A job killed by its own
+`timeout-minutes` concludes **`cancelled`**, which `gate.sh` tolerates by name, and its dependent
+concludes **`skipped`**, which `gate.sh` passes. Only the **run** concludes `failure`. So a job that
+hung until ADR-0141's ceiling killed it reports the commit as `PASSED` today. Measured in this
+repository's own account, both sides: a hang gives a run conclusion of `failure`, a supersession
+gives `cancelled`, so the remedy is one API call away. §10.1.
 
 **And the speed CNCORE-341 wants is not in the job graph at all.** One test file,
 `item-page-cost.test.ts`, is 136.6s of the 189s critical-path job, and it runs **twice** per run
@@ -318,8 +318,9 @@ server starts, seeding) and 137.1s is this file as the long pole; the longest re
 document combined, and it costs no coverage at all.
 
 **This note does not propose the change**, because sequencing suites across jobs is not what
-CNCORE-341 asked about and the constraint in `global-setup.ts` — twenty-four files sharing one
-catalogue, bounded by database connections — needs reading first. It proposes the **ticket**.
+CNCORE-341 asked about and the constraint in `global-setup.ts` — the counted catalogue is built for
+the whole suite — needs reading first. **Filed as CNCORE-343**, which requires the saving to be
+measured rather than derived before it closes.
 
 ---
 
@@ -710,9 +711,9 @@ asks for unless the note justifies otherwise, and for path filtering the note do
 
 | Do this | Buys | Costs |
 |---|---|---|
-| **Stop running `item-page-cost.test.ts` in the `provider` job** | ~137s off the slowest job, on **every** run | Nothing. It counts database statements and never touches a provider (§6A) |
+| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343) | ~137s off the slowest job, on **every** run | Nothing. It counts database statements and never touches a provider (§6A) |
 | **Give the cost measurement its own job** | The remaining e2e suite drops to ~53s of work | A job, which is free here (§4) |
-| **Measure what a `timeout-minutes` expiry concludes, then fix `gate.sh` if it is `cancelled`** | A hang would stop reporting `PASSED` | One probe run. The claim is NOT established yet (§10.1) |
+| **Make `gate.sh` refuse a commit whose RUN concluded `failure`** (CNCORE-342) | A hang stops reporting `PASSED` | One extra API call per run. Measured and ready to specify (§10.1) |
 | Path filters, in any form | ~8.5 min per ten days | A new mechanism in the merge path, and §8.1's trap |
 
 **The first two are worth more than the fourth by a wide margin, and neither skips a check.** That
@@ -756,8 +757,9 @@ into it:
    that the gate's relationship to `skipped` deserves a record of its own — just not the change
    CNCORE-341 proposed.
 
-3. **`gate.sh` passes a job that hung until ADR-0141 killed it. This is a live defect, measured, and
-   it is worse than the one the ticket describes.** See §10.1.
+3. **`gate.sh` passes a job that hung until ADR-0141 killed it.** Measured, reproducible, and worse
+   than the defect the ticket describes. **Filed as CNCORE-342**, and ADR-0181 now names the gap
+   under "A JOB KILLED BY ITS OWN CEILING READS AS PASSED". See §10.1.
 
 ### 10.1 The finding this ticket should actually have been about
 
@@ -765,53 +767,59 @@ CNCORE-341 is titled "the merge gate already counts a skipped one as passed". **
 defect is that it counts a TIMED-OUT one as passed**, and unlike the skip question this one is not
 benign.
 
-**STATUS: PLAUSIBLE, NOT ESTABLISHED. Do not rest a record on this section until it is
-re-measured.** A probe run reported a job that exceeded its own `timeout-minutes` concluding
-`cancelled` at both the job and check-run level, with no job in that run reporting `timed_out` — but
-**the probe repository was deleted, so that measurement is not reproducible**, and this repository
-offers no corroboration: no CanonCore job has ever concluded `timed_out`, and its only `cancelled`
-jobs are seven from a single force-push.
+**STATUS: MEASURED, in this repository's own account, and reproducible.** A probe branch carrying
+three jobs was pushed to CanonCore on 2026-09-21 and deleted after reading. Run `35617974088`:
 
-**GitHub documents the neighbourhood and not the mechanism**, which is why this cannot be settled
-from the docs. Its workflow-syntax reference does say `timeout-minutes` is "The maximum number of
-minutes to let a job run before GitHub automatically **cancels** it", which points the right way.
-But **no GitHub page states the resulting `conclusion` value**, at either level.
+| Job | Conclusion | Steps |
+|---|---|---|
+| `job_level_timeout` — hit `timeout-minutes: 1` on a `sleep 300` | **`cancelled`** | `Run sleep 300` = `cancelled` |
+| `step_level_timeout` — a STEP hit its own `timeout-minutes: 1` | **`failure`** | `slow step` = `failure`, next step `skipped` |
+| `needs_the_timed_out_job` | **`skipped`** | none |
+| **the run itself** | **`failure`** | |
 
-**And GitHub contradicts itself nearby, which is the reason to be careful rather than merely
-cautious.** Its limits page says "the expected behavior when a limit is reached is that the
-workflow/job will get cancelled", while the same page's six-hour row says a job reaching that limit
-"is terminated and **fails**". A record citing GitHub for "cancelled" would be citing prose GitHub
-has not kept consistent.
+**So a job killed by its own ceiling concludes `cancelled`, which `gate.sh` tolerates by name, and
+its dependent concludes `skipped`, which `gate.sh` passes. Only the RUN says `failure`.** A hung job
+therefore reports the commit as `PASSED` today.
 
-**What would settle it**, and what belongs in the record as measurement rather than citation: a job
-with `timeout-minutes: 1` running `sleep 300`, then
-`gh api repos/{owner}/{repo}/actions/runs/{id}/jobs --jq '.jobs[].conclusion'` beside the check-run
-conclusion.
+**GitHub documents the neighbourhood and not the mechanism**, which is why this had to be measured.
+Its workflow-syntax reference says `timeout-minutes` is "The maximum number of minutes to let a job
+run before GitHub automatically **cancels** it", which points the right way, but **no GitHub page
+states the resulting `conclusion`**. Worse, its limits page contradicts itself: "the expected
+behavior when a limit is reached is that the workflow/job will get cancelled", against the six-hour
+row's "the job is terminated and **fails**". A record citing GitHub for either would be citing prose
+GitHub has not kept consistent. **This section cites a measurement instead.**
 
-`gate.sh` tolerates `cancelled` by name, for a good and documented reason (§7.5): `cancel-in-progress`
-leaves a trail of cancelled runs on every force-push, and reading those as failures produced a false
-breakage claim on 2026-09-20.
+### 10.1.1 The remedy, and why it works — also measured
 
-**If the probe's reading is right, the two cases are indistinguishable at the gate and one of them
-is a hang.** ADR-0141 gave every job a ceiling derived from its slowest measured run precisely so
-that a hung job would be killed rather than hold a PR for six hours. That mechanism works — the job
-does get killed — and the merge gate would then report the commit as `PASSED`.
+The run-level conclusion is the discriminator, and **both sides of it were measured** rather than
+only the one that motivated the fix:
 
-Two aggravating details, from the same unreproducible probe and carrying the same status:
+| Case | Run conclusion | Cancelled jobs |
+|---|---|---|
+| A job killed by its own ceiling (run `35617974088`) | **`failure`** | 1 |
+| Superseded by a newer push (run `35603659236`) | **`cancelled`** | 7 |
+| Superseded (run `35566260535`) | **`cancelled`** | 15 |
+| Superseded (run `35566183448`) | **`cancelled`** | 7 |
 
-- **A *step*-level `timeout-minutes` expiry reports `failure`, not `cancelled`.** So step-level and
-  job-level timeouts are not interchangeable, and only the step-level one blocks. `ci.yml` uses
-  job-level ceilings throughout (ADR-0141), which is the non-blocking one.
-- **`continue-on-error: true` on a timing-out step reports `success`** — at the step *and* the job.
-  The signal is erased rather than downgraded.
+**A hang concludes `failure`; a supersession concludes `cancelled`.** That is exactly the
+distinction `gate.sh` cannot make from check-run conclusions alone, and it is available one API call
+away.
 
-**One refinement to §7.5 that this measurement forces.** The scope of a cancellation decides what
-dependents report: a run-wide cancel marks them `cancelled`, while a single job dying — by failure
-*or* by its own timeout — marks them `skipped`. Same probe, same status. So a timed-out job's
-dependents would also be `skipped`, which the gate passes.
+**The remedy is therefore NOT to stop tolerating `cancelled`**, which would block every force-push
+and reintroduce the false breakage claim of 2026-09-20. It is to refuse a commit whose RUN concluded
+`failure`, whatever its individual check-runs say.
 
-**The remedy is not to stop tolerating `cancelled`**, which would block every force-push. It is that
-the gate should key off something that distinguishes a killed run from a superseded one. The probe
-run's own **run-level conclusion was `failure`** while its jobs showed only `cancelled`, `failure`,
-`success` and `skipped` — so the run-level conclusion carries what the job-level ones lose. That is a
-proposal, not a decision, and it belongs in a ticket of its own rather than in this one.
+### 10.1.2 Two details that are not interchangeable
+
+- **A *step*-level `timeout-minutes` expiry reports `failure`, not `cancelled`** — measured above.
+  So step-level and job-level ceilings behave oppositely at the gate, and only the step-level one
+  blocks. `ci.yml` carries **job**-level ceilings throughout (ADR-0141), which is the non-blocking
+  one. Anyone tempted to "just use timeouts" as a safety net should read that twice.
+- **A dependent job's conclusion depends on the SCOPE of what killed its dependency.** A run-wide
+  cancel marks dependents `cancelled`; a single job dying — by failure or by its own ceiling —
+  marks them `skipped`. Both measured, and both are in `gate.sh`'s passing set or its tolerated set.
+
+**NOT re-measured here:** an earlier probe reported that `continue-on-error: true` on a timing-out
+step erases the signal entirely, reporting `success` at both step and job. That probe no longer
+exists and this one did not test it. `ci.yml` uses `continue-on-error` nowhere, so nothing rests on
+it today — but anyone adding it should measure this first.

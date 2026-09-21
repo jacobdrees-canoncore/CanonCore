@@ -240,6 +240,59 @@ all; on that measurement it arrives here as `NO-RUN` against a `mergeStateStatus
 `DIRTY` — correctly blocking, and attributed to the wrong cause. That attribution is the limit, not
 the blocking. `actionlint` before pushing is still what catches it.
 
+## A JOB KILLED BY ITS OWN CEILING READS AS PASSED, AND THAT IS NOT COVERED EITHER
+
+**Measured 2026-09-21 under CNCORE-341**, on a probe branch pushed to this repository and deleted
+after reading — run `35617974088`:
+
+| Job | Conclusion |
+|---|---|
+| A job that hit `timeout-minutes: 1` on a `sleep 300` | **`cancelled`** |
+| A job whose `needs:` job was killed that way | **`skipped`** |
+| A STEP that hit its own `timeout-minutes: 1` | **`failure`** |
+| **the run itself** | **`failure`** |
+
+**So ADR-0141's ceiling and this record's tolerance of `cancelled` compose into a hole.** That
+record gives every job a ceiling at three times its slowest measured run, so that a hung job is
+killed rather than holding a pull request for six hours. It IS killed. It then concludes `cancelled`
+— which the section above tolerates by name and for a good reason, because `cancel-in-progress`
+leaves a trail of cancelled runs on every force-push and reading those as failures produced a false
+breakage claim on 2026-09-20. Its dependent concludes `skipped`, which is in the good set. **Every
+check-run on the commit is then either good or tolerated, and the gate says `PASSED` over a suite
+that hung.**
+
+**`timed_out` is not the value to look for, and that is the trap.** The good set is refused by name
+above and `timed_out` sits in the BAD set — but nothing in Actions was observed to emit it. No job
+in the probe run reported it, and no job in this repository's history ever has. GitHub's own
+documentation never states the conclusion a ceiling produces: its workflow syntax says
+`timeout-minutes` is the maximum "before GitHub automatically **cancels** it", while its limits page
+says a job reaching the six-hour limit "is terminated and **fails**". **Two GitHub pages, two
+answers, so this record cites the measurement rather than either of them.**
+
+### The remedy is the RUN, and both sides of it were measured
+
+| Case | Run conclusion | Cancelled jobs |
+|---|---|---|
+| A job killed by its own ceiling (`35617974088`) | **`failure`** | 1 |
+| Superseded by a newer push (`35603659236`) | **`cancelled`** | 7 |
+| Superseded (`35566260535`) | **`cancelled`** | 15 |
+| Superseded (`35566183448`) | **`cancelled`** | 7 |
+
+**A hang concludes `failure` at the run; a supersession concludes `cancelled`.** That is exactly the
+distinction the check-run conclusions cannot carry, and the measurement takes both sides rather than
+only the one that motivates the change — a discriminator tested on one case is a discriminator
+nobody has tested.
+
+**So the remedy is NOT to stop tolerating `cancelled`**, which would block every force-push and
+reinstate the defect of 2026-09-20. It is to refuse a commit whose RUN concluded `failure`, whatever
+its individual check-runs say.
+
+**THIS RECORD STAYS `accepted` AND THE HOLE IS NAMED RATHER THAN FIXED.** The mechanism this record
+decided — a check is evidence only for the commit it ran against — is whole and in use. This is a
+second dimension the same script is wrong in, found by a later ticket, and the half that has NOT
+landed is the run-level read. It is filed rather than built here, because the script every merge in
+this repository passes through is not a thing to change inside a research ticket.
+
 ## As built, under CNCORE-288
 
 **BUILT: the gate, the fused merge command, and the rule at the three places a dispatcher reads.**
