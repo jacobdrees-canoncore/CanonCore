@@ -1348,12 +1348,18 @@ export const provider = {
    * THE CONTAINER ONE RECORD NAMES, so a record found by SEARCHING reaches it
    * without the Owner typing an id (CNCORE-238).
    *
-   * ONE LOOKUP, AND ONLY WHEN THE OWNER ASKS. A search cannot carry this:
-   * `provider-tmdb` fills `series_id` on a lookup and a browse and never on a
-   * search -- `searchResultToRecord` hardcodes `null` at `46a1189` -- because
-   * TMDB's multi-search carries no collection and filling one would cost a
-   * REQUEST PER RESULT. So the read is one record's, taken on the Owner's own
-   * click, and a search still costs one request per Provider.
+   * ONE LOOKUP, AND ONLY WHEN THE OWNER ASKS. A search cannot carry this. The
+   * rule is about WHAT A RECORD SITS IN rather than which operation produced
+   * it: a record that SITS IN a Container carries `series_id` on a lookup and a
+   * browse and never on a search, and a record that IS one carries none. So
+   * `provider-tmdb`'s `searchResultToRecord` hardcodes `null`, because TMDB's
+   * multi-search carries no collection and filling one would cost a REQUEST PER
+   * RESULT -- while `seriesToRecord` and `collectionToRecord` answer null for
+   * the other reason, being Containers themselves. Stated as "on a lookup and a
+   * browse" this read as a claim about operations, and `collectionPartToRecord`
+   * -- a browse mapper serving records that DO sit in a Container -- answered
+   * null against it until CNCORE-264. So the read is one record's, taken on the
+   * Owner's own click, and a search still costs one request per Provider.
    *
    * IT ANSWERS AN ID, NOT A BROWSE. What comes back is the `series_id` a browse
    * takes, and the page leads to the same `?provider=&container=` address a

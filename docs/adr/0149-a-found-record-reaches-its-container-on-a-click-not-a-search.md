@@ -12,7 +12,12 @@ status: accepted
 > [[0103-tests-bite-at-package-exports-and-the-router]]'s second seam
 > (`packages/api/src/routers/provider.test.ts`) and its fourth (`apps/web/e2e/import-page.test.ts`).
 > No provider repository is touched: `provider-tmdb` and `provider-wiki` already send what this
-> reads, so there is no cross-repo pair here and nothing waiting on a second ticket.
+> reads. **CORRECTED 2026-09-21 (CNCORE-264): there WAS a cross-repo pair here, one path over.**
+> `collectionPartToRecord` is a browse mapper and it hardcoded `series_id: null`, so a record reached
+> by BROWSING a collection could not reach its Container -- the same dead end this record exists to
+> close, on the path it did not look at. `provider-tmdb#29` fills it. The mechanism THIS record
+> decided is unchanged and still whole; what was wrong was the sentence below, which read the three
+> mappers it checked as though they were all of them.
 
 Spec CNCORE-159's story 61 is "reach a Container from a record I found by searching". Until this it
 was unmet for TMDB, and the reason is a fact about the source rather than a gap in the app: **a CMPP
@@ -20,7 +25,13 @@ search cannot carry a Container.**
 
 `provider-tmdb`'s `searchResultToRecord` hardcodes `series_id: null` (`src/records.ts:119`, read at
 `46a1189`), because TMDB's multi-search carries no collection and filling one would cost **a request
-per result**. Its `lookup` and `browse` paths do fill it (lines 190, 270, 301). MEASURED AGAINST THE
+per result**. **THE RULE IS ABOUT WHAT A RECORD SITS IN, NOT ABOUT WHICH OPERATION PRODUCED IT**, and
+the first draft of this sentence -- "its `lookup` and `browse` paths do fill it" -- got that wrong by
+naming operations. A record that SITS IN a Container carries `series_id` on a lookup and a browse and
+never on a search; a record that IS one carries none. So `seriesToRecord` and `collectionToRecord`
+answering null is correct rather than the same defect, they being Containers themselves -- while
+`collectionPartToRecord`, a browse mapper serving records that DO sit in one, answered null until
+`provider-tmdb#29` and was a real defect (CNCORE-264). MEASURED AGAINST THE
 RUNNING IMAGE on 2026-09-19, not recalled: `/search?q=The Matrix` answers `movie:603` with
 `"series_id":null`, and `/lookup/movie%3A603` answers the same record with
 `"series_id":"collection:2344"`.
