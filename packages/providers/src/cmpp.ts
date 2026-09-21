@@ -52,11 +52,15 @@ export const cmppRecord = z.object({
    * that made this possible: it had been STRIPPED, so a record could not reach
    * its container even where its provider said which.
    *
-   * WHICH IS WHY THE READER IS A CLICK RATHER THAN THE SEARCH. `provider-tmdb`
-   * fills this on a lookup and a browse and NEVER on a search, so no candidate
-   * on `/import` carries one and no amount of reading the search results would
+   * WHICH IS WHY THE READER IS A CLICK RATHER THAN THE SEARCH. A record that
+   * SITS IN a Container carries this on a lookup and a browse and NEVER on a
+   * search; a record that IS one carries none (ADR-0149). So no candidate on
+   * `/import` carries one and no amount of reading the search results would
    * find it -- the Owner points at one record, and that record alone is looked
-   * up. `provider-wiki` sends none at all, since a story sits in many timelines
+   * up. Stated as "`provider-tmdb` fills this on a lookup and a browse" this
+   * read as a claim about OPERATIONS, and `collectionPartToRecord` -- a browse
+   * mapper whose records do sit in a Container -- answered null against it
+   * until CNCORE-264. `provider-wiki` sends none at all, since a story sits in many timelines
    * at once, and the page says so rather than offering a way to nothing.
    */
   series_id: z.string().nullable().default(null),

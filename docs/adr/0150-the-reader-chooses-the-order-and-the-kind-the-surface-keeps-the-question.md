@@ -157,12 +157,13 @@ the control cannot become two spellings of one address (ADR-0066).
 **ACCEPTED, AND WHAT THAT COVERS.** Both halves are whole at all three seams: the read path
 (`RECENTLY_ADDED`, `narrowedToTheKind`, migration 21), every Listing procedure (`browsedInput`,
 `listingInput`), and the surfaces: an order picker on the two browsed Listings, and a kind picker on
-the Catalogue and on Catalogue search. The Listing contract test asks `kind` of EVERY Listing and
-`order` of the two filed by name, so a fourth Listing inherits the `kind` case and not the `order`
-one. The order case is `it.runIf(filedByName)`, and Catalogue search carries `filedByName: false` --
-which `eachAlsoNarrowed` propagates to its narrowed twin, so 2 of the 6 skip it. That is this
-record's own later section stated at the seam rather than only in prose: "the order is on the two
-browsed Listings and NOT on Catalogue search".
+the Catalogue and on Catalogue search. The Listing contract test asks `kind` of EVERY Listing, and
+the order walk and the letter jump of the ones filed by name -- both are `it.runIf(filedByName)`.
+Catalogue search carries `filedByName: false`, which `eachAlsoNarrowed` propagates to its narrowed
+twin, so 2 of the 6 skip those two cases today. **A FOURTH LISTING INHERITS WHAT ITS OWN
+`filedByName` EARNS**: the `kind` case unconditionally, and the other two only if it is filed by
+name. That is this record's own later section stated at the seam rather than only in prose: "the
+order is on the two browsed Listings and NOT on Catalogue search".
 
 **WHAT IS DELIBERATELY NOT IN IT**, named so nothing reads as a missing half: Catalogue search takes
 no order and work-browsing offers no kind picker (both above), and the two Listings on the Item page

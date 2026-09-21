@@ -78,7 +78,7 @@ are fixed, as the dispatcher asked, and the second one's case is below.
 - **`--port 0`, and the port read off `- Local:`.** Next's own harness does exactly this: its
   `next start` test mode spawns with `PORT` `'0'` unless a test forces one and reads the URL off the
   `- Local:` line -- BOTH IN `test/lib/next-modes/next-start.ts`, read from `vercel/next.js` at tag
-  `v16.3.5`. `base.ts` only declares `forcedPort` and resolves the `'random'` case, so citing it for
+  `v16.3.5` on 2026-09-21 (first read 2026-09-19, when the spawn was cited to `base.ts` in error). `base.ts` only declares `forcedPort` and resolves the `'random'` case, so citing it for
   the spawn named a file that does not make the decision. Next 16.3.5's CLI
   accepts 0 (`parseValidPositiveInteger` rejects only negatives). Its `listening` handler reads the
   port back from `server.address()`, prints it on that line, and passes it on to the request
@@ -89,7 +89,8 @@ are fixed, as the dispatcher asked, and the second one's case is below.
   `Network: http://192.168.0.109:<port>` -- and a server under test never needed to be reachable
   from the LAN. A `Network:` LINE ITSELF STILL PRINTS, which is the narrower claim and the true one:
   `start-server.js` sets `networkHostname = hostname ?? getNetworkHost(...)`, so a passed
-  `--hostname` makes it non-null and `app-info-log.js` prints the line. Both lines now carry
+  `--hostname` makes it non-null and `app-info-log.js` prints the line -- both read on 2026-09-21
+  out of the INSTALLED `next` at 16.3.5, not the tag. Both lines now carry
   `127.0.0.1`, which is why "every server announces `http://127.0.0.1:<port>` and nothing else"
   below stays true.
 - **The port is the harness's, not Next's URL.** The harness takes only the port from the line and

@@ -1948,10 +1948,12 @@ const A_TITLE = "Theory:Timeline - ";
  * A RECORD THAT NAMES THE CONTAINER IT SITS IN, which is TMDB's shape rather
  * than the wiki's (CNCORE-238).
  *
- * `provider-tmdb` fills `series_id` on a LOOKUP and never on a search --
- * `searchResultToRecord` hardcodes `null` at `46a1189` -- because TMDB's
- * multi-search carries no collection and filling one would cost a request per
- * result. `TENTH_PLANET` above is the other shape and is the fixture for a
+ * A record that SITS IN a Container carries `series_id` on a lookup and a
+ * browse and never on a search; a record that IS one carries none (ADR-0149).
+ * `provider-tmdb`'s `searchResultToRecord` hardcodes `null` at `46a1189`
+ * because TMDB's multi-search carries no collection and filling one would cost
+ * a request per result. This sentence said "on a LOOKUP and never on a search"
+ * until CNCORE-264, which left out the browse half entirely. `TENTH_PLANET` above is the other shape and is the fixture for a
  * record that names none: `provider-wiki` sends no `series_id` at all, since a
  * story sits in many timelines at once.
  */

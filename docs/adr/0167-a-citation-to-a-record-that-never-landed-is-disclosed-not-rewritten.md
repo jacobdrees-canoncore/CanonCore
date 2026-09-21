@@ -7,7 +7,10 @@ status: proposed
 > **PROPOSED 2026-09-20. BUILT OVER PROSE, WHICH IS ONE POPULATION OF TWO.**
 > `adr-citations.test.ts` holds every ADR number cited in `docs/` and in the root's markdown to a
 > record this tree holds or an entry in `docs/research/README.md`'s amnesty, and that amnesty now
-> names all seven numbers this repository cites and never took. **NOT BUILT: the same rule over
+> names all seven numbers this repository cites and never took. **SINCE CNCORE-264 it also holds the
+> SLUG**, where the number resolves and the words after it are a sentence no record carries as its
+> name; a number the amnesty accounts for is skipped by that rule, having no file for a slug to be
+> wrong against, which is what covers this record's own `[[0086-the-slug]]`. **NOT BUILT: the same rule over
 > source comments.** `ADR-0086` in a `.ts` file is the form `adr-as-built.test.ts` reads for a
 > different question, and nothing checks it resolves. Source is clean today — the seven live only in
 > research — so the gap is a missing guard rather than a standing defect, and it is why this record

@@ -15,7 +15,8 @@ status: accepted
 > reads. **CORRECTED 2026-09-21 (CNCORE-264): there WAS a cross-repo pair here, one path over.**
 > `collectionPartToRecord` is a browse mapper and it hardcoded `series_id: null`, so a record reached
 > by BROWSING a collection could not reach its Container -- the same dead end this record exists to
-> close, on the path it did not look at. `provider-tmdb#29` fills it. The mechanism THIS record
+> close, on the path it did not look at. `provider-tmdb#29` fills it, MERGED as `638ff0a` before this
+> correction landed, which is the order a cross-repo pair flips in. The mechanism THIS record
 > decided is unchanged and still whole; what was wrong was the sentence below, which read the three
 > mappers it checked as though they were all of them.
 
@@ -31,7 +32,8 @@ naming operations. A record that SITS IN a Container carries `series_id` on a lo
 never on a search; a record that IS one carries none. So `seriesToRecord` and `collectionToRecord`
 answering null is correct rather than the same defect, they being Containers themselves -- while
 `collectionPartToRecord`, a browse mapper serving records that DO sit in one, answered null until
-`provider-tmdb#29` and was a real defect (CNCORE-264). MEASURED AGAINST THE
+`provider-tmdb#29` (`638ff0a`) and was a real defect (CNCORE-264). That PR fills the collection's
+NAME beside its id, the two having travelled together in every other record this provider emits. MEASURED AGAINST THE
 RUNNING IMAGE on 2026-09-19, not recalled: `/search?q=The Matrix` answers `movie:603` with
 `"series_id":null`, and `/lookup/movie%3A603` answers the same record with
 `"series_id":"collection:2344"`.
