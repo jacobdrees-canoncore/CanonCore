@@ -200,6 +200,11 @@ orca linear relation add CNCORE-12 --related CNCORE-9 --type blocked-by --json
 orca linear relation add --current --related CNCORE-9 --type blocks --json
 ```
 
+**`--type` takes `blocks`, `blocked-by`, `related` and `duplicate-of`**, which the usage line of
+`orca linear relation add --help` spells out. Ordering uses the first two. `related` is a
+cross-reference that blocks nothing, and `duplicate-of` is the one a STATE depends on: closing a
+duplicate needs the relation before `Duplicate` will take, and the two calls are below.
+
 The **frontier** is every open ticket whose `blocked-by` relations are all closed. Recompute it
 after each merge rather than assuming ticket order, and note it costs N+1 calls now that there is no
 parent to walk:
@@ -275,7 +280,8 @@ Link a PR to an issue by putting the identifier in the branch name (Orca does th
 worktree is created with `--linear-issue`) or by a magic word in the PR body:
 `Fixes CNCORE-12`. Use `Refs CNCORE-12` to touch a ticket without closing it.
 
-`orca linear status set` is still correct for states no PR event covers, such as Canceled. **Its
+`orca linear status set` is still correct for states no PR event covers, such as Canceled and
+Duplicate; the second will not take until a `duplicate-of` relation exists, below. **Its
 flag is `--to`, not `--state`** — `save-issue` spells the same field `--state`, and the two are not
 interchangeable. Reaching for `--state` here fails with `Unknown flag`, which is the loud kind and
 costs only a retry; it is noted because the inconsistency invites the guess. The listing verb differs
@@ -442,6 +448,26 @@ was filed with `ok: False` and no identifier in the JSON, and a board read three
 it present and correct. So the fourth-way rule above governs `create` too: **read the board back, never
 re-send.** `CNCORE-241` is what re-sending produces — a byte-identical duplicate of CNCORE-240, now
 carrying the `Duplicate` state somebody had to set by hand.
+
+**BY HAND MEANS TWO CALLS, AND THE RELATION GOES FIRST.** The state refuses while no duplicate
+relation exists, so the order is fixed:
+
+```sh
+orca linear relation add CNCORE-330 --related CNCORE-329 --type duplicate-of --json   # dupe first
+orca linear status set CNCORE-330 --to Duplicate --json
+```
+
+The dupe is the issue named FIRST and `--related` is the original it collapses into. The type is
+`duplicate-of`, not `duplicate`: the flag is hyphenated and the payload is not, exactly as
+`blocked-by` reads back `blockedBy` above. CNCORE-330, closed against CNCORE-329 on 2026-09-21,
+reads back `"relationship": "duplicateOf"`, `"direction": "outbound"`.
+
+Reversed, `status set` answers `ok: false` carrying `Missing duplicate relation - Issues can only be
+moved to a duplicate state when a duplicate issue relation exists.`, a sentence about relations
+reaching a reader who is thinking about states. **That `ok: false` is an HONEST one** and the state
+does not move: measured 2026-09-21 against CNCORE-332, which stayed `In Progress` through the
+refusal. So the read-back the fourth-way rule already demands is also what tells this refusal apart
+from the lie.
 
 **`comment add` takes the issue positionally, and `--issue` is not a flag.** `orca linear comment add
 --issue CNCORE-240 --body-file x.md` answers `ok: false` and writes nothing, which is
