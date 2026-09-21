@@ -64,8 +64,9 @@ pnpm db:drop-worktree "$(gh pr view <n> --json headRefName -q .headRefName)"
 ```
 
 It drops that branch's database and every `_test…` database derived from it, however young. It
-refuses while a worktree still has the branch checked out, so it goes AFTER `orca worktree rm`,
-never before. It also refuses, dropping nothing, any list that names `canoncore`, the name of the
+refuses while a live worktree still owns them, by its branch or by its `.env`, so it goes AFTER
+`orca worktree rm`, never before. That refusal is one `refusing: …` sentence and exit 1, never a
+stack trace. It also refuses, dropping nothing, any list that names `canoncore`, the name of the
 Owner's catalogue ([[0191-removing-a-worktree-drops-its-databases-and-refuses-a-list-naming-canoncore]]).
 Take the branch from the PR, because by now the merge and the removal have usually deleted the
 local one. `db:setup`'s sweep takes whatever this misses, but only once it is an hour old and only

@@ -66,28 +66,32 @@ question sees it and the database stays.
 
 ## Running it too early is a sentence, not a crash
 
-**The refusal while a live worktree owns the family is `DropRefused`, and `db:drop-worktree` prints its message and exits 1, with
-no stack trace.** Until CNCORE-317 it was an uncaught `Error` whose sentence stopped at "so these
-are its", followed by a stack trace and the Node version. That is what a crash looks like, and the
-dispatcher who ran the command in the wrong order had to open the source to tell a refusal from a
-bug.
+**The refusal while a live worktree owns the family is `DropRefused`, and `db:drop-worktree`
+prints its message and exits 1, with no stack trace.** Until CNCORE-317 it was an uncaught `Error`
+whose sentence stopped at "so these are its", followed by a stack trace and the Node version. That
+is what a crash looks like, and the dispatcher who ran the command in the wrong order had to open
+the source to tell a refusal from a bug.
 
 **It matches how `db:setup` reports the refusals it makes itself.** A detached HEAD, or a
-`CANONCORE_DB_PORT` that is not a port, is one sentence on stderr and exit 1 (`scripts/worktree.ts`),
-as is every usage line in `packages/db/scripts`. The class follows `packages/db`'s own refusals:
-`ItemRefused`, `GroupRefused`, `PlacementRefused` and `ImportRunRefused`. A caller catches each one
-by class and reports it, and anything else goes on being a fault. `packages/api/scripts/import-list.ts`
-does the same in a script: it prints a `BAD_REQUEST` and exits 1, and rethrows everything else.
+`CANONCORE_DB_PORT` that is not a port, is one sentence on stderr and exit 1
+(`packages/db/scripts/worktree.ts`), as is every usage line in `packages/db/scripts`. The class
+follows `packages/db`'s own refusals: `ItemRefused`, `GroupRefused`, `PlacementRefused` and
+`ImportRunRefused`. A caller catches each one by class and reports it, and anything else goes on
+being a fault. `packages/api/scripts/import-list.ts` does the same in a script: it prints a
+`BAD_REQUEST` and exits 1, and rethrows everything else.
 
 **It says "owns", not "checked out".** After `git branch -m`, the owner is a worktree on the new
 branch whose `apps/web/.env` still names the old branch's database, so "still checked out" would be
 false there.
 
-**Two things keep their stack trace, on purpose.** The refusal of a list naming `canoncore` stays a
-plain `Error`. No branch derives that name, so only a caller's broken filter can reach it, and a
-bug is what a stack trace is for. And a failure is not a refusal: `db:setup`'s "nothing is listening"
-is thrown with the refused connection as its cause, so it prints its advice above a trace. This
-record leaves that as it is.
+**Three things keep their stack trace.** The refusal of a list naming `canoncore` stays a plain
+`Error` on purpose. No branch derives that name, so only a caller's broken filter can reach it, and
+a bug is what a stack trace is for. A failure is not a refusal: `db:setup`'s "nothing is listening"
+is thrown with the refused connection as its cause, so it prints its advice above a trace. And a
+branch no database could be named after, `feature/` say, is refused by `worktreeDatabaseName` with
+a plain `Error`, as it is under `db:setup` and `db:restore`, which share that function. Its sentence
+is whole and names the input, so it cannot be mistaken for the unfinished one. This record leaves
+the last two as they are.
 
 ## The refusal sits at the point of destruction, and it refuses the whole list
 
@@ -167,6 +171,8 @@ CNCORE-292, CNCORE-311 and this one):
   live worktree, printed the refusal quoted above, naming `canoncore_cncore_317_d71a7768`, then
   pnpm's `Command failed with exit code 1`, with no stack trace. Both of that worktree's databases
   still stood afterwards. The same command with `CANONCORE_DB_PORT=1`, on a branch no worktree
-  owns, still printed `AggregateError [ECONNREFUSED]` with its trace. In a throwaway repository, a
+  owns, still printed `AggregateError [ECONNREFUSED]` with its trace, and `pnpm db:drop-worktree
+  feature/` printed `branch "feature/" has no name a database could be called after` with its trace.
+  In a throwaway repository, a
   worktree renamed from `reviewer/before` to `reviewer/after`, whose `.env` named the first
   branch's database, was refused as `DropRefused` for `reviewer/before` before any connection.

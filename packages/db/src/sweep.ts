@@ -100,13 +100,12 @@ export async function dropRemovedWorktree({
 }
 
 /**
- * The one refusal the operator can provoke here: naming a branch a live
- * worktree still owns, which is running the command before `orca worktree rm`
- * rather than after. `db:drop-worktree` reports it as a sentence and exits 1,
- * as `db:setup` reports a detached HEAD, where anything else is a fault and
- * goes on looking like one (ADR-0191). The refusal of a list naming
- * `canoncore` is not one of these: no branch derives that name, so only a
- * caller's broken filter can reach it.
+ * Naming a branch a live worktree still owns, which is running
+ * `db:drop-worktree` before `orca worktree rm` rather than after. The command
+ * reports it as a sentence and exits 1, as `db:setup` reports a detached HEAD,
+ * where anything else is a fault and goes on looking like one (ADR-0191). The
+ * refusal of a list naming `canoncore` is not one of these: no branch derives
+ * that name, so only a caller's broken filter can reach it.
  */
 export class DropRefused extends Error {}
 
