@@ -774,6 +774,41 @@ describe("item.retitle", () => {
     ]);
   });
 
+  /**
+   * AN ITEM WITH NO TITLE AT ALL, which the placement picker's search cannot
+   * find and this makes findable (CNCORE-292, ADR-0189). That record decides the
+   * Owner TITLES such an Item rather than being offered a second way to it, and
+   * a record naming a remedy owes a test that the remedy works -- ADR-0165 was
+   * filed over a remedy nobody had checked.
+   *
+   * THE SEARCH IS ASKED EXACTLY AS THE PICKER ASKS IT, `{ query }` and nothing
+   * else (`PlaceAnItem` in `items/[id]/page.tsx`). No Group, because the picker
+   * sends none: narrowing it here for isolation would assert a question the
+   * picker never puts. The suite database is built from empty each run, so the
+   * title below is this test's alone.
+   *
+   * ONE QUERY, ASKED BEFORE AND AFTER, and that is what makes the first
+   * assertion bite. A query no untitled row could match would pass before the
+   * retitle on any search at all; this one is the title about to be given, so
+   * the only thing separating the two answers is the retitle between them.
+   */
+  it("gives an Item with no title a name the placement picker's search then finds", async () => {
+    const id = await anItem(db);
+    const asThePickerAsks = { query: "name a purge took, given back by hand" };
+
+    const before = await call(appRouter.catalogue.search, asThePickerAsks, { context });
+    expect(before.rows.map((row) => row.id)).not.toContain(id);
+
+    await call(
+      appRouter.item.retitle,
+      { id, title: "A name a purge took, given back by hand" },
+      { context: asTheOwner },
+    );
+
+    const after = await call(appRouter.catalogue.search, asThePickerAsks, { context });
+    expect(after.rows.map((row) => row.id)).toContain(id);
+  });
+
   it("answers NOT_FOUND for an id that addresses nothing", async () => {
     // ADR-0066: an id that names nothing is an ANSWER rather than a failure,
     // which is what lets the page render a 404 instead of a 500.

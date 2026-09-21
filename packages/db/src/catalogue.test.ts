@@ -999,24 +999,24 @@ describe("readCatalogue, and what sorts before the alphabet", () => {
     expect(jumped.rows.map((row) => row.id)).toStrictEqual(ids);
   });
 
-  it("carries the keyless block onto every jump, so an untitled Item is reached by any letter", async () => {
-    // WHAT AN UNTITLED ITEM IS REACHED BY (CNCORE-292, ADR-0189), and the
-    // reason this Listing owes no control of its own for it: a letter is a
-    // SEEK and `atOrPastTheValueIn` reads the keyless block as AT OR PAST
-    // EVERY value -- `or(isNull(key), atOrPast)` in `order.ts` -- so the tail
-    // rides on whichever letter the reader already pressed.
+  it("carries the keyless block onto every jump, last, whichever letter was pressed", async () => {
+    // THE MECHANISM BEHIND THE JUMP TO Z THAT ADR-0189 NAMES (CNCORE-292). A
+    // letter is a SEEK, and `atOrPastTheValueIn` reads the keyless block as at
+    // or past EVERY value -- `or(isNull(key), atOrPast)` in `order.ts` -- so
+    // the untitled tail is in the answer to any jump, sorted last.
     //
-    // IT IS NOT A FIXTURE'S STATE, WHICH IS WHAT THE TICKET ASSUMED. A purge
-    // leaves every Item the Owner still places or still holds in a Group
-    // standing with no title at all (`import.test.ts`, "leaves what another
-    // source said" and "keeps an item the owner put in a group"), so this is
-    // the shape the catalogue wears the day a Provider's licence ends.
+    // IN THE ANSWER IS NOT ON THE PAGE, and this test does not claim the
+    // second. Sorting last, the tail lands on a jump's first page only where
+    // fewer titled Rows than one page sort at or past the letter. That holds
+    // for Z on the Owner's catalogue and not for A, and ADR-0189 carries the
+    // measurement with its date. A in a two-Row Group is a check on the
+    // MECHANISM, not a claim about where a reader lands.
     //
     // ASSERTED ON BOTH ENDS OF THE BAR, because one letter passing says
     // nothing about the rule: a seek that filtered would answer the untitled
     // Row on neither, and one that OR'd the block in at a hardcoded Z would
     // answer it on Z alone. A and Z are where those two failures separate.
-    const group = await createGroupByHand(db, { name: "A Group a purge left a survivor in" });
+    const group = await createGroupByHand(db, { name: "A Group holding an untitled Item" });
     const titled = await anItemTitled(db, "Zoe and the far end");
     const untitled = await anItem(db);
     for (const id of [titled, untitled])
@@ -1026,8 +1026,7 @@ describe("readCatalogue, and what sorts before the alphabet", () => {
     const toZ = await readCatalogue(db, { limit: 10, group, letter: "Z" });
 
     // LAST ON EACH, because the keyless block sorts `nulls last` whichever
-    // letter the seek named -- so the Owner lands on it rather than walking
-    // the catalogue's whole length to it.
+    // letter the seek named.
     expect(toA.rows.map((row) => row.id)).toStrictEqual([titled, untitled]);
     expect(toZ.rows.map((row) => row.id)).toStrictEqual([titled, untitled]);
   });

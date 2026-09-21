@@ -1,6 +1,5 @@
 import { createGroupByHand, type Database, putItemInGroupByHand } from "@canoncore/db";
-import { anItem, anItemTitled, aPlacement, connect } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
+import { anItemTitled, aPlacement, connect } from "@canoncore/db/testing/catalogue";
 import type { CatalogueRowPublic } from "@canoncore/schemas";
 import { call } from "@orpc/server";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -27,24 +26,6 @@ let db: Database;
 beforeAll(async () => {
   db = await connect();
 });
-
-/**
- * A SESSION THE OWNER'S OWN WRITES GO THROUGH, which this file needs since
- * CNCORE-292: the one path it asserts ends in `item.retitle`, and that is an
- * `ownerProcedure`.
- *
- * SPELLED HERE AS `group.test.ts` AND `provider.test.ts` SPELL IT, rather than
- * shared out to a fourth place from three. Folding the three into one helper is
- * a change to files this ticket does not otherwise touch.
- */
-async function aTokenForTheOwner(): Promise<string> {
-  const password = env.OWNER_PASSWORD;
-  if (password === undefined) {
-    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-  }
-  const { token } = await call(appRouter.session.logIn, { password }, { context });
-  return token;
-}
 
 /**
  * ONE ROW OF THE CATALOGUE, WALKED TO RATHER THAN EXPECTED ON THE FIRST PAGE.
@@ -307,67 +288,5 @@ describe("catalogue.search", () => {
 
     expect(found.rows.map((row) => row.id)).toStrictEqual([inside]);
     expect(found.total).toBe(1);
-  });
-});
-
-/**
- * WHAT AN OWNER DOES WITH AN UNTITLED ITEM (CNCORE-292, ADR-0189), asserted as
- * the one path rather than described in a record nothing holds up.
- *
- * THE STATE IS A PURGE'S, NOT A FIXTURE'S. Every Item the Owner still places
- * or still holds in a live Group survives a Provider purge with no title at
- * all, because every word it had was the Provider's (`import.test.ts`). So
- * this is the shape a catalogue wears the day a licence ends, and the question
- * the placement picker asks of it is a real one.
- *
- * THE ANSWER IS THAT THE OWNER TITLES IT FIRST, and this is the test that says
- * the remedy EXISTS -- which is the whole of what ADR-0165 was written about.
- * A record naming a remedy nobody asserted is the defect that record carries,
- * one surface along.
- */
-describe("reaching an Item the catalogue has no title for", () => {
-  it("is found by no search, reached by a jump, and searchable once the Owner titles it", async () => {
-    const asTheOwner = await createContext({ sessionToken: await aTokenForTheOwner() });
-    const scope = await createGroupByHand(db, { name: "What a purge left the Owner holding" });
-    const survivor = await anItem(db);
-    await putItemInGroupByHand(db, { groupId: scope, itemId: survivor });
-
-    // ONE: NO QUERY REACHES IT, which is the honest scope of a search over
-    // titles rather than an oversight in it. `title ilike ...` is NULL for a
-    // row with no title, so the picker's own question cannot answer with this.
-    const searchedBefore = await call(
-      appRouter.catalogue.search,
-      { query: "purge", group: scope },
-      { context },
-    );
-    expect(searchedBefore.rows.map((row) => row.id)).toStrictEqual([]);
-
-    // TWO: A JUMP REACHES IT ANYWAY. The keyless block rides on every seek, so
-    // the Listing the Owner already has puts the Item in front of them without
-    // a control of its own being built for it.
-    const jumped = await call(appRouter.catalogue.list, { group: scope, letter: "A" }, { context });
-    expect(jumped.rows.map((row) => row.id)).toStrictEqual([survivor]);
-    // AND IT ANSWERS WITH NO TITLE rather than with a word this app made up,
-    // which is what the surfaces render as "Untitled item" (ADR-0003).
-    expect(jumped.rows[0]?.title).toBeNull();
-
-    // THREE: THE OWNER TITLES IT, on the Item's own page, through the
-    // procedure that already exists for correcting what an Item is called.
-    await call(
-      appRouter.item.retitle,
-      { id: survivor, title: "The story the provider used to name" },
-      { context: asTheOwner },
-    );
-
-    // FOUR: AND THE PICKER'S OWN QUESTION NOW ANSWERS WITH IT. This is the
-    // reach CNCORE-256 built, arrived at rather than duplicated -- so the
-    // second reach the ticket asked about would have been a second answer to a
-    // question this one already answers.
-    const searchedAfter = await call(
-      appRouter.catalogue.search,
-      { query: "used to name", group: scope },
-      { context },
-    );
-    expect(searchedAfter.rows.map((row) => row.id)).toStrictEqual([survivor]);
   });
 });
