@@ -162,7 +162,7 @@ install carries both entries, so only a first-run walk could reach it.
 that is a fact about the two-check design rather than a guess about the reader.** `assertConfigUrl`
 refuses an unallowlisted host before any socket opens, and a base URL whose host is a literal ADDRESS
 is matched against the ranges there and never reaches the lookup hook at all. So every refusal
-`assertConfigAddress` raises is one where the Owner allowlisted the NAME and not a CIDR. It now says
+`assertConfigAddresses` raises is one where the Owner allowlisted the NAME and not a CIDR. It now says
 that half is done and quotes the half that is missing.
 
 **IT QUOTES A SINGLE ADDRESS, AND BOTH OBVIOUS WIDENINGS SHIP A HOLE** -- the same trap as restating
@@ -241,3 +241,45 @@ browser is what acts on the value. Do not repair it by tightening `parseProvider
 ADR-0121 refuses that in its own words, because the scheme asked in two places is two rules that
 drift, and the fetch boundary is the one with a socket behind it. Raised by review on CNCORE-99 and
 recorded here rather than fixed, because there is no `href` to fix.
+
+## THE SHARED HOOK CONTRACT TAKES THE WHOLE RESOLVED LIST — under CNCORE-287
+
+`pinnedLookup` hands a boundary EVERY address a hostname resolved to, in one call. It used to hand
+them over one at a time, and a boundary given one address can only ever refuse the FIRST that fails.
+
+**THAT IS FINE UNTIL A REFUSAL CARRIES A REMEDY, AND CNCORE-244 GAVE ONE.** The config refusal quotes
+a CIDR for the Owner to paste. For a host with ONE address that remedy is whole; for a DUAL-STACK
+host it is half of one, and the missing half is invisible — the sentence looks complete, because it
+is complete about the address it happens to name. Measured on a real install on 2026-09-21, with
+`provider-wiki` reachable on `localhost:8081` and an allowlist of `localhost`:
+
+- `refused ::1: … Add ``::1/128`` or your network's range (ADR-0034).`
+- the Owner pastes exactly that, and gets
+  `refused 127.0.0.1: … Add ``127.0.0.1/32`` or your network's range (ADR-0034).`
+
+Same sentence, different address. That is CNCORE-244's own opening line — "told what to do, does
+exactly that, and is refused again" — recurring one step later, which is why it is a contract change
+rather than a wider diff on that ticket.
+
+**SO `AssertAddress` BECAME `AssertAddresses`, AND TAKES `readonly string[]`.** The config boundary
+now names every address that needs a CIDR in ONE refusal, and the same walk ends with the Provider
+reached on the first paste.
+
+**THE TYPE IS SHARED AND THE RULES ARE NOT, WHICH IS THIS RECORD'S SPLIT SURVIVING THE CHANGE.** Both
+hooks take the same shape because both answer the same question about the same list. WHICH rule
+judges a hop is still decided in exactly one place — `client.ts`, by which dispatcher carries which
+hook — and widening the argument moved nothing about that. A content hop cannot reach the allowlist
+through this type any more than it could through the old one, and a test now pins it: one resolver
+answer of `127.0.0.1`, judged by both hooks, is admitted by the config rule holding `127.0.0.0/8` and
+refused by the content rule at the same moment.
+
+**CONTENT STILL STOPS AT THE FIRST FAILURE, DELIBERATELY.** It is not the defect above wearing a
+different hat. The config boundary names them all because its refusal carries a remedy the Owner
+CARRIES OUT, and one covering half the addresses sends them round again. Content has no remedy to
+complete: its rule is no exception ever, an address it refused stays refused, and a second name gives
+the reader nothing to do. Naming more would be longer, not more useful.
+
+**WHAT IS UNCHANGED.** Both boundaries, their split, the deny-by-classification rule, the two checks
+of a config URL, and the pinning hook being the mechanism. What changed is how much of the resolver's
+answer a boundary is allowed to see before it writes a sentence about it.
+The SHAPE of that sentence is [[0174-a-remedy-is-assembled-against-the-cap-that-carries-it]]'s.

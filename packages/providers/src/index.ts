@@ -9,11 +9,12 @@
  */
 export {
   type Allowlist,
-  type AssertAddress,
+  type AssertAddresses,
   allowsAnything,
-  assertConfigAddress,
+  assertConfigAddresses,
   assertConfigUrl,
   assertContentAddress,
+  assertContentAddresses,
   assertContentUrl,
   type Boundary,
   OutboundRefused,

@@ -120,6 +120,21 @@ export function assertContentAddress(address: string): void {
 }
 
 /**
+ * ADR-0034's CONTENT boundary over every address a hostname resolved to.
+ *
+ * IT STOPS AT THE FIRST FAILURE, AND THAT IS NOT THE DEFECT CNCORE-287 FIXED
+ * NEXT DOOR. The config boundary names them all because its refusal carries a
+ * REMEDY the Owner carries out, and a remedy that covers one of two addresses
+ * sends them round again. Content has no remedy to complete: its rule is
+ * "no exception ever", an address it refused stays refused, and there is
+ * nothing for the reader to go and do with a second one. Naming more of them
+ * would be longer, not more useful.
+ */
+export const assertContentAddresses: AssertAddresses = (addresses) => {
+  for (const address of addresses) assertContentAddress(address);
+};
+
+/**
  * The address's range, or `unparseable` for a string that is not an address at
  * all.
  *
@@ -373,8 +388,31 @@ export type ResolvedAddress = LookupAddress;
 /** How a hostname becomes addresses. Injectable so a test can supply records. */
 export type Resolve = (hostname: string) => Promise<ResolvedAddress[]>;
 
-/** What a boundary does to one address: returns for allowed, throws otherwise. */
-export type AssertAddress = (address: string) => void;
+/**
+ * What a boundary does to EVERY address a hostname resolved to: returns when
+ * the connection may proceed, throws otherwise.
+ *
+ * THE WHOLE LIST AND NOT ONE ADDRESS (CNCORE-287). Handed them one at a time,
+ * a boundary can only ever refuse the FIRST that fails, and the config
+ * boundary's refusal quotes a CIDR to paste -- so a dual-stack host sent the
+ * Owner round the loop once per address: told to add `::1/128`, doing exactly
+ * that, and being refused again for `127.0.0.1`. A remedy is whole only if it
+ * accounts for every address that needs one, and only a boundary holding the
+ * list can write it.
+ *
+ * AN EMPTY LIST IS NOT THIS TYPE'S REFUSAL TO MAKE. Both implementations return
+ * for one, and the refusal a hostname with no address earns is raised in
+ * `pinnedLookup` BEFORE either is called -- which is where it has to be, because
+ * "resolves to no address" is a fact about the host rather than about any
+ * address, and ADR-0123 records it as one raised for both dispatchers.
+ *
+ * THE TYPE IS SHARED AND THE RULES ARE NOT, which is ADR-0034's split surviving
+ * the change. Both boundaries take the same shape because both answer the same
+ * question about the same list; WHICH rule judges a hop is decided once in
+ * `client.ts`, by which dispatcher carries which hook, and nothing here lets a
+ * content hop reach the allowlist.
+ */
+export type AssertAddresses = (addresses: readonly string[]) => void;
 
 /**
  * Every A and AAAA record for a hostname. `all: true` ALWAYS, whatever the
@@ -406,7 +444,7 @@ const resolveEveryRecord: Resolve = async (hostname) =>
  * after every record has passed.
  */
 export function pinnedLookup(
-  assertAddress: AssertAddress,
+  assertAddresses: AssertAddresses,
   resolve: Resolve = resolveEveryRecord,
 ): LookupFunction {
   return (hostname, options, callback) => {
@@ -433,14 +471,12 @@ export function pinnedLookup(
         // would look like a result.
         if (!first) throw new OutboundRefused(`refused ${hostname}: it resolves to no address.`);
 
-        // TODO(CNCORE-287): this throws on the FIRST record that fails, so a
-        // DUAL-STACK host's refusal names one address and the Owner who
-        // allowlists it is refused again on the next one. The config refusal
-        // quotes a CIDR to copy (CNCORE-244) and that remedy is whole only for
-        // a host with one address. Naming them all means changing what this
-        // hook hands `assertAddress`, which is shared with the CONTENT
-        // boundary -- so it is its own ticket rather than a widening of that one.
-        for (const { address } of addresses) assertAddress(address);
+        // EVERY RECORD IS HANDED OVER AT ONCE, never one at a time. The loop
+        // that used to live here could only report the first failure, which is
+        // what sent a dual-stack host's Owner round the remedy twice
+        // (CNCORE-287). What is refused is unchanged; what the refusal can
+        // ACCOUNT FOR is the whole answer.
+        assertAddresses(addresses.map((record) => record.address));
 
         // Only now does the shape of the answer matter.
         if (options.all) callback(null, addresses);
@@ -488,21 +524,106 @@ export function pinnedLookup(
  * means the CIDR written down, never the hostname. That reading is what
  * CNCORE-244 found this phrase sending a first-time Owner off to do.
  */
-export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
-  return (address) => {
-    if (!ipaddr.isValid(address)) {
+export function assertConfigAddresses(allowlist: Allowlist): AssertAddresses {
+  return (addresses) => {
+    const needing: (ipaddr.IPv4 | ipaddr.IPv6)[] = [];
+    const named = new Set<string>();
+
+    for (const address of addresses) {
+      if (!ipaddr.isValid(address)) {
+        throw new OutboundRefused(
+          `refused ${shortly(address)}: it is not a readable address.`,
+          "config",
+        );
+      }
+      const parsed = ipaddr.parse(address);
+      if (parsed.range() === UNICAST) continue;
+      if (allowlist.ranges.some((range) => matches(parsed, range))) continue;
+      // DEDUPLICATED BY THE CIDR THE OWNER WOULD PASTE, not by the string that
+      // arrived. `fe80::1%eth0` and `fe80::1%eth1` are two records and ONE
+      // allowlist entry, because a zone id is meaningless in a CIDR and
+      // `withoutScope` has already dropped it -- so naming both would ask for
+      // the same line twice.
+      const entry = withoutScope(parsed);
+      if (named.has(entry)) continue;
+      named.add(entry);
+      needing.push(parsed);
+    }
+
+    const [first] = needing;
+    if (!first) return;
+    if (needing.length === 1) {
       throw new OutboundRefused(
-        `refused ${shortly(address)}: it is not a readable address.`,
+        `refused ${withoutScope(first)}: ipaddr.js classifies it as \`${first.range()}\` and no allowlisted CIDR covers it. Its host is allowlisted; that admits the name only. Add \`${coveringCidr(first)}\` or your network's range (ADR-0034).`,
         "config",
       );
     }
-    const parsed = ipaddr.parse(address);
-    if (parsed.range() === UNICAST) return;
-    if (allowlist.ranges.some((range) => matches(parsed, range))) return;
-    const covering = coveringCidr(parsed);
-    throw new OutboundRefused(
-      `refused ${withoutScope(parsed)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. Its host is allowlisted; that admits the name only. Add \`${covering}\` or your network's range (ADR-0034).`,
-      "config",
-    );
+    throw new OutboundRefused(refusalNaming(needing.map(coveringCidr)), "config");
   };
+}
+
+/**
+ * ADR-0123's ceiling, RESTATED HERE BECAUSE THESE SENTENCES ARE ASSEMBLED
+ * AGAINST IT rather than merely measured after the fact.
+ *
+ * NOT IMPORTED FROM `reason.ts`, which is where `REASON_MAX_LENGTH` lives and
+ * has to stay: that module imports `OutboundRefused` from this one, so reaching
+ * back for the constant would close a cycle. `VALUE_MAX` above already reasons
+ * about the same 300 without importing it.
+ *
+ * WHAT STOPS THEM DRIFTING IS A TEST OF THE PROPERTY AND NOT A COMPARISON OF
+ * THE TWO NUMBERS, which neither exports and neither should. A refusal built at
+ * full stretch is passed through `reasonFor` and asserted to come back
+ * UNCHANGED: if this ceiling ever rose above the reason cap, the sentence this
+ * function was careful to fit would be truncated on its way to the page, and
+ * that is the test that goes red.
+ */
+const SENTENCE_MAX = 300;
+
+/**
+ * One refusal accounting for every address that needs a CIDR (CNCORE-287),
+ * BUILT SO THAT IT CANNOT OVERRUN ADR-0123'S CAP AT ANY NUMBER OF THEM.
+ *
+ * THE LIST IS THE ONLY PART THAT GROWS, so the list is the part that is
+ * bounded. Each entry is added only if the FINISHED sentence still fits, which
+ * means the verdict and the remedy are never the thing that falls off the end
+ * -- and that is ADR-0123's actual property. Measuring a few sizes and finding
+ * them comfortable is not the same claim: at 39-character IPv6 addresses this
+ * sentence passes 300 on the fourth entry, and nothing about DNS stops a host
+ * answering with more.
+ *
+ * WHAT IS DROPPED IS COUNTED RATHER THAN SILENTLY LOST, because a list the
+ * Owner cannot tell is partial is one they paste and get refused for again.
+ * The clause that survives every cut is "or your network's range", which is the
+ * COMPLETE remedy for exactly this case and the one the README already sends
+ * them to `docker network inspect` for.
+ *
+ * IT DOES NOT NAME ipaddr.js'S CLASSIFICATION, and the single-address sentence
+ * does. Measured: carrying the range name too puts two full-stretch IPv6
+ * addresses at 318 characters, over the cap, so the classification is what a
+ * multi-address refusal spends its budget on LAST. The Owner acts on the CIDRs.
+ */
+function refusalNaming(cidrs: readonly string[]): string {
+  const say = (listed: readonly string[]) => {
+    const dropped = cidrs.length - listed.length;
+    const more = dropped > 0 ? ` and ${dropped} more,` : "";
+    return `refused ${cidrs.length} of this host's addresses: no allowlisted CIDR covers them. Its host is allowlisted; that admits the name only. Add \`${listed.join(", ")}\`${more} or your network's range (ADR-0034).`;
+  };
+
+  // THE FIRST ENTRY IS NOT NEGOTIABLE and needs no room made for it: the fixed
+  // prose plus one 43-character CIDR is 206 characters, so a sentence naming a
+  // single CIDR fits whatever else is true. Everything after it has to earn its
+  // place.
+  //
+  // THE SENTENCE STILL GROWS AFTER THE LIST STOPS, BY THE DIGITS OF TWO COUNTS
+  // -- 263 at four addresses, 264 at ten, 268 at a thousand. That is why
+  // `boundary.test.ts` WALKS N rather than sampling it: the part nothing
+  // measures is the part that was supposed to be fixed-length.
+  let listed = cidrs.slice(0, 1);
+  for (const cidr of cidrs.slice(1)) {
+    const wider = [...listed, cidr];
+    if (say(wider).length > SENTENCE_MAX) break;
+    listed = wider;
+  }
+  return say(listed);
 }

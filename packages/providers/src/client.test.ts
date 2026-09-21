@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -820,7 +821,7 @@ describe("the client's outbound boundaries", () => {
    * stranger to allowlist their Provider, and an allowlist holding its HOST and
    * not the CIDR its address sits in admits the name and then refuses the
    * socket -- which is the config boundary's two checks doing exactly what
-   * `assertConfigAddress` says they do. Found by walking that section by hand.
+   * `assertConfigAddresses` says they do. Found by walking that section by hand.
    *
    * THE REFUSAL DOES NOT REACH THE CALLER AS ITSELF, and that is the whole
    * defect. It is raised inside the DNS `lookup` hook, so undici has it on a
@@ -856,14 +857,33 @@ describe("the client's outbound boundaries", () => {
     expect(reason.wrote).toBe("canoncore");
     // AND THE HALF THAT SAYS WHAT TO DO, which is the one thing a stranger
     // following the README needs and the one thing `fetch failed` has none of.
-    expect(reason.text).toContain("no allowlisted CIDR covers it");
+    expect(reason.text).toContain("no allowlisted CIDR covers");
     // BOTH HALVES OF IT SINCE CNCORE-244. This test is the README's scenario,
     // and until then the remedy it asserted was "goes on the allowlist by
     // name" -- which is what the stranger has ALREADY DONE by the time they
     // read it. The sentence now says that half is done and quotes the one that
     // is not, as something to copy.
     expect(reason.text).toContain("Its host is allowlisted");
-    expect(reason.text).toContain("Add `::1/128`");
+    // AND A CIDR FOR EVERY ADDRESS, SINCE CNCORE-287. This asserted `::1/128`
+    // alone, which passed only because `localhost` happens to answer with `::1`
+    // FIRST on the machine it was written on: the hook refused on the first
+    // failing record, so the stranger pasted that CIDR and was refused again
+    // for `127.0.0.1`. Asking the resolver what it actually answers is what
+    // stops this test encoding one machine's record order.
+    const resolved = await lookup("localhost", { all: true });
+    // WITHOUT THIS THE LOOP BELOW ASSERTS NOTHING ON A RESOLVER THAT ANSWERED
+    // NOTHING, and passes while doing it (ADR-0168).
+    expect(resolved.length).toBeGreaterThan(0);
+    for (const { address, family } of resolved) {
+      expect(reason.text).toContain(`${address}/${family === 6 ? 128 : 32}`);
+    }
+    // AND ONE REFUSAL ACCOUNTS FOR ALL OF THEM. `boundary.test.ts` pins the
+    // dual-stack contract on FIXED records, because this one can only ever
+    // assert what the machine running it happens to resolve.
+    const quoted = [...reason.text.matchAll(/`([^`]+)`/g)]
+      .flatMap((match) => (match[1] ?? "").split(", "))
+      .filter((entry) => /\/\d+$/.test(entry));
+    expect(quoted).toHaveLength(resolved.length);
     expect(reason.text).not.toContain("fetch failed");
     await client.close();
   });

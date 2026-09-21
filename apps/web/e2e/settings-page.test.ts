@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { afterAll, describe, expect, inject, it } from "vitest";
@@ -544,6 +545,13 @@ function removeFormFor(text: string, provider: string): RenderedForm {
 }
 
 /** One rendered Provider row, by the Provider it is about. */
+/** Every CIDR a refusal quotes back, as the Owner would copy them. */
+function cidrsIn(text: string): string[] {
+  return [...text.matchAll(/`([^`]+)`/g)]
+    .flatMap((match) => (match[1] ?? "").split(", "))
+    .filter((entry) => /\/\d+$/.test(entry));
+}
+
 function rowFor(text: string, provider: string): string {
   const row = sectionIn(text, "providers")
     .split(/<li\b/)
@@ -830,7 +838,7 @@ describe("/settings, unlocking a provider", () => {
    * beside it` tells a stranger to allowlist the Provider they stood up, and an
    * allowlist holding its HOST and not the CIDR its address sits in is what
    * they get by doing exactly that: the name is admitted, and the socket is
-   * refused by `assertConfigAddress` at connect time. Found by walking that
+   * refused by `assertConfigAddresses` at connect time. Found by walking that
    * section by hand on 2026-09-14, on a real install.
    *
    * TWO THINGS WERE WRONG AND THE SECOND IS THE WORSE ONE. The remedy was gone
@@ -865,17 +873,37 @@ describe("/settings, unlocking a provider", () => {
     const { text } = await documentFrom(baseUrl, "/settings", cookie);
     const row = rowFor(text, named);
 
+    // WHAT `localhost` ANSWERS WITH HERE, ASKED RATHER THAN ASSUMED. It is
+    // dual-stack on the machine this was written on -- `::1` and then
+    // `127.0.0.1`, in that order -- and a single record elsewhere. The promise
+    // the refusal makes does not vary with that, which is why this asserts the
+    // promise instead of the environment.
+    const resolved = await lookup("localhost", { all: true });
+    // A RESOLVER THAT ANSWERED NOTHING WOULD MAKE THE LOOP BELOW ASSERT
+    // NOTHING, and it would do it while passing. That is ADR-0168's hollow
+    // assertion arriving through the ENVIRONMENT rather than through the code,
+    // which is the one door a mutation test cannot watch.
+    expect(resolved.length).toBeGreaterThan(0);
+
     // THE HALF THE OWNER ACTS ON, which `fetch failed` has none of.
-    expect(row).toContain("no allowlisted CIDR covers it");
+    expect(row).toContain("no allowlisted CIDR covers");
     // BOTH HALVES OF IT SINCE CNCORE-244, and this row is where the defect was
     // reachable: the Owner has allowlisted `localhost` and is being told to go
     // and allowlist a host by name, which is what they just did.
     expect(row).toContain("Its host is allowlisted");
-    // AND THE CIDR TO COPY. `localhost` answers with ::1 AND 127.0.0.1, and the
-    // pinning hook refuses on whichever record it reaches first, so the address
-    // in this sentence is the resolver's choice and only its SHAPE is assertable
-    // from here. The unit test pins the exact string for a single address.
-    expect(row).toMatch(/Add `(?:127\.0\.0\.1\/32|::1\/128)` or your network/);
+    // AND A CIDR FOR EVERY ADDRESS THAT NEEDS ONE, SINCE CNCORE-287. This
+    // assertion accepted EITHER address until now, which ENCODED the defect
+    // rather than closing it: the hook refused on whichever record came back
+    // first, so an Owner on a dual-stack host allowlisted the address they were
+    // given and was refused again for the other one. Asserting the resolver's
+    // whole answer is what makes a second round trip a failing test.
+    for (const { address, family } of resolved) {
+      expect(row).toContain(`${address}/${family === 6 ? 128 : 32}`);
+    }
+    // AND ONE REFUSAL ACCOUNTS FOR ALL OF THEM, which the loop alone does not
+    // say: it would pass just as well on a sentence that named the right CIDR
+    // and then a second sentence naming another. The count is the promise.
+    expect(cidrsIn(row)).toHaveLength(resolved.length);
     expect(row).not.toContain("fetch failed");
     // AND SAID PLAINLY, because it is this catalogue's sentence about the
     // Owner's own settings rather than a Provider's claim.

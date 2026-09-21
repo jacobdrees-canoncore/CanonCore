@@ -3,9 +3,9 @@ import type { z } from "zod";
 
 import {
   type Allowlist,
-  assertConfigAddress,
+  assertConfigAddresses,
   assertConfigUrl,
-  assertContentAddress,
+  assertContentAddresses,
   assertContentUrl,
   OutboundRefused,
   pinnedLookup,
@@ -275,8 +275,8 @@ export function createProviderClient({
     }),
   });
 
-  const configDispatchers = dispatchersFor(pinnedLookup(assertConfigAddress(allowlist)));
-  const contentDispatchers = dispatchersFor(pinnedLookup(assertContentAddress));
+  const configDispatchers = dispatchersFor(pinnedLookup(assertConfigAddresses(allowlist)));
+  const contentDispatchers = dispatchersFor(pinnedLookup(assertContentAddresses));
 
   /**
    * One request, following redirects and re-validating EVERY hop.
