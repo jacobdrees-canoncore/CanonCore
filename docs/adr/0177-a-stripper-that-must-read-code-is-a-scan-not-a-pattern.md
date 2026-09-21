@@ -133,10 +133,15 @@ that is wrong rather than on a file that is.
 **A `/` IS RESOLVED FROM THE SAFE SIDE, not parsed.** Telling a regex literal from division needs the
 parse this deliberately does not do, so the preceding token decides: after `(`, `,`, `=`, `:`, `[`,
 an operator or a keyword like `return`, a `/` opens a regex; after anything else -- an identifier,
-`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **A WRONG GUESS COSTS AT MOST ONE LINE**,
-because a regex literal cannot span one and a run that reaches a newline without closing is
-abandoned. The scan never DELETES on a wrong guess; it only declines to strip, and the sweep row
-asserts that it does not.
+`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **TAKING DIVISION FOR A REGEX COSTS AT
+MOST ONE LINE**, because a regex literal cannot span one and a run that reaches a newline without
+closing is abandoned. That guess never DELETES; it only declines to strip, and the sweep row asserts
+that it does not. **THE OPPOSITE GUESS IS NOT BOUNDED**, and this paragraph said "a wrong guess"
+without a direction until CNCORE-321's review. A regex taken for division is read as code, so a `/*`
+inside it opens a comment that runs to the next `*/`. `>` is not in the list, so a regex straight
+after `=>` is such a guess. Measured 2026-09-21 with `>` added: nothing moves over this tree or
+`provider-wiki`, and in `provider-tmdb` one regex after `=>` stops having its tail taken for a line
+comment. CNCORE-324 carries the fix.
 
 **JSX TEXT IS READ AS CODE, and this changes what two callers see.** A mid-line `//` in rendered text
 is now taken for a comment, where the two line-start copies kept it -- the claim that this is
@@ -196,3 +201,12 @@ this is a rule a reviewer applies, which is the same missing half ADR-0168 names
 and one `apps/web` suite abort on an unset `DATABASE_URL` in a worktree provisioned only with
 `.env.example`. None of them can reach this module -- it is package-private to `@canoncore/config`
 and absent from that package's `exports` -- and the abort is unprovisioned rather than red.
+
+## Copied to the provider repositories, under CNCORE-321
+
+**The scan's code now runs in two more repositories**, `provider-wiki` and `provider-tmdb`, each at
+`test/setup/without-comments.ts`, copied line for line so each can refuse a stacked docblock
+([[0196-a-docblock-sits-on-the-declaration-it-describes]]). [[0031-a-provider-is-a-url]] rules out
+the shared package that would have kept one copy. "One scan, four callers, no copies" above is
+true of this tree and not across the three. Nothing keeps them in step, and
+`testing/without-comments.ts`'s own docblock says so where an edit would start.

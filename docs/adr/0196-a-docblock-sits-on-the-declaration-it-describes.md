@@ -7,10 +7,12 @@ status: accepted
 > **ACCEPTED 2026-09-21, whole, for CanonCore.** `packages/config/src/stacked-docblocks.test.ts`
 > refuses a `/**` standing directly on another `/**` in any tracked `.ts` or `.tsx` under
 > `packages/` or `apps/`, except a file's own header. It found 27 at `9e20133`. Every one is now
-> moved, merged or deleted, and the check is green. **The provider repositories hold no check.**
-> Their instances were fixed by hand under CNCORE-258, in two PRs MERGED before this one:
-> `provider-wiki#61` as `8aa5bff` and `provider-tmdb#32` as `1f4f3c3`. CNCORE-321 carries a check
-> for each. The number was assigned by the dispatcher.
+> moved, merged or deleted, and the check is green. The provider repositories' instances were fixed
+> by hand under CNCORE-258, in two PRs MERGED before this one: `provider-wiki#61` as `8aa5bff` and
+> `provider-tmdb#32` as `1f4f3c3`. **Each provider repository holds the check too since
+> CNCORE-321**, ported with the scan it reads, in two PRs MERGED before the change recording them:
+> `provider-wiki#62` as `d1f6714` and `provider-tmdb#33` as `e14e361`. This record's number was
+> assigned by the dispatcher.
 
 ## Why a misplaced block is worse than none
 
@@ -103,8 +105,43 @@ it, and the blank-line row was added for it.
 - **A citation that did not move with its subject.** `NotYours` for `WhoCanAdd`, and "both
   functions above" for a helper with one caller above it and one below, are prose, and only reading
   finds them.
-- **The provider repositories.** Neither has the scan, and porting it is a second copy to keep in
-  step. CNCORE-321 carries that, with a `TODO` naming it at the check.
+- **The provider repositories**, which this check does not read. Each holds its own since
+  CNCORE-321, in the section below.
 - **The count this suite moved.** This suite reads the repository at large, so it moved the figure
   `tree-figures.test.ts` holds and `turbo-cache-inputs.test.ts` states. By ADR-0188's test that
   count may route nobody. Whether it should be deleted is left to a pass about that count.
+
+## The provider repositories, under CNCORE-321
+
+**Each holds `test/stacked-docblocks.test.ts`**, this check ported, over every tracked `.ts`, naming
+each pair as `path:line`. It reads comments through `test/setup/without-comments.ts`, which is
+[[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]]'s scan with the code copied line
+for line. [[0031-a-provider-is-a-url]] lets no code cross the boundary between a provider and the
+app, so a copy was the only route, and a pattern was not one, for 0177's reason. The scan's rows and
+the sweep that no docblock is left standing came with it, in `test/without-comments.test.ts`. The
+four files, with the `git ls-files` read they share, are byte-identical across the two repositories.
+
+**THAT IS THREE COPIES OF THE SCAN, AND NOTHING HOLDS THEM TOGETHER.** Only the prose differs from
+this tree's, and the scan's own docblock here now says a change to it is a change to carry there by
+hand. It is the caveat the provider repositories already carry for their other twinned files.
+
+**The directive exemption is not carried.** Neither provider writes a directive.
+
+**Run on the trees CNCORE-258 found**, the check reports seven pairs in `provider-wiki` at
+`f506438`. They are the seven `provider-wiki#61` moved or deleted, two of them ones its ticket had
+not named. In `provider-tmdb` at `ffdcdd4` it reports none, and that is right: the two blocks
+`provider-tmdb#32` moved were a plain `/*` on a plain `/*` and a single block on the wrong
+declaration, both listed above as unseen. So in `provider-tmdb` this check would have caught nothing
+CNCORE-258 fixed.
+
+**The no-docblock sweep earns its place there, measured.** `provider-wiki`'s
+`test/corpus-figures.test.ts` writes a regex holding three backticks, the shape that broke this
+tree's first scan. With regex literals taken out of the scan, three docblocks below it are left
+standing. The refusal does not fire, because a later backtick closes the stray template. The
+stacked-docblock sweep stays green, because it reads no pair in the part of the file the scan has
+lost. Only the no-docblock sweep goes red.
+
+**Neither tree can falsify the scan's handling of literals.** A scan that reads `/*` and `//`
+wherever they fall passes both sweeps in both repositories, so the rows hold it over sources they
+supply, each saying whether it is quoted or invented. Every mutation run against the two new suites,
+23 of them, reddens at least one hand-written row in each repository.

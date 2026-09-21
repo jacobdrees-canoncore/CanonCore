@@ -33,7 +33,9 @@ import { type Comment, commentsIn, withoutComments } from "./testing/without-com
  *   was moved by hand.
  * - A plain comment stacked on the wrong plain comment. `item.get`'s note on the
  *   members cursor was one, and was moved by hand.
- * - Either provider repository. TODO(CNCORE-321): each needs a check of its own.
+ * - Either provider repository. Each holds a check of its own since CNCORE-321,
+ *   `test/stacked-docblocks.test.ts`, reading comments through a copy of the
+ *   scan this one reads. ADR-0196 records what the two found.
  */
 describe("a docblock stacked on another", () => {
   it("is reported by the line it opens on", () => {
