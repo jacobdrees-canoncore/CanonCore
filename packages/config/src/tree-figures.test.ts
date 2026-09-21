@@ -575,7 +575,10 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
-    // Thirty-four since CNCORE-258, whose `stacked-docblocks.test.ts` sweeps every
+    // Thirty-five since CNCORE-327, whose `corpus-import-cost.test.ts` sweeps every
+    // tracked TEXT file -- source, prose and the frozen migration ladder alike --
+    // for the superseded cost of importing the corpus. Thirty-four since
+    // CNCORE-258, whose `stacked-docblocks.test.ts` sweeps every
     // tracked source for a docblock standing on another. Thirty-three since
     // CNCORE-295, whose `dispatch-monitor.test.ts` runs the dispatcher's monitor out
     // of `.claude/skills/dispatch/`. Thirty-two since CNCORE-313, whose
@@ -591,7 +594,7 @@ describe("a figure this tree states about itself", () => {
     // Four landed the same day, and the first two each read the other's figure
     // as its own, which is the collision ADR-0153 calls a rung. This one was
     // re-derived from a red run rather than copied from the comment above it.
-    expect(suitesReadingTheRepository()).toBe(34);
+    expect(suitesReadingTheRepository()).toBe(35);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

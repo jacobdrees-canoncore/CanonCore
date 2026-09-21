@@ -18,16 +18,31 @@ walks is still the Owner's own and nothing here changes.
 
 **The loop is four lines. What was missing is somewhere for the loop's POSITION to live.** A walk
 holding where it got to in one process's memory starts again from the beginning whenever anything
-interrupts it, and at 43.8s a Container — the figure an import actually pays, measured against the
-live wiki 2026-09-13 — the whole list is about five and a half hours.
+interrupts it, and at 43.8s a Container — AHistory's cost, the LARGEST page on the wiki, rather
+than what a typical one pays — the whole list looked like about five and a half hours. It is ELEVEN
+MINUTES, measured 2026-09-15 into the Owner's own install.
 
-**THAT ESTIMATE IS WRONG BY AN ORDER OF MAGNITUDE, AND THE CORRECTION BELONGS IN THIS SENTENCE**
-(ADR-0137, CNCORE-167). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
+**THAT ESTIMATE WAS WRONG BY AN ORDER OF MAGNITUDE, AND THE CORRECTION NOW STANDS IN THE SENTENCE
+THAT MAKES IT** (ADR-0137, CNCORE-167; moved into that sentence under CNCORE-327, which found it had
+been left in this one). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
 it by 465 is not a bound on the list — it is a different quantity. The median Ordering holds **19**
 Placements; 319 of the 439 that hold anything hold fewer than 50, and nine hold more than 500. **The
 whole corpus landed in roughly ELEVEN MINUTES**, measured 2026-09-15 into the Owner's own install.
 Everything this record decides about resuming still holds: what was wrong was the size of the job,
 not the need to survive losing it.
+
+**MIGRATION 18'S PROSE STILL CARRIES THE SUPERSEDED ESTIMATE, AND CANNOT BE CORRECTED WHERE IT
+STANDS.** The rung repeats the sentence above almost word for word, and
+[[0047-migrations-are-a-forward-only-ladder]]'s freeze check hashes every applied rung against
+Drizzle's ledger: editing it fails `db:check-ladder` on every database that has run it, the Owner's
+install included. It is the same wall
+[[0134-a-sort-name-is-derived-by-stripping-a-leading-article]] met, and the same answer -- the rung
+was frozen the moment a release applied it, which is that record's rule working rather than an
+obstacle to route around. So the correction lives here, and
+[[0195-a-corrected-figure-is-held-by-a-check-rather-than-by-another-sweep]]'s check REPORTS that rung
+by name rather than refusing it, holding the set to exactly one so a new rung stating the figure is
+caught while it can still be edited. A reader of migration 18 owes it eleven minutes, not the
+estimate it quotes, and nobody should try to fix it there (CNCORE-327).
 
 ## The run is rows, at the grain of one Container
 
@@ -171,6 +186,6 @@ request because it sat beside `next/headers`.
   the Provider for that one alone.
 - **The concurrency figures are CNCORE-159's**, measured against the live wiki on 2026-09-13 and not
   re-measured here: 25.5–26.4s for one AHistory browse across five runs, 49.1s each for two at once,
-  43.8s end to end for the page an import pays for. **That last figure is AHistory's and the
-  corpus's median Ordering holds 19 Placements**, which is why the five-and-a-half-hour estimate built on it
-  is corrected at the top of this record (ADR-0137).
+  43.8s end to end for the page an import pays for. **That last figure is AHistory's, the LARGEST
+  page on the wiki, and the corpus's median Ordering holds 19 Placements**, which is why the
+  five-and-a-half-hour estimate built on it is corrected at the top of this record (ADR-0137).

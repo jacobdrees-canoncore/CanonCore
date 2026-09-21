@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { pnpmSetupSteps, workflow } from "./ci-workflow";
 import { flatten } from "./flatten";
 import { repoRoot } from "./repo-root";
+import { withoutCommentLeaders } from "./sentences";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
 import { withoutComments } from "./without-comments";
 import { packageDirectories } from "./workspace";
@@ -172,28 +173,14 @@ export function asCount(written: string): number {
  *
  * Every claim below sits in prose hard-wrapped at 100 columns, so a pattern
  * matching raw bytes would break on a reflow that changed no claim -- which is
- * `flatten`'s reason, stated where `flatten` is. THE COLLAPSE ITSELF COMES FROM
- * THERE; what this adds is the step over a comment leader, which a Markdown
- * corpus does not need: these sentences live inside JSDoc and YAML comments,
- * where the wrap inserts ` * ` or ` # ` mid-sentence.
- *
- * MARKDOWN IS LEFT ALONE, because `#` opens a heading there and `*` opens a
- * bold span, and stripping either would rewrite the document this is reading.
- *
- * `//` IS STRIPPED AT THE LINE START ONLY. It is the leader on every line of a
- * wrapped line comment, and a sentence read with those left in has a `//` in
- * the middle of it that no pattern written against the prose would match. Only
- * at the start, because `https://` is two of the same characters in the middle
- * of a word.
+ * `flatten`'s reason, stated where `flatten` is. THE COLLAPSE COMES FROM THERE
+ * AND THE LEADER STEP FROM `sentences.ts`, which held the identical three
+ * replacements byte for byte until CNCORE-327 folded them: this file wrote
+ * them, and the corpus-cost check needed the same step over `.sql` as well.
+ * ADR-0171 carries the fold and its argument.
  */
 function flattenSource(path: string, text: string): string {
-  const stripped = path.endsWith(".md")
-    ? text
-    : text
-        .replace(/^[ \t]*\/\*+[ \t]?/gm, "")
-        .replace(/^[ \t]*\/\/[ \t]?/gm, "")
-        .replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "");
-  return flatten(stripped);
+  return flatten(withoutCommentLeaders(path, text));
 }
 
 /**

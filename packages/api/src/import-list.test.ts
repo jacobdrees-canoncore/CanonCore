@@ -198,10 +198,10 @@ describe("importContainerList", () => {
   });
 
   /**
-   * THE WHOLE POINT OF A RUN BEING ROWS. A walk of 465 Containers is about five
-   * and a half hours, and what interrupts it is ordinary: ADR-0122's Credential
-   * lapses within a day. Handing the same list over again has to cost the
-   * remainder rather than the whole.
+   * THE WHOLE POINT OF A RUN BEING ROWS. A walk of 465 Containers runs long
+   * enough that what interrupts it is the ordinary case rather than the exotic
+   * one: ADR-0122's Credential lapses within a day. Handing the same list over
+   * again has to cost the remainder rather than the whole.
    */
   it("carries on where a stopped run stopped, rather than importing what already landed again", async () => {
     const counted = counting();
@@ -277,12 +277,13 @@ describe("importContainerList", () => {
 });
 
 /**
- * WHERE A FIVE-AND-A-HALF-HOUR MISTAKE WOULD HIDE. A run is resumed by matching
- * the list it is walking, so a reader that answered a different list for the
- * same file -- one trailing blank line, one stray space -- would not resume: it
- * would silently open a SECOND run over all 465 Containers and browse every one
- * of them again. That is why this is a tested function rather than three lines
- * inside a script.
+ * WHERE A SILENT RE-IMPORT WOULD HIDE. A run is resumed by matching the list it
+ * is walking, so a reader that answered a different list for the same file --
+ * one trailing blank line, one stray space -- would not resume: it would
+ * silently open a SECOND run over all 465 Containers and browse every one of
+ * them again, spending a third party's time on work already done (ADR-0131).
+ * That is why this is a tested function rather than three lines inside a
+ * script.
  */
 describe("theContainerIdsIn", () => {
   it("takes one Container id a line", () => {

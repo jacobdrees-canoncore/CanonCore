@@ -245,9 +245,10 @@ describe("walking a run", () => {
   });
 
   /**
-   * A WALK OF 465 CONTAINERS TAKES ABOUT FIVE AND A HALF HOURS, so what it can
-   * say about where it has got to is not a nicety: it is the only thing standing
-   * between the Owner and a terminal that has printed nothing for an hour.
+   * A WALK OF 465 CONTAINERS RUNS FOR MINUTES ON END, so what it can say about
+   * where it has got to is not a nicety: it is the only thing standing between
+   * the Owner and a terminal that has printed nothing since they typed the
+   * command.
    */
   it("says how many Containers are still to be asked for, and which Provider to ask", async () => {
     const provider = aProvider();
@@ -341,9 +342,9 @@ describe("walking a run", () => {
 });
 
 /**
- * WHAT A RESUME IS FOR, in one sentence: the corpus is 465 Containers at 43.8s
- * each, so a walk that started again from the beginning would cost five and a
- * half hours to recover from anything that interrupted it.
+ * WHAT A RESUME IS FOR, in one sentence: the corpus is 465 Containers, so a
+ * walk that started again from the beginning would ask the Provider a second
+ * time for every one of them that had already landed.
  */
 describe("resuming a run", () => {
   it("carries on with the same run when the Owner hands over the same list again", async () => {
