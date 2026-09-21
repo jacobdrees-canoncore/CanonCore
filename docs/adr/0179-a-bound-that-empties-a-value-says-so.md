@@ -177,5 +177,10 @@ rests on its caller's number rather than on the shape of its input, and it would
 of 0 were ever passed. Written down because the wrong reason for a right conclusion is what survives
 into the next record that cites it.
 
-**Nothing in this tree reports a surface that prints a value it did not write**, so this list is
-only ever as good as the last reading of it — and one reading of it was already wrong by one.
+**The one thing in this tree that reports a surface printing a value it did not write cannot see
+this list.** [[0178-a-parameter-a-page-speaks-is-reported-where-it-is-unbounded]] built that
+instrument under CNCORE-298, and its population is `apps/web`'s `.tsx`: it follows a value off
+`searchParams` and names the FILE and the PARAMETER wherever one reaches a sentence unbounded. Every
+caller weighed above sits in a package it never opens, so what holds them is still reading, and this
+list is only ever as good as the last reading of it — and one reading of it was already wrong by
+one.

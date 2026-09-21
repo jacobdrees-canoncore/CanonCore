@@ -432,9 +432,13 @@ describe('the "use client" directives in packages/ui and apps/web', () => {
    * next primitive vendored from a registry that ships the directive fails it on
    * arrival rather than after it has shipped a chunk to a browser.
    *
-   * IT PASSES ON AN EMPTY SET SINCE CNCORE-276, because no module in this package
-   * carries the directive any more. That is why the two rows below exist: an
-   * empty list is also what a check that had stopped reading returns.
+   * IT PASSES ON AN EMPTY SET, AND NO LONGER BECAUSE THE SET IS EMPTY. While this
+   * file swept `packages/ui` alone, an empty list meant what it looked like: no
+   * module there has carried the directive since CNCORE-276. Since CNCORE-283 it
+   * sweeps `apps/web/src/components` as well, where modules DO carry one and
+   * every one of them is judged EARNED -- so the empty list is a verdict now
+   * rather than an absence. That is why the two rows below exist: an empty list
+   * is also what a check that had stopped reading returns.
    */
   it("holds every one of them to a reason in the module that carries it", () => {
     expect(unearnedDirectives(theComponents())).toStrictEqual([]);

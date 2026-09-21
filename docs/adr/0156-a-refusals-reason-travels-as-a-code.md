@@ -69,7 +69,7 @@ Of the two that carry a value, **only `/settings` echoes one, and it is the only
 bounding.** An earlier version of this sentence read that `/items/<id>` "echoes a uuid, whose length
 it does not check either", and CNCORE-281 was filed to bound it. Measured, it prints nothing:
 `PlaceAnItem` takes `?refused=` and reads it as `{refused && ...}`, a bare boolean, and every
-sentence it gates is the page's own -- the four in `WHAT_WAS_REFUSED`, keyed on `?because=`'s closed
+sentence it gates is the page's own -- those in `WHAT_WAS_REFUSED`, keyed on `?because=`'s closed
 set, or the vague fallback. A crafted `?refused=` of any length decides whether that paragraph
 appears and nothing about what it says, so no ceiling is owed there and none was added.
 

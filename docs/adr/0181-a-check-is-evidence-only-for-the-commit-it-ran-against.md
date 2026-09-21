@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A check is evidence only for the commit it ran against
@@ -259,8 +259,16 @@ world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
 
-**NOT BUILT: adoption.** At the time of writing, the dispatcher's scratch copies still exist and are
-what its merges actually run; the repository's copy becomes the one in force when they are retired
-against this branch's merge. Until that happens this record describes a gate that is whole and not
-yet the one in use, which is the distinction `CLAUDE.md` reserves `proposed` for. Flip this record
-to `accepted` in the same action as retiring the scratch pair.
+**BUILT: adoption, and this record was owed its flip before it got one.** The dispatcher's scratch
+copies were retired on 2026-09-21 against CNCORE-288's merge, and both are confirmed absent, so
+`.claude/skills/dispatch/gate.sh` and `merge-if-green.sh` are the ones its merges run. This record
+asked to be flipped to `accepted` IN THE SAME ACTION as that retirement. The dispatcher retired the
+pair and did not flip it, so it stood `proposed` for the rest of that day, describing a gate as not
+yet in use while it was the only one in use; CNCORE-328 flipped it.
+
+**That gap is this record's own defect in a second medium, which is why it is written down rather
+than tidied away.** A status is evidence only for the moment it was written, exactly as a check is
+evidence only for the commit it ran against, and `proposed` over an adopted mechanism reads as a
+live caveat the same way a pre-rebase green reads as a pass. The remedy is the one above: the
+condition and the action that satisfies it belong in one step, because a condition nobody re-reads
+is not a gate.
