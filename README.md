@@ -275,7 +275,7 @@ while believing they ran on the container's 18.6. Supabase's CLI defaults to 543
 reason. Set `CANONCORE_DB_PORT` if 55432 is taken too, before the container is first created:
 see `pnpm db:start` below.
 
-**Every CanonCore worktree shares ONE container**, because `name: canoncore` pins the Compose
+**Every CanonCore worktree shares ONE container**, because `name: canoncore-dev` pins the Compose
 project and Compose resolves it from any directory. That is fine and cheap. Sharing one *database*
 is not: the suites drop and recreate a `<database>_test…` of their own, so two worktrees testing at
 once would take each other's out mid-run. `pnpm db:setup` gives each worktree a database named after
@@ -287,8 +287,9 @@ time. It creates the container when there is none and starts it when it is stopp
 container keeps what it was created with, the port `CANONCORE_DB_PORT` gave it included. The
 container is every worktree's, so a change to `packages/db/docker-compose.yml` does not reach it
 just because your branch has it. The change lands on `main`, and the Owner applies it by the route
-written above `name: canoncore` in that file. Never pass `--remove-orphans` there, whatever Compose
-suggests: on a machine that also runs the install, the "orphans" are the install.
+written above the `name:` key in that file. That project is deliberately not the install's: both
+ran as `canoncore` until CNCORE-250, and on a machine with both, each stack's `up` called the
+other's containers orphans and recommended the flag that removes them.
 
 ## Checks
 

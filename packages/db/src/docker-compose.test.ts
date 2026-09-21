@@ -306,5 +306,4 @@ describe("the scripts every worktree runs against it", () => {
     expect(ups.length).toBeGreaterThan(0);
     expect(composeUpsThatCanRecreate(scripts)).toStrictEqual([]);
   });
-
 });

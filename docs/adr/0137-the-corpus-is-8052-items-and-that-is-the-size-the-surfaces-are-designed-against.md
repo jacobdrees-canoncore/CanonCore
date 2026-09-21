@@ -225,9 +225,11 @@ cd ~/catalogue && docker compose up -d
 CANONCORE_AT=http://localhost:3000 pnpm --filter @canoncore/api test:corpus   # same figures
 ```
 
-**NEVER `docker compose down --remove-orphans` HERE**, which is the one command that would do harm:
-ADR-0104 spends the project name `canoncore` on the development container, so `--remove-orphans`
-from an install directory would take the Postgres every worktree shares.
+**`docker compose down --remove-orphans` WAS THE ONE COMMAND HERE THAT WOULD DO HARM, AND IS NOT ANY
+MORE** (CNCORE-250). ADR-0104 spent the project name `canoncore` on the development container when
+this was written, so `--remove-orphans` from an install directory would have taken the Postgres
+every worktree shares. That container is in project `canoncore-dev` now, which this directory's
+Compose never looks at.
 
 **Compose warns about the NETWORK as well as the volume**, and `compose.yaml` documents only the
 volume. After a rename it prints both:
@@ -242,10 +244,11 @@ volume: taking Compose's `external: true` suggestion would make a FIRST install 
 that does not exist yet.
 
 **AND A BARE `docker compose stop` IN THE INSTALL DOES NOT TOUCH THE DEVELOPMENT CONTAINER**, which
-matters because ADR-0104 spends the project name `canoncore` on that container and `docker compose
-ps` in the install therefore LISTS it. Measured with `--dry-run`: `stop` acts on the two services
-the file declares and leaves `canoncore-postgres` running. Only `--remove-orphans` would take it,
-which `compose.yaml` already says.
+mattered because ADR-0104 spent the project name `canoncore` on that container, so `docker compose
+ps` in the install LISTED it. Measured with `--dry-run`: `stop` acts on the two services the file
+declares and leaves `canoncore-postgres` running. Only `--remove-orphans` would have taken it. Since
+CNCORE-250 the development container is in project `canoncore-dev`, so it is not listed here at all
+and neither command can reach it.
 
 ## What this does not answer
 

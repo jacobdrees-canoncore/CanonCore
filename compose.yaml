@@ -14,28 +14,29 @@
 # artefact.
 #
 # NO `name:` KEY, AND THAT IS THE ONE DELIBERATE OMISSION HERE. Compose resolves
-# a project by name from any directory, and ADR-0104 spends `canoncore` on the
-# DEVELOPMENT container so that every worktree shares one Postgres. Without the
-# key the project is the DIRECTORY's name, so the README says to make one called
-# `canoncore` and a stranger -- who has no development container -- gets exactly
-# that, while a contributor testing from anywhere else does not collide at all.
+# a project by name from any directory. Without the key the project is the
+# DIRECTORY's name, so the README says to make one called `canoncore` and a
+# stranger gets exactly that, while a contributor testing from anywhere else
+# does not collide at all.
 #
-# MEASURED RATHER THAN REASONED, 2026-09-11, with `docker compose up -d
-# --dry-run` from a directory named `canoncore` on a daemon already running the
-# development container. Compose said:
+# THE DEVELOPMENT CONTAINER USED TO TAKE THIS NAME TOO, AND THAT COLLISION IS
+# GONE (CNCORE-250). ADR-0104 once spent `canoncore` on the Postgres every
+# worktree shares, so on a machine running both, each stack's ordinary `up`
+# called the other's containers orphans and recommended `--remove-orphans` --
+# which from here would have taken the development container, and from
+# `packages/db` would have stopped and removed this running instance. Measured
+# 2026-09-11 with `docker compose up -d --dry-run` from a directory named
+# `canoncore`, Compose said:
 #
 #   Found orphan containers (canoncore-postgres) for this project. If you
 #   removed or renamed this service in your compose file, you can run this
 #   command with the --remove-orphans flag to clean it up.
 #
-# So it WARNS and leaves the other project's container running; only
-# `--remove-orphans` would take it. From this side that costs the development
-# container. THE OTHER SIDE IS WORSE: from `packages/db`, Compose calls THIS
-# install's containers the orphans, and the same flag stops and removes the
-# running instance. The catalogue survives in `canoncore_data` below, but the
-# instance is down until somebody brings it back. That is why `db:start` never
-# prints the suggestion (ADR-0104). The collision falls only on a machine that
-# has both, which a stranger's never does.
+# That project is now `canoncore-dev`, declared in `packages/db`, and Compose
+# only ever considers containers carrying its own `com.docker.compose.project`.
+# So the two stacks cannot see each other at all, and the warning above is
+# history rather than a standing hazard. Keeping this directory named
+# `canoncore` is what the README instructs and remains free.
 
 services:
   canoncore:
