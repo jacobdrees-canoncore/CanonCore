@@ -466,10 +466,9 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
 }
 
 /**
- * THE ROUTER AT AN INSTANCE, over the same HTTP its pages are read over. With a
- * cookie `logInAt` handed back it asks as that session; with none it asks as
- * nobody, which is all an `openProcedure` needs. oRPC sends no header for an
- * `undefined` value, so the one call covers both.
+ * THE ROUTER AT AN INSTANCE, over the same HTTP its pages are read over, asking
+ * as whoever `headersWith` says is asking: the session behind a cookie
+ * `logInAt` handed back, or nobody, which is all an `openProcedure` needs.
  *
  * ONE FUNCTION, where each file in `e2e/` and `live/` that asked the router
  * used to write the constructor out (CNCORE-323). `aTokenForTheOwner` is the
@@ -478,7 +477,7 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
  * the cookie out -- which `logInAt` above declines to do.
  */
 export function clientAt(baseUrl: string, cookie?: string): AppRouterClient {
-  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
+  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: headersWith(cookie) }));
 }
 
 /**
