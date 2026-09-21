@@ -120,6 +120,29 @@ describe("a declared credential", () => {
     expect(credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 
+  /**
+   * AND THE SAME SPLIT AS THE NAME, AT THE SAME SEAM (ADR-0176, ADR-0179).
+   *
+   * `credential.test.ts` pins the sentence for a label of nothing but whitespace
+   * -- "did not say what." -- against a live Provider. A label of three
+   * zero-width spaces bounds to the same empty string and that sentence was false
+   * about it: this Provider DID say what it needs, in characters the Owner's page
+   * cannot print. The Owner still has to be told the Provider wants something,
+   * and now also which of the two is wrong with its manifest.
+   */
+  it("says a label could not be shown, rather than that the provider described nothing", () => {
+    const { credential } = cmppManifest.parse({
+      ...DECLARING,
+      credential: { ...DECLARING.credential, label: "\u200b\u200b\u200b" },
+    });
+
+    expect(credential?.label).toBe(
+      "this Provider needs something, and named it in words made only of characters that cannot " +
+        "be shown.",
+    );
+    expect(credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
   /** A provider that needs nothing declares nothing, and stays conformant. */
   it("is absent from a provider that declares none", () => {
     expect(
@@ -158,6 +181,23 @@ describe("a provider's declared name", () => {
     const { name } = cmppManifest.parse({ name: "   " });
 
     expect(name).toContain("did not name itself");
+  });
+
+  /**
+   * AND THE FLOOR HAS TWO ANSWERS, NOT ONE (ADR-0176, ADR-0179). A name of three
+   * zero-width spaces reaches the same empty string `"   "` does, and the
+   * sentence above says the Provider named itself in nothing -- which is false
+   * about a Provider that named itself in something nobody can print. What is
+   * lost is not the same fact, so it does not get the same sentence.
+   */
+  it("says a name could not be shown, rather than that the provider gave none", () => {
+    const { name } = cmppManifest.parse({ name: "\u200b\u200b\u200b" });
+
+    expect(name).toBe("a Provider whose name is made only of characters that cannot be shown");
+    // AND IT CLEARS THE CEILING IT REPLACED A BOUNDED VALUE WITH. A fallback is
+    // this file's own sentence and never passes through `bounded`, so nothing but
+    // this holds it under the length every surface printing a name declares.
+    expect(name.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });
 

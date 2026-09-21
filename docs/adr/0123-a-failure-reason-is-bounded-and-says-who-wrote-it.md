@@ -744,16 +744,19 @@ field and a raw one were both spelled `z.string().min(1)`.
 **Bounding at each surface is how this record's defect keeps recurring**, and it had just recurred:
 `BrowseNotOffered` bounded `name` correctly while `providerFrom` and `provider.search` read the same
 value raw. So `name` is bounded in `cmppManifest`, where a Provider's self-description ENTERS this
-app, and nothing downstream can read the raw value at all. `boundedProse(whenSilent)` is the schema
-form of `bounded`, published beside it, and the credential's `label` moved to it from `asDeclared`
-in the same change. One mechanism for one rule; a label bounded one way and a name another would
+app, and nothing downstream can read the raw value at all. `boundedProse` is the schema form of
+`bounded`, published beside it, and the credential's `label` moved to it from `asDeclared` in the
+same change. One mechanism for one rule; a label bounded one way and a name another would
 have left the manifest unable to say which rule it followed.
 
 **A FLOOR IS REQUIRED, NOT OPTIONAL.** Measured on zod 4.6.5, `min(1)` runs before a transform, so
 `""` is refused outright and `" "` is what reaches the cap — which collapses it to nothing. An empty
 name then fails the `min(1)` every surface declares on its output: a Provider crashing the request
 that reads it, which is what `SILENT` prevents for a reason. `whenSilent` has no default because no
-house sentence fits both fields.
+house sentence fits both fields — and it takes a second argument beside it since
+[[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]], on the same argument: a floor
+for a field that said NOTHING is the wrong sentence for one that said something nobody can print, and
+the two are punctuated differently because one stands in for a name.
 
 ### The rule a fifth field meets, and what enforces it
 

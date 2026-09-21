@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertConfigUrl,
   bounded,
+  failureReason,
   OutboundRefused,
   parseAllowlist,
   REASON_MAX_LENGTH,
@@ -248,13 +249,81 @@ describe("reasonFor", () => {
   it("still says something when what was thrown says nothing", () => {
     // WHITESPACE COUNTS AS NOTHING SAID. `"   "` passes `min(1)` and renders as
     // a blank space, which is a reason the Owner cannot see rather than one
-    // they can act on -- the same mistake a blank search query is.
-    for (const silent of [new Error(""), new Error("   "), "", undefined]) {
+    // they can act on -- the same mistake a blank search query is. Nothing was
+    // STRIPPED from it, which is what keeps it on this side of the split the
+    // test below draws.
+    for (const silent of [new Error(), new Error(""), new Error("   "), ""]) {
       const { wrote, text } = reasonFor(silent);
 
-      expect(text.length).toBeGreaterThan(0);
+      expect(text).toBe("the provider failed without saying why.");
       expect(wrote).toBe("provider");
     }
+  });
+
+  /**
+   * A VALUE NOBODY CAN SHOW IS NOT A VALUE NOBODY SENT (ADR-0176, ADR-0179).
+   *
+   * `bounded` strips the controls and trims, so a message of nothing but them
+   * comes back EMPTY and `|| SILENT` fired on it -- reporting a provider that
+   * named a reason as one that named none. The two are different facts about
+   * different inputs, and CNCORE-92's rule is that a refusal reworded is not a
+   * refusal reported.
+   */
+  it("says a provider's reason could not be shown, rather than that it said none", () => {
+    const { wrote, text } = reasonFor(new Error("\u200b\u200b\u200b"));
+
+    expect(wrote).toBe("provider");
+    expect(text).toBe("the provider's reason was made only of characters that cannot be shown.");
+  });
+
+  /**
+   * AND IT DOES NOT DISPLACE WORDS THE CHAIN DID HAVE (ADR-0176).
+   *
+   * `unwrapped` takes the innermost link that SAID SOMETHING and asks `oneLine`,
+   * which strips -- so a cause of nothing but controls is passed over and the
+   * wrapper's own words stand. The sentence above is reached only when NO link in
+   * the chain had any, which is the right order: `fetch failed` is a thin reason
+   * and still more than a sentence about the absence of one.
+   */
+  it("keeps a wrapper's words over a cause nobody can show", () => {
+    const { text } = reasonFor(new Error("fetch failed", { cause: new Error("\u200b") }));
+
+    expect(text).toBe("fetch failed");
+  });
+
+  /**
+   * NEITHER FALLBACK IS BOUNDED BY ANYTHING BUT THIS ASSERTION (ADR-0176).
+   *
+   * `bounded` caps a PROVIDER'S text; a fallback is this app's own sentence and
+   * never passes through it. So the contract's `max(REASON_MAX_LENGTH)` is the
+   * only thing standing between a sentence edited past the ceiling and a 500 at
+   * the output boundary -- which is exactly the failure `SILENT` exists to
+   * prevent, arriving through the fix for it.
+   *
+   * ASSERTED AGAINST THE REAL BOUNDARY rather than by counting characters here,
+   * which is ADR-0123's rule for the cap and ADR-0153's for a figure: a number
+   * written into a test is a second copy of a ceiling, and `failureReason` is
+   * the schema every reason surface is actually held to.
+   */
+  it("hands both fallbacks to the contract that has to accept them", () => {
+    for (const thrown of [new Error(), new Error("\u200b\u200b\u200b")]) {
+      expect(() => failureReason.parse(reasonFor(thrown))).not.toThrow();
+    }
+  });
+
+  /**
+   * A THROWN `undefined` IS NOT SILENT AND IS NOT THIS TICKET'S DEFECT
+   * (CNCORE-307).
+   *
+   * This assertion was `text.length > 0` over a population that held
+   * `undefined`, and it went red the moment CNCORE-305 asked it for the
+   * sentence instead: `String(undefined)` is `"undefined"`, which is non-empty,
+   * so no fallback is ever reached and the Owner reads CanonCore's spelling of a
+   * value in a Provider's voice. Pinned rather than fixed, because it is a
+   * different defect -- nothing was STRIPPED here -- and CNCORE-307 carries it.
+   */
+  it("reports a thrown `undefined` as the word, which is CNCORE-307 and not silence", () => {
+    expect(reasonFor(undefined)).toStrictEqual({ wrote: "provider", text: "undefined" });
   });
 });
 

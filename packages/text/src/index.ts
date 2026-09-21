@@ -192,19 +192,35 @@ export function unshowable(thing: string): string {
  * reaching for `boundedTo` alone takes a bound that can empty its own sentence
  * and looks finished -- the same shape ADR-0163 watched drift twice.
  *
- * `reasonFor` IN `@canoncore/providers` IS THE PRECEDENT: `bounded(message) ||
- * SILENT`, where SILENT reports the silence rather than dressing it up.
- * CNCORE-92's rule is that a refusal reworded is not a refusal reported, and a
- * value nobody can show is not a value nobody sent.
+ * `reasonFor` IN `@canoncore/providers` WAS THE PRECEDENT AND WAS HALF OF ONE.
+ * `bounded(message) || SILENT` is where the shape of this function came from --
+ * SILENT reports the silence rather than dressing it up, which is CNCORE-92's
+ * rule that a refusal reworded is not a refusal reported. What it did NOT do is
+ * tell the two inputs apart, so it answered a provider that said something
+ * unshowable with the sentence for one that said nothing. ADR-0176 gave it and
+ * the two `boundedProse` fallbacks a second sentence each, reaching
+ * `holdsUnshowable` below for the same question this function asks. The line
+ * now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`.
  */
 export function quotedTo(text: string, max: number, thing: string): string {
   const quoted = boundedTo(text, max);
   if (quoted !== "") return quoted;
-  return strippedToNothing(text) ? unshowable(thing) : "";
+  return holdsUnshowable(text) ? unshowable(thing) : "";
 }
 
 /**
- * Whether the STRIP is why this value has nothing left to show.
+ * Whether this value holds a character `CONTROLS` takes out.
+ *
+ * IT ANSWERS ABOUT THE STRIP AND NOT ABOUT EMPTINESS, and the name says so
+ * because this is EXPORTED. `holdsUnshowable("249\u202e643")` is `true` and that
+ * value is QUOTED, as `249643`, by the strip alone -- so a caller reaching for
+ * this as "the value went" would say "made only of" about a value that partly
+ * survived, which is the one error `UNSHOWABLE`'s own docblock says must not
+ * happen. BOTH CALLERS ASK IT ONLY ONCE THE BOUND HAS COME BACK EMPTY:
+ * `quotedTo` below behind `if (quoted !== "")`, and `boundedOr` in
+ * `@canoncore/providers` behind `bounded(text) ||`. The guard is what turns this
+ * answer into "the strip is why", and it belongs to the caller because only the
+ * caller knows its ceiling.
  *
  * NOTHING THERE IS NOT SOMETHING UNSHOWABLE, and answering the first with the
  * second is the defect this file's own words would otherwise commit.
@@ -223,7 +239,16 @@ export function quotedTo(text: string, max: number, thing: string): string {
  * falls to its caller's own handling of an absent value -- the split
  * `theEntryRefused` keeps by returning `undefined` so `WhichEntry` can say
  * "That entry".
+ *
+ * PUBLISHED FOR THE CALLERS THAT ALREADY HAVE WORDS FOR BOTH ANSWERS (ADR-0176).
+ * `quotedTo` hands back a bare noun phrase or `""`, which is what a caller
+ * interpolating a value into a sentence of its own wants. The three fallbacks in
+ * `@canoncore/providers` are not that shape: each already carries a whole
+ * sentence for the silent case and needs a second one beside it, so what it is
+ * short of is the QUESTION rather than either answer. Spelling that question
+ * there would put a second copy of `CONTROLS` in the package ADR-0163 moved the
+ * levers out of, which is the duplication this file exists to end.
  */
-function strippedToNothing(text: string): boolean {
+export function holdsUnshowable(text: string): boolean {
   return text.replace(CONTROLS, "") !== text;
 }

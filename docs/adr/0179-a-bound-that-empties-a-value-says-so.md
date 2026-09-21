@@ -16,7 +16,12 @@ status: accepted
 > stripped characters and was checked RED first. `ID_IN_A_SENTENCE`'s two copies folded into
 > `theContainerIdQuoted`; `REASON_MAX_LENGTH`, `QUERY_IN_A_SENTENCE`, `ENTRY_MAX` and
 > `BOUNDED_DETAIL` stay where they were, and `@canoncore/text` still holds no ceiling. No provider
-> repository is touched, so nothing is owed at a second one.
+> repository is touched, so nothing is owed at a second one. **The six are this record's own sweep and
+> not a standing total:** CNCORE-305 added three more sentences reaching `unshowable`, in
+> `@canoncore/providers` — a package absent from the four above, and one this record's own "What this
+> does not cover" had named as owing them.
+> [[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] carries those, so the
+> enumeration is dated rather than corrected away.
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] bounds a stranger's text on two levers,
 and [[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]] moved both into `@canoncore/text`
@@ -52,10 +57,18 @@ once the controls are gone, but the UNACTIONABLE one.
 
 ## The answer was already in the tree
 
-`reasonFor` in `packages/providers/src/reason.ts` meets this shape: `bounded(message) || SILENT`,
+`reasonFor` in `packages/providers/src/reason.ts` met this shape: `bounded(message) || SILENT`,
 where `SILENT` reports the silence rather than dressing it up — "the provider failed without saying
 why." CNCORE-92's rule is that **a refusal reworded is not a refusal reported**, so these sentences
 say the value could not be shown rather than printing nothing and leaving the reader to guess.
+
+**It was half a precedent, and the half it was missing is the one this record is about** — it could
+not tell a value that said nothing from one that said nothing showable, which is what the paragraph
+under "What this does not cover" reported against itself. CNCORE-305 gave it a second sentence and
+that line now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`;
+[[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] carries it. The shape quoted
+above is kept as what this record was written from rather than corrected away, because the argument
+for `quotedTo` was taken from it.
 
 ## One phrase, six callers
 
@@ -141,16 +154,10 @@ does not re-derive it:
   `` `${name} declares no browse; it was not asked for one.` `` — fixed prose that cannot empty.
 - `packages/providers/src/client.ts`'s `saidBy` can return `""`, and `failed()` already branches on
   it: `said === "" ? \`${answered}.\` : \`${answered}: ${said}\``. The empty case was handled at that
-  seam before this record existed.
-
-**THREE FALLBACKS IN `@canoncore/providers` STATE THE OPPOSITE OF THIS RECORD, and they predate it.**
-`reasonFor`'s `bounded(message) || SILENT` — "the provider failed without saying why." — and
-`cmpp.ts`'s two `boundedProse` fallbacks all fire on the empty string, so a provider whose message
-was three zero-width spaces is reported as one that said nothing. That is the conflation this record
-forbids, committed by the very code this record cites as its precedent. They differ from the six
-above in having WORDS already; what is wrong is that the words are imprecise, which is a different
-fix in a different package. **CNCORE-305** carries it, and a TODO at `reason.ts` names it. Both axes
-of PR #225's review found it independently.
+  seam before this record existed. **Re-read under CNCORE-305 and the exclusion stands for a better
+  reason: that sentence OMITS rather than contradicts**, telling the Owner a status and nothing about
+  a body. Its COMMENT infers "Said nothing" from `said === ""`, which is this record's conflation, so
+  CNCORE-308 carries whether an unshowable body is worth a third branch.
 
 `shortenTo` keeps its one caller, `shortly`, and owes these words nothing — **but not for the reason
 that first went in here, which a reviewer refuted.** "No prose for the strip to act on" is not an
