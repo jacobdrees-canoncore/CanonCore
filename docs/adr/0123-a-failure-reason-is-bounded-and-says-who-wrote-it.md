@@ -51,17 +51,21 @@ half is the half that consumed the headroom.
 
 **A VALUE CAN ALSO BE BOUNDED BY ITS OWN SYNTAX, AND THEN `shortly` IS THE WRONG TOOL -- under
 CNCORE-244.** `assertConfigAddresses` carries THREE values when it refuses ONE address: the address,
-ipaddr.js's name for its range, and a CIDR the Owner is told to copy into their allowlist. **It
-refuses a LIST of them since CNCORE-287, and that sentence spends its budget differently** -- it
-drops the range name and names the addresses once, because carrying both puts two full-stretch IPv6
-addresses at 318. A remedy whose length grows with its input cannot be made to fit by bounding each
-value, which is what
-[[0174-a-remedy-is-assembled-against-the-cap-that-carries-it]] answers and this paragraph does not. Two of them are addresses, and an
-address that has passed `ipaddr.isValid` is at most 15 characters as IPv4 and 39 as IPv6, so it needs
-no ceiling -- it needs REBUILDING FROM THE PARSE, which is a stronger guarantee than a cut. **The
+ipaddr.js's name for its range, and a CIDR the Owner is told to copy into their allowlist. Two of
+them are addresses, and an address that has passed `ipaddr.isValid` is at most 15 characters as IPv4
+and 39 as IPv6, so it needs no ceiling -- it needs REBUILDING FROM THE PARSE, which is a stronger guarantee than a cut. **The
 difference is not cosmetic: a remedy that has been TRUNCATED is a remedy that cannot work**, which is
 this record's own complaint about the cap eating the clause that says what to change, one layer down
 and with the Owner copying the result.
+
+**AND EVERYTHING ABOVE IS THE SINGLE-ADDRESS REFUSAL ONLY — under CNCORE-287.** That function
+refuses a LIST of addresses now, and the sentence it writes for one spends its budget differently: it
+drops ipaddr.js's range name and names each address ONCE, because carrying both puts two
+full-stretch IPv6 addresses at 318. **Bounding each value cannot make that sentence fit, and every
+value in it is already bounded** — what grows is HOW MANY of them there are, which no per-value
+ceiling reaches. So it is ASSEMBLED against this cap rather than measured against it afterwards, and
+[[0174-a-remedy-is-assembled-against-the-cap-that-carries-it]] is where that rule and its
+measurements live.
 
 **AND THE ONE UNBOUNDED PART OF AN ADDRESS IS ITS SCOPE ID.** `fe80::1%eth0` is valid to ipaddr.js
 2.5.0, `toString` keeps the zone, and an interface name has no length limit. Measured: a 120-character

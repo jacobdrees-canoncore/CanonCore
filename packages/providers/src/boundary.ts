@@ -400,6 +400,12 @@ export type Resolve = (hostname: string) => Promise<ResolvedAddress[]>;
  * accounts for every address that needs one, and only a boundary holding the
  * list can write it.
  *
+ * AN EMPTY LIST IS NOT THIS TYPE'S REFUSAL TO MAKE. Both implementations return
+ * for one, and the refusal a hostname with no address earns is raised in
+ * `pinnedLookup` BEFORE either is called -- which is where it has to be, because
+ * "resolves to no address" is a fact about the host rather than about any
+ * address, and ADR-0123 records it as one raised for both dispatchers.
+ *
  * THE TYPE IS SHARED AND THE RULES ARE NOT, which is ADR-0034's split surviving
  * the change. Both boundaries take the same shape because both answer the same
  * question about the same list; WHICH rule judges a hop is decided once in
@@ -563,8 +569,14 @@ export function assertConfigAddresses(allowlist: Allowlist): AssertAddresses {
  * NOT IMPORTED FROM `reason.ts`, which is where `REASON_MAX_LENGTH` lives and
  * has to stay: that module imports `OutboundRefused` from this one, so reaching
  * back for the constant would close a cycle. `VALUE_MAX` above already reasons
- * about the same 300 without importing it, and a test asserts the two numbers
- * are equal so neither can drift from ADR-0123 unnoticed.
+ * about the same 300 without importing it.
+ *
+ * WHAT STOPS THEM DRIFTING IS A TEST OF THE PROPERTY AND NOT A COMPARISON OF
+ * THE TWO NUMBERS, which neither exports and neither should. A refusal built at
+ * full stretch is passed through `reasonFor` and asserted to come back
+ * UNCHANGED: if this ceiling ever rose above the reason cap, the sentence this
+ * function was careful to fit would be truncated on its way to the page, and
+ * that is the test that goes red.
  */
 const SENTENCE_MAX = 300;
 
@@ -599,9 +611,14 @@ function refusalNaming(cidrs: readonly string[]): string {
   };
 
   // THE FIRST ENTRY IS NOT NEGOTIABLE and needs no room made for it: the fixed
-  // prose plus one 43-character CIDR is 207 characters, so a sentence naming a
+  // prose plus one 43-character CIDR is 206 characters, so a sentence naming a
   // single CIDR fits whatever else is true. Everything after it has to earn its
   // place.
+  //
+  // THE SENTENCE STILL GROWS AFTER THE LIST STOPS, BY THE DIGITS OF TWO COUNTS
+  // -- 263 at four addresses, 264 at ten, 268 at a thousand. That is why the
+  // test below walks N rather than sampling it: the part nothing measures is
+  // the part that was supposed to be fixed-length.
   let listed = cidrs.slice(0, 1);
   for (const cidr of cidrs.slice(1)) {
     const wider = [...listed, cidr];

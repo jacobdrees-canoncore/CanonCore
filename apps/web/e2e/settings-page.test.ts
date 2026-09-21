@@ -545,6 +545,13 @@ function removeFormFor(text: string, provider: string): RenderedForm {
 }
 
 /** One rendered Provider row, by the Provider it is about. */
+/** Every CIDR a refusal quotes back, as the Owner would copy them. */
+function cidrsIn(text: string): string[] {
+  return [...text.matchAll(/`([^`]+)`/g)]
+    .flatMap((match) => (match[1] ?? "").split(", "))
+    .filter((entry) => /\/\d+$/.test(entry));
+}
+
 function rowFor(text: string, provider: string): string {
   const row = sectionIn(text, "providers")
     .split(/<li\b/)
@@ -831,7 +838,7 @@ describe("/settings, unlocking a provider", () => {
    * beside it` tells a stranger to allowlist the Provider they stood up, and an
    * allowlist holding its HOST and not the CIDR its address sits in is what
    * they get by doing exactly that: the name is admitted, and the socket is
-   * refused by `assertConfigAddress` at connect time. Found by walking that
+   * refused by `assertConfigAddresses` at connect time. Found by walking that
    * section by hand on 2026-09-14, on a real install.
    *
    * TWO THINGS WERE WRONG AND THE SECOND IS THE WORSE ONE. The remedy was gone
@@ -872,6 +879,11 @@ describe("/settings, unlocking a provider", () => {
     // the refusal makes does not vary with that, which is why this asserts the
     // promise instead of the environment.
     const resolved = await lookup("localhost", { all: true });
+    // A RESOLVER THAT ANSWERED NOTHING WOULD MAKE THE LOOP BELOW ASSERT
+    // NOTHING, and it would do it while passing. That is ADR-0168's hollow
+    // assertion arriving through the ENVIRONMENT rather than through the code,
+    // which is the one door a mutation test cannot watch.
+    expect(resolved.length).toBeGreaterThan(0);
 
     // THE HALF THE OWNER ACTS ON, which `fetch failed` has none of.
     expect(row).toContain("no allowlisted CIDR covers");
@@ -888,6 +900,10 @@ describe("/settings, unlocking a provider", () => {
     for (const { address, family } of resolved) {
       expect(row).toContain(`${address}/${family === 6 ? 128 : 32}`);
     }
+    // AND ONE REFUSAL ACCOUNTS FOR ALL OF THEM, which the loop alone does not
+    // say: it would pass just as well on a sentence that named the right CIDR
+    // and then a second sentence naming another. The count is the promise.
+    expect(cidrsIn(row)).toHaveLength(resolved.length);
     expect(row).not.toContain("fetch failed");
     // AND SAID PLAINLY, because it is this catalogue's sentence about the
     // Owner's own settings rather than a Provider's claim.

@@ -870,9 +870,20 @@ describe("the client's outbound boundaries", () => {
     // failing record, so the stranger pasted that CIDR and was refused again
     // for `127.0.0.1`. Asking the resolver what it actually answers is what
     // stops this test encoding one machine's record order.
-    for (const { address, family } of await lookup("localhost", { all: true })) {
+    const resolved = await lookup("localhost", { all: true });
+    // WITHOUT THIS THE LOOP BELOW ASSERTS NOTHING ON A RESOLVER THAT ANSWERED
+    // NOTHING, and passes while doing it (ADR-0168).
+    expect(resolved.length).toBeGreaterThan(0);
+    for (const { address, family } of resolved) {
       expect(reason.text).toContain(`${address}/${family === 6 ? 128 : 32}`);
     }
+    // AND ONE REFUSAL ACCOUNTS FOR ALL OF THEM. `boundary.test.ts` pins the
+    // dual-stack contract on FIXED records, because this one can only ever
+    // assert what the machine running it happens to resolve.
+    const quoted = [...reason.text.matchAll(/`([^`]+)`/g)]
+      .flatMap((match) => (match[1] ?? "").split(", "))
+      .filter((entry) => /\/\d+$/.test(entry));
+    expect(quoted).toHaveLength(resolved.length);
     expect(reason.text).not.toContain("fetch failed");
     await client.close();
   });

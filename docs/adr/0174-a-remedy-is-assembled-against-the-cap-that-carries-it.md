@@ -10,8 +10,9 @@ status: accepted
 > characters, so the verdict and the remedy survive at any number of addresses rather than at the
 > numbers somebody happened to try. What could not be named is COUNTED, and the clause that survives
 > every cut is "or your network's range", which is the complete remedy for exactly that case.
-> Measured at every N from one to eight in `packages/providers/src/boundary.test.ts`; the high-water
-> mark is 296. Two assertions hold it, and deleting the bound reddens both.
+> Asserted at every N from one to ten, and at a hundred and a thousand, in
+> `packages/providers/src/boundary.test.ts`; the high-water mark is 296. Deleting the bound reddens
+> the walk from N=4 upward — the exact point at which entries start being dropped.
 
 ## The rule
 
@@ -54,15 +55,28 @@ so every CIDR is 43.
 | dual-stack `localhost`, `::1` and `127.0.0.1` | 184 |
 | two full-stretch ULA | 251 |
 | three full-stretch ULA — **the high-water mark** | 296 |
-| four, and every N above it — names two, counts the rest | 263 |
+| four — names two, counts the rest | 263 |
+| ten | 264 |
+| a thousand | 268 |
 | six, with the bound DELETED | **431**, and `reasonFor` truncates it |
+
+**THE SENTENCE GOES ON GROWING AFTER THE LIST STOPS, AND THE FIRST DRAFT OF THIS RECORD MISSED IT.**
+It claimed 263 for "four, and every N above it". That is true to nine and wrong after: once entries
+are being dropped, what still varies is the DIGITS OF TWO COUNTS — how many addresses were refused,
+and how many were not named — so the "fixed" prose is not fixed. 264 at ten, 268 at a thousand. The
+property survives, because the growth is logarithmic and the cap is 300; the CLAIM did not, because
+it was a figure read off four samples. Found by the Spec axis of this ticket's own review, which is
+the same way CNCORE-287 was found.
 
 The last row is the assertion's proof rather than its premise: the two tests that hold this rule were
 checked by deleting the behaviour they name ([[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]),
 and both go red.
 
 **ONE ENTRY ALWAYS FITS AND NEEDS NO ROOM MADE FOR IT.** The fixed prose plus a single 43-character
-CIDR is 207, so the list is never empty and the sentence never degrades to a count with no example.
+CIDR is 206, so the list is never empty and the sentence never degrades to a count with no example.
+That figure was 207 in this record's first draft, off by one against the string the function actually
+builds — which is the whole reason the loop MEASURES the finished sentence rather than trusting an
+arithmetic budget written beside it.
 
 ## What the sentence spends its budget on, and what it gives up
 

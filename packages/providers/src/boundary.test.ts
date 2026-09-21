@@ -484,6 +484,10 @@ describe("a config address", () => {
 
     // BOTH ADDRESSES, as CIDRs to paste rather than as addresses to compose.
     expect(cidrsQuotedIn(refusal)).toEqual(["::1/128", "127.0.0.1/32"]);
+    // AND CNCORE-244'S BOTH-HALVES CLAUSE SURVIVES INTO THIS BRANCH TOO. The
+    // two refusals are assembled separately and share this sentence word for
+    // word, so it is asserted on both or it drifts on one.
+    expect(refusal).toContain("Its host is allowlisted; that admits the name only.");
     // AND EACH ONE REALLY ADMITS THE ADDRESS IT WAS OFFERED FOR, through the
     // Owner's own path: `parseAllowlist` and then the boundary itself.
     expect(admitsAfterAllowlisting("::1/128", "::1")).toBe(true);
@@ -540,6 +544,47 @@ describe("a config address", () => {
       expect(admitsAfterAllowlisting(cidr, cidr.replace("/128", ""))).toBe(true);
     }
   });
+
+  /**
+   * AND THE CAP HOLDS AT EVERY N, WHICH IS THE CLAIM -- not at the handful of
+   * sizes somebody happened to try.
+   *
+   * THIS TEST EXISTS BECAUSE THE SENTENCE GOES ON GROWING AFTER THE LIST STOPS.
+   * Once entries are being dropped, the part that varies is the DIGITS OF TWO
+   * COUNTS -- how many addresses were refused, and how many were not named --
+   * so the "fixed" prose is not fixed: 263 characters at four addresses, 264 at
+   * ten, 268 at a thousand. A test that sampled two sizes and found them
+   * comfortable would have missed that the shape grows at all.
+   *
+   * A THOUSAND IS NOT A REALISTIC DNS ANSWER, and that is the point: the
+   * property is "cannot overflow", and a property is not checked at the sizes
+   * its author expects.
+   */
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000])(
+    "keeps the whole sentence inside ADR-0123's cap at %i addresses",
+    (count) => {
+      const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
+      // Each rendering at the full 39 characters IPv6 allows, so every CIDR it
+      // could name is the longest one it could ever be handed.
+      const many = Array.from(
+        { length: count },
+        (_, i) =>
+          `fd12:3456:789a:${(0xbcde + i).toString(16).padStart(4, "0")}:f012:3456:789a:bcde`,
+      );
+
+      const refusal = refusalFrom(() => assert(many));
+
+      // 300 written out, so ADR-0123's constant cannot assert itself.
+      expect(refusal.length).toBeLessThanOrEqual(300);
+      // THE REMEDY IS THE LAST THING IN THE SENTENCE, so asserting it survived
+      // whole is asserting that nothing was cut off the end.
+      expect(refusal.endsWith("or your network's range (ADR-0034).")).toBe(true);
+      // AND THE LIST IS NEVER EMPTY: a count with no example to copy is not a
+      // remedy, and one 43-character CIDR fits at 206 characters whatever else
+      // is true.
+      expect(cidrsQuotedIn(refusal).length).toBeGreaterThanOrEqual(1);
+    },
+  );
 
   /**
    * THE CEILING THIS SENTENCE IS ASSEMBLED AGAINST IS ADR-0123'S, ASSERTED
