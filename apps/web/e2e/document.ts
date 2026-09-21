@@ -466,6 +466,21 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
 }
 
 /**
+ * THE ROUTER AT AN INSTANCE, over the same HTTP its pages are read over, asking
+ * as whoever `headersWith` says is asking: the session behind a cookie
+ * `logInAt` handed back, or nobody, which is all an `openProcedure` needs.
+ *
+ * ONE FUNCTION, where each file in `e2e/` and `live/` that asked the router
+ * used to write the constructor out (CNCORE-323). `aTokenForTheOwner` is the
+ * router suites' own and not this: it logs in inside the calling process and
+ * hands back a token rather than a cookie, so this suite would have to spell
+ * the cookie out -- which `logInAt` above declines to do.
+ */
+export function clientAt(baseUrl: string, cookie?: string): AppRouterClient {
+  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: headersWith(cookie) }));
+}
+
+/**
  * ONE GROUP, CREATED WHILE A COMPARISON IS HALF-MADE: the adversary the
  * byte-for-byte assertions are held against (CNCORE-253, CNCORE-271).
  *
@@ -489,10 +504,9 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
  * it guards passing for the wrong reason.
  */
 export async function aGroupArrivesAt(baseUrl: string, cookie: string): Promise<void> {
-  const asTheOwner: AppRouterClient = createORPCClient(
-    new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }),
-  );
-  await asTheOwner.group.create({ name: `A Group that arrived mid-read ${crypto.randomUUID()}` });
+  await clientAt(baseUrl, cookie).group.create({
+    name: `A Group that arrived mid-read ${crypto.randomUUID()}`,
+  });
 }
 
 /**

@@ -1,11 +1,9 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { assertPlacement, createDb, type Database, sources } from "@canoncore/db";
 import { anItem, aStatement } from "@canoncore/db/testing/catalogue";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { logInAt } from "./document";
+import { clientAt, logInAt } from "./document";
 import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
@@ -117,9 +115,7 @@ beforeAll(async () => {
   // LOGGED IN, because a browse WRITES and writing is the owner's since
   // CNCORE-109. The cookie is the one the login page hands a browser.
   const cookie = await logInAt(inject("baseUrl"), inject("ownerPassword"));
-  client = createORPCClient(
-    new RPCLink({ url: `${inject("baseUrl")}/api/rpc`, headers: { cookie } }),
-  );
+  client = clientAt(inject("baseUrl"), cookie);
 
   // THE WIKI'S HALF, IMPORTED FOR REAL, through the app and then over HTTP to
   // the provider. Nothing here writes a wiki position.

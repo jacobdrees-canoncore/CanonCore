@@ -29,12 +29,10 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { logInAt } from "../e2e/document";
+import { clientAt, logInAt } from "../e2e/document";
 import { OWNER_PASSWORD, theAppBuilt, theBuildServing } from "../e2e/instance";
 import { theProviderServing } from "./provider";
 
@@ -121,7 +119,7 @@ beforeAll(async () => {
   const server = await theBuildServing(owned, env);
 
   const cookie = await logInAt(server.baseUrl, OWNER_PASSWORD);
-  client = createORPCClient(new RPCLink({ url: `${server.baseUrl}/api/rpc`, headers: { cookie } }));
+  client = clientAt(server.baseUrl, cookie);
 
   for (const timeline of TIMELINES) {
     const began = Date.now();
