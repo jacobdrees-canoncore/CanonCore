@@ -2490,6 +2490,40 @@ describe("provider.importNextContainer", () => {
   });
 
   /**
+   * AND THAT SENTENCE NAMES THE ID, OR SAYS WHY IT CANNOT (ADR-0179). This is
+   * the THIRD refusal quoting a Container id, and the one a grep for
+   * `boundedTo` does not find: it reaches the levers through `bounded`, the
+   * wrapper `@canoncore/providers` publishes, so the sweep that fixed the other
+   * two walked straight past it.
+   *
+   * IT IS REACHABLE ON THE OWNER'S OWN LIST. `containerId` is bounded by
+   * `z.string().min(1)`, which three zero-width spaces satisfy, and the id
+   * travels from `beginImportRun`'s list -- where 3 characters clears ADR-0160's
+   * 255 ceiling -- to this sentence. The Provider holds nothing at it, which is
+   * ADR-0066's ANSWER rather than a failure, and unpatched the Owner reads
+   * "That Provider holds no Container at ." with a bare full stop where their
+   * id should be.
+   */
+  it("names an unshowable id in the sentence saying nothing is held at it", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["\u200b\u200b\u200b"] },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({
+      answer: "refused",
+      reason: {
+        wrote: "canoncore",
+        text: "That Provider holds no Container at an id made only of characters that cannot be shown.",
+      },
+    });
+  });
+
+  /**
    * ADR-0033 makes `browse` the operation a Provider may DECLINE, so a Provider
    * offering only `search` and `lookup` is well-formed. The run says so against
    * every Container rather than reading as a Provider that is broken.

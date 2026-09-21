@@ -11,7 +11,7 @@ import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
-import { oneBecause, theEntryRefused, type WhyItWasRefused } from "./refusal";
+import { oneBecause, theEntryRefused, UNSHOWABLE_ENTRY, type WhyItWasRefused } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -308,9 +308,18 @@ function ByItsBaseUrl() {
  * else: every redirect this app writes carries both. Rather than render a
  * sentence opening with a gap, it opens with a phrase that is true of the state
  * -- the Owner is reading a page they were sent to by editing its address.
+ *
+ * AND A THIRD STATE, WHICH IS CANONCORE'S OWN WORDS ABOUT THE ENTRY RATHER
+ * THAN THE ENTRY (ADR-0179). An entry made only of stripped characters has
+ * nothing to show, so `theEntryRefused` answers with a sentence describing it.
+ * That sentence must NOT go through `TheirWords`: that component is for
+ * somebody else's text, and the `font-medium` around it is how this page marks
+ * a value as QUOTED. Rendering our own description there would attribute it to
+ * the Owner -- ADR-0123's `wrote` distinction, lost at the last inch.
  */
 function WhichEntry({ entry }: { entry?: string }) {
   if (entry === undefined) return <>That entry</>;
+  if (entry === UNSHOWABLE_ENTRY) return <>{entry}</>;
   return (
     <span className="font-medium">
       <TheirWords>{entry}</TheirWords>

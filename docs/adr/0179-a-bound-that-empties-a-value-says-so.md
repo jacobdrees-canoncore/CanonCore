@@ -9,10 +9,11 @@ status: accepted
 > every caller that bounds a stranger's value reaches one of them: the repeat's refusal
 > (`packages/db/src/import-runs.ts`), the overlong-id refusal (`packages/api/src/routers/provider.ts`),
 > `theQueryQuoted` at `/search` and `/import` (`apps/web/src/components/query-params.ts`),
-> `theEntryRefused` at `/settings` (`apps/web/src/app/settings/refusal.ts`) and a task's `detail`
-> (`packages/tasks/src/registry.ts`). That is FIVE sites in four packages, counted by grepping
-> `boundedTo`'s callers and reading each. A witness at each seam drives a value of only stripped
-> characters and was checked RED first. `ID_IN_A_SENTENCE`'s two copies folded into
+> `theEntryRefused` at `/settings` (`apps/web/src/app/settings/refusal.ts`), a task's `detail`
+> (`packages/tasks/src/registry.ts`) and the "holds no Container at" refusal
+> (`packages/api/src/routers/provider.ts`). That is SIX sites in four packages, counted by grepping
+> `boundedTo` AND `bounded` and reading each caller. A witness at each seam drives a value of only
+> stripped characters and was checked RED first. `ID_IN_A_SENTENCE`'s two copies folded into
 > `theContainerIdQuoted`; `REASON_MAX_LENGTH`, `QUERY_IN_A_SENTENCE`, `ENTRY_MAX` and
 > `BOUNDED_DETAIL` stay where they were, and `@canoncore/text` still holds no ceiling. No provider
 > repository is touched, so nothing is owed at a second one.
@@ -38,10 +39,11 @@ once the controls are gone, but the UNACTIONABLE one.
 
 `trim()` does not remove U+200B, and nothing upstream of these seams does either:
 
-- **The two id refusals.** `theContainerIdsIn` drops blank lines and `#` comments only, so a line of
-  three zero-width spaces is a non-blank line that becomes a Container id and clears ADR-0160's
+- **The three id refusals.** `theContainerIdsIn` drops blank lines and `#` comments only, so a line
+  of three zero-width spaces is a non-blank line that becomes a Container id and clears ADR-0160's
   255-character ceiling with 252 to spare. Listed twice it reaches the repeat's sentence; at 256 of
-  them it reaches the overlong one instead.
+  them it reaches the overlong one; walked by `importNextContainer` against a Provider holding
+  nothing at it, it reaches the third.
 - **`theQueryQuoted` and `theEntryRefused`.** Both guard with `oneValue`, which tests
   `parameter.trim() !== ""` — so `?q=` and `?refused=` of three zero-width spaces are NOT blank by
   that test and arrive whole, off an address anybody can compose.
@@ -55,11 +57,11 @@ where `SILENT` reports the silence rather than dressing it up — "the provider 
 why." CNCORE-92's rule is that **a refusal reworded is not a refusal reported**, so these sentences
 say the value could not be shown rather than printing nothing and leaving the reader to guess.
 
-## One phrase, five callers
+## One phrase, six callers
 
-**The phrase is "made only of characters that cannot be shown", and it lives in one place.** Five
+**The phrase is "made only of characters that cannot be shown", and it lives in one place.** Six
 sites across four packages owe the same sentence. Each composing its own `boundedTo(...) || "..."`
-would ship ONE concept in five voices, which is a two-readings defect rather than a matter of taste —
+would ship ONE concept in six voices, which is a two-readings defect rather than a matter of taste —
 a reader meeting "an unprintable id" on one page and "a query with no showable characters" on the
 next has no way to know they are the same fact.
 
@@ -76,9 +78,10 @@ one the tree enforces.
 `boundedProse`'s argument that no house sentence fits every field is kept: what is shared is the
 phrase, not the sentence.
 
-**`quotedTo` for four callers, `unshowable` for one.** Four interpolate a value into a sentence they
+**`quotedTo` for five callers; the sixth wraps it.** Five interpolate a value into a sentence they
 wrote and need a bare noun phrase — "an id", "a query", "an entry". A task's `detail` IS the
-sentence the page prints, so it takes a capital and a full stop. They are published side by side on
+sentence the page prints, so it calls `quotedTo` and adds a full stop when the answer is the
+fallback, comparing against `unshowable("A detail")` rather than re-spelling the phrase. They are published side by side on
 the same argument that publishes `shortenTo` beside `boundedTo`: a fork in the road needs the
 doc comment saying which way each caller goes.
 
@@ -108,14 +111,55 @@ same shape for an id: one function, reached by both sites that print one. It liv
 depends on nothing and knows about no Containers; `@canoncore/api` already imports `beginImportRun`
 and `ImportRunRefused` from that package, so the refusal and the words it may use arrive together.
 
+## The count was five until it was six, which is this record's own evidence
+
+**The first sweep here missed a site, and missed it the same way ADR-0163 did.** That record had to
+add a paragraph about itself after a reviewer found two sites its list had not seen, and concluded:
+**a count of `boundedTo`'s callers is not a count of the places that owe it.** This record then
+grepped `boundedTo`, found five, and wrote "five" into the sentence above.
+
+**The sixth reaches the levers through `bounded`**, the wrapper `@canoncore/providers` publishes for
+a reason's 300. `oneContainerIntoTheCatalogue` built `That Provider holds no Container at
+${bounded(containerId)}.`, so a grep for the lever's NAME could never find it. It is a refusal
+quoting a Container id — the very thing this record is about — and it was reachable on the Owner's
+own list, `containerId` being bounded by `z.string().min(1)` which three zero-width spaces satisfy.
+Unpatched it read `That Provider holds no Container at .`
+
+**It also quoted that id at 300 rather than at 80**, a third spelling of one rule, which is the
+duplication `theContainerIdQuoted` exists to end. Folding it onto that function fixed both at once.
+
+**The lesson is sharper than "grep harder".** A wrapper renames a mechanism, and a sweep that
+searches for the mechanism's name finds callers of the name rather than callers of the mechanism.
+The honest statement of coverage is therefore about what was READ, not what was matched.
+
 ## What this does not cover
 
-**The five sites are the callers of `boundedTo` that existed on 2026-09-21**, found by grepping it
-and reading each. ADR-0163 had to add a paragraph about itself after a reviewer found two sites its
-own list had missed, and its conclusion is the one to keep here: **a count of `boundedTo`'s callers
-is not a count of the places that owe it.** Nothing in this tree reports a surface that prints a
-value it did not write without passing through one of these functions, so the list is only ever as
-good as the last reading of it.
+**The other two callers of `bounded` were read and owe nothing**, recorded here so the next sweep
+does not re-derive it:
 
-`shortenTo` keeps its one caller, `shortly`, which quotes parsed URLs, hosts and addresses. There is
-no prose there for the strip to act on, so it cannot empty a value and owes these words nothing.
+- `packages/api/src/routers/provider.ts`'s `BrowseNotOffered` branch bounds a message built as
+  `` `${name} declares no browse; it was not asked for one.` `` — fixed prose that cannot empty.
+- `packages/providers/src/client.ts`'s `saidBy` can return `""`, and `failed()` already branches on
+  it: `said === "" ? \`${answered}.\` : \`${answered}: ${said}\``. The empty case was handled at that
+  seam before this record existed.
+
+**THREE FALLBACKS IN `@canoncore/providers` STATE THE OPPOSITE OF THIS RECORD, and they predate it.**
+`reasonFor`'s `bounded(message) || SILENT` — "the provider failed without saying why." — and
+`cmpp.ts`'s two `boundedProse` fallbacks all fire on the empty string, so a provider whose message
+was three zero-width spaces is reported as one that said nothing. That is the conflation this record
+forbids, committed by the very code this record cites as its precedent. They differ from the six
+above in having WORDS already; what is wrong is that the words are imprecise, which is a different
+fix in a different package. **CNCORE-305** carries it, and a TODO at `reason.ts` names it. Both axes
+of PR #225's review found it independently.
+
+`shortenTo` keeps its one caller, `shortly`, and owes these words nothing — **but not for the reason
+that first went in here, which a reviewer refuted.** "No prose for the strip to act on" is not an
+argument about `shortenTo` at all: that function never strips, it only cuts. What makes it safe is
+arithmetic. `shortenTo` returns `""` only through `if (max <= MARKER.length) return MARKER.slice(0,
+Math.max(0, max))`, which needs a ceiling of 0, and `shortly`'s `VALUE_MAX` is 80. So the guarantee
+rests on its caller's number rather than on the shape of its input, and it would break if a ceiling
+of 0 were ever passed. Written down because the wrong reason for a right conclusion is what survives
+into the next record that cites it.
+
+**Nothing in this tree reports a surface that prints a value it did not write**, so this list is
+only ever as good as the last reading of it — and one reading of it was already wrong by one.

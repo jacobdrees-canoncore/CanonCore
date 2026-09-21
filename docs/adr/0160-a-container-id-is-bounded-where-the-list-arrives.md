@@ -6,8 +6,10 @@ status: accepted
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** `provider.beginImportRun` refuses a Container
 > id over 255 characters before it opens a run, naming the id, its length and where it sits; the id
-> is bounded on both of ADR-0123's levers where it enters that sentence, through one `boundedTo`
-> call rather than a fourth hand-written copy of them; and four tests at ADR-0103's router seam
+> is bounded on both of ADR-0123's levers where it enters that sentence, through one call rather
+> than a fourth hand-written copy of them (`boundedTo` when this was taken; `theContainerIdQuoted`
+> since [[0179-a-bound-that-empties-a-value-says-so]], which adds the words for an id the strip
+> empties and carries the ceiling with them); and four tests at ADR-0103's router seam
 > drive the refusal, the boundary, the control characters and the dearest id the bound admits
 > (`packages/api/src/routers/provider.test.ts`). No provider repository is touched, so nothing is
 > owed at a second one.
@@ -167,5 +169,7 @@ reach, which is a decision rather than a line: **CNCORE-282**.
 
 **CLOSED, AND BY THE SECOND OPTION**
 ([[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]]). The levers live in
-`@canoncore/text` and the repeat's sentence bounds its id on both at a ceiling of 80, beside the
-sentence it bounds. The two hand-written copies this paragraph names are gone with it.
+`@canoncore/text` and the repeat's sentence bounds its id on both at a ceiling of 80. The two
+hand-written copies this paragraph names are gone with it. **That ceiling is no longer spelled
+BESIDE the sentence**: ADR-0179 folded its two copies into `theContainerIdQuoted`, because the
+words for an emptied id made it three things kept in step by hand rather than one.

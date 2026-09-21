@@ -214,6 +214,24 @@ describe("what a break wrote", () => {
    * prints, so it takes a capital and a full stop -- `unshowable` exists for
    * exactly this, and the PHRASE is still the shared one.
    */
+  /**
+   * A TASK THAT SAID NOTHING SAID NOTHING (ADR-0179). `task.run` answers a
+   * string and "" is one a working task may return, so answering it with "A
+   * detail made only of characters that cannot be shown." would state that
+   * something was stripped when nothing was -- the conflation this record
+   * refuses, committed by its own remedy. `tasks/page.tsx`'s "It said nothing."
+   * is the sentence for this, and it is reached by the column staying empty.
+   */
+  it("leaves a task that said nothing saying nothing, rather than claiming a strip", async () => {
+    const key = "said_nothing_at_all";
+    const registry = createRegistry([aTask({ key, run: async () => "" })]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("");
+  });
+
   it("says a detail was made only of unshowable characters, rather than storing nothing", async () => {
     const key = "rewriting_only_controls";
     const registry = createRegistry([

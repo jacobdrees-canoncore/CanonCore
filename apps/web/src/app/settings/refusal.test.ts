@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { theEntryRefused } from "./refusal";
+import { theEntryRefused, UNSHOWABLE_ENTRY } from "./refusal";
 
 /**
  * ADR-0179. `/settings` reads `?refused=` off an address anybody can compose
@@ -29,6 +29,18 @@ describe("theEntryRefused", () => {
   it("leaves an absent entry absent rather than naming it unshowable", () => {
     expect(theEntryRefused(undefined)).toBeUndefined();
     expect(theEntryRefused("   ")).toBeUndefined();
+  });
+
+  /**
+   * THE PAGE COMPARES AGAINST THIS EXACT STRING, so the two must not drift.
+   * `WhichEntry` renders a real entry inside `TheirWords` and renders this one
+   * plainly, because the first is the Owner's text and the second is
+   * CanonCore's words ABOUT it (ADR-0123's `wrote` distinction). A rename on
+   * either side would silently put our sentence back in their voice, and
+   * nothing else in the tree would notice.
+   */
+  it("answers the exact string the page tells apart from the Owner's own text", () => {
+    expect(theEntryRefused("\u200b\u200b\u200b")).toBe(UNSHOWABLE_ENTRY);
   });
 
   /** The partly-unshowable entry is still quoted, by the strip alone. */

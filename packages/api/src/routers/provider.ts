@@ -571,16 +571,6 @@ function asReportedContainer(container: RunContainer): z.infer<typeof runContain
  */
 const CONTAINER_ID_MAX_LENGTH = 255;
 
-/*
- * THE ID THIS SENTENCE QUOTES IS BOUNDED BY `theContainerIdQuoted`, WHICH IS
- * WHERE THE CEILING WENT (ADR-0179). This file spelled `ID_IN_A_SENTENCE = 80`
- * beside `import-runs.ts` spelling the same 80, each docblock telling the next
- * reader it was "TAKEN RATHER THAN CHOSEN AGAIN" -- a copy kept in step by a
- * comment asking for it to be kept in step, which is the instrument ADR-0163
- * proved does not work after watching its own levers drift twice. The ceiling,
- * both levers and the words for an id that strips to nothing are now one
- * function in `@canoncore/db`, reached by this refusal and by the repeat's.
- */
 /**
  * The first id on this list that is longer than a Container id may be, and
  * where it sits, or `undefined` if every one of them fits.
@@ -633,13 +623,28 @@ async function oneContainerIntoTheCatalogue(
   try {
     const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId });
     if (browsed) return { landed: browsed };
-    // ADR-0066: an id that addresses nothing is an ANSWER. The sentence is
-    // CanonCore's own, because nothing went wrong at the Provider -- attributing
-    // it to one would send the Owner to look at a machine that is working.
+    /*
+     * ADR-0066: an id that addresses nothing is an ANSWER. The sentence is
+     * CanonCore's own, because nothing went wrong at the Provider -- attributing
+     * it to one would send the Owner to look at a machine that is working.
+     *
+     * THE THIRD REFUSAL QUOTING A CONTAINER ID, AND THE ONE A GREP FOR
+     * `boundedTo` DOES NOT FIND (ADR-0179). It reached the levers through
+     * `bounded`, the wrapper `@canoncore/providers` publishes for a REASON's
+     * 300, so the sweep that fixed the repeat's sentence and the overlong one
+     * walked past it and the record's own count said five. Unpatched this read
+     * "That Provider holds no Container at ." -- a bare full stop where the
+     * Owner's id should be.
+     *
+     * AND THE CEILING BECOMES 80, WHICH IS THE POINT OF SHARING THE FUNCTION.
+     * This quoted an id at a REASON's 300 while the other two quoted one at
+     * ADR-0123's 80 for a value a refusal interpolates -- a third spelling of
+     * one rule, which is what `theContainerIdQuoted` exists to end.
+     */
     return {
       refused: {
         wrote: "canoncore",
-        text: `That Provider holds no Container at ${bounded(containerId)}.`,
+        text: `That Provider holds no Container at ${theContainerIdQuoted(containerId)}.`,
       },
     };
   } catch (error) {

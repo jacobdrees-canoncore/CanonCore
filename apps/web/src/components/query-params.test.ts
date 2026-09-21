@@ -25,6 +25,16 @@ describe("theQueryQuoted", () => {
   });
 
   /**
+   * AN ABSENT QUERY IS NOT AN UNSHOWABLE ONE. `/search` passes "" deliberately
+   * -- "the empty string is this page's answer to 'nothing asked'" -- so words
+   * here would put a sentence about stripped characters on a page whose reader
+   * has typed nothing at all.
+   */
+  it("leaves an absent query empty rather than claiming it was stripped", () => {
+    expect(theQueryQuoted("")).toBe("");
+  });
+
+  /**
    * THE PARTLY-UNSHOWABLE QUERY IS STILL QUOTED, by the strip alone, which is
    * why the words say "made only of". A reader who typed a query with one
    * override in it reads their own query back.

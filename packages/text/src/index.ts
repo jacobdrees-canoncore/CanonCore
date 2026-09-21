@@ -158,8 +158,8 @@ export function boundedTo(text: string, max: number): string {
  * trade. A witness in `index.test.ts` goes red if it is shortened back.
  *
  * ONE PHRASE FOR EVERY CALLER, WHICH IS WHY IT IS HERE RATHER THAN AT EACH.
- * Five sites owe these words and they sit in four packages; each composing its
- * own `boundedTo(...) || "..."` would ship ONE concept in five voices, which is
+ * Six sites owe these words and they sit in four packages; each composing its
+ * own `boundedTo(...) || "..."` would ship ONE concept in six voices, which is
  * the two-readings defect rather than a matter of taste. The NOUN is the
  * caller's because only it knows what the value is, and the FRAME is the
  * caller's too -- `boundedProse`'s argument that no house sentence fits every
@@ -198,5 +198,32 @@ export function unshowable(thing: string): string {
  * value nobody can show is not a value nobody sent.
  */
 export function quotedTo(text: string, max: number, thing: string): string {
-  return boundedTo(text, max) || unshowable(thing);
+  const quoted = boundedTo(text, max);
+  if (quoted !== "") return quoted;
+  return strippedToNothing(text) ? unshowable(thing) : "";
+}
+
+/**
+ * Whether the STRIP is why this value has nothing left to show.
+ *
+ * NOTHING THERE IS NOT SOMETHING UNSHOWABLE, and answering the first with the
+ * second is the defect this file's own words would otherwise commit.
+ * `/search` passes "" deliberately -- "the empty string is this page's answer
+ * to 'nothing asked'" -- and a task may return one from a run that worked. Both
+ * would read as "made only of characters that cannot be shown", stating that
+ * something was stripped when nothing was.
+ *
+ * `trim()` IS THE WRONG TEST AND U+FEFF IS WHY. It is whitespace to
+ * `String.prototype.trim` AND a member of the zero-width family, so a guard
+ * spelled `text.trim() === ""` would answer "nothing there" for exactly the
+ * value these words exist to name. This asks whether `CONTROLS` removed
+ * anything, which is the question actually being asked.
+ *
+ * ORDINARY WHITESPACE IS SHOWABLE, so a value of spaces answers `false` and
+ * falls to its caller's own handling of an absent value -- the split
+ * `theEntryRefused` keeps by returning `undefined` so `WhichEntry` can say
+ * "That entry".
+ */
+function strippedToNothing(text: string): boolean {
+  return text.replace(CONTROLS, "") !== text;
 }

@@ -1,5 +1,5 @@
 import type { WhyNotNamed } from "@canoncore/providers";
-import { quotedTo } from "@canoncore/text";
+import { quotedTo, unshowable } from "@canoncore/text";
 
 import { oneValue } from "@/components/query-params";
 
@@ -142,3 +142,16 @@ export function theEntryRefused(parameter: string | string[] | undefined): strin
   const entry = oneValue(parameter);
   return entry === undefined ? undefined : quotedTo(entry, ENTRY_MAX, "an entry");
 }
+
+/**
+ * WHAT `theEntryRefused` ANSWERS WHEN THE ENTRY CANNOT BE SHOWN, published so
+ * the page can tell CanonCore's words from the Owner's (ADR-0179).
+ *
+ * `WhichEntry` renders a real entry inside `TheirWords` and `font-medium`,
+ * which is how that page marks a value as QUOTED. The sentence above is not a
+ * quote, it is this app describing the entry, so it must render plainly --
+ * ADR-0123's `wrote` distinction, which a page loses at the last inch if it
+ * cannot tell the two apart. Compared against rather than re-spelled, so the
+ * phrase still lives in exactly one place.
+ */
+export const UNSHOWABLE_ENTRY = unshowable("an entry");
