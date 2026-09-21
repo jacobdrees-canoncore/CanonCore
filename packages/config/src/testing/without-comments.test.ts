@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./repo-root";
 import { trackedFiles } from "./tracked-files";
-import { withoutComments } from "./without-comments";
+import { commentsIn, withoutComments } from "./without-comments";
 
 /**
  * THE ROWS BELOW ARE A MEASUREMENT OF A DEFECT, not a restatement of the scan.
@@ -201,3 +201,52 @@ describe("source with its comments taken out", () => {
     expect(/^[ \t]*export const b/m.test(withoutComments(source))).toBe(true);
   });
 });
+
+describe("the comments in a source", () => {
+  /**
+   * A `/` IS A REGEX OR A DIVISION BY THE TOKEN BEFORE IT, and each row below is one shape of that
+   * token. Every source is invented, and this block is the same in all three suites that hold the
+   * scan.
+   *
+   * THIS TABLE IS THE DIRECTION THAT DELETES. A regex read as division is read as code, so the
+   * `/*` inside it opens a comment that runs to the next `*\/`, and `/** a *\/` goes with it. The
+   * first row is the shape CNCORE-324 was filed in. Every row but `return` and the operator was
+   * red before that ticket, and those two are the shapes that already held. The `if` head calls
+   * a function, so the scan has to know which `(` its `)` closes and not only the last one opened.
+   */
+  it.each([
+    ["after `=>`", "const hasStar = (s: string) => /a\\/*/.test(s);"],
+    ["after the `)` of an `if` head", "if (ready(s)) /a\\/*/.test(s);"],
+    ["after `default`", "export default /a\\/*/;"],
+    ["after `extends`", "class Pattern extends /a\\/*/.constructor {}"],
+    ["after `...`", "const parts = [.../a\\/*/.exec(s)];"],
+    ["after `return`", "return /a\\/*/.test(s);"],
+    ["after an operator", 'const starred = s === "" || /a\\/*/.test(s);'],
+  ])("do not open inside a regex literal %s", (_, line) => {
+    const source = [line, "/** a */", "/** b */", "export const b = 1;"].join("\n");
+
+    expect(texts(source)).toStrictEqual(["/** a */", "/** b */"]);
+  });
+
+  /**
+   * AND THIS ONE IS THE DIRECTION THAT DOES NOT. A division read as a regex runs to the next `/`
+   * on its line, so the comment after it is read as code and survives, and a regex cannot span a
+   * line, so the loss stops there. Each row is red if its token joins the table above: an
+   * expression's `)` is why only a head's `)` does, and `</td>` is why `<` never does.
+   */
+  it.each([
+    ["an identifier", "const half = total / 2; /* a comment */ const third = total / 3;"],
+    ["an expression's `)`", "const half = (a + b) / 2; /* a comment */ const third = (a + b) / 3;"],
+    ["`]`", "const half = sizes[0] / 2; /* a comment */ const third = sizes[0] / 3;"],
+    [
+      "the `<` of a closing JSX tag",
+      "const cell = <td>{n}</td>; /* a comment */ const row = <tr></tr>;",
+    ],
+  ])("open after a division that follows %s", (_, line) => {
+    expect(texts(line)).toStrictEqual(["/* a comment */"]);
+  });
+});
+
+function texts(source: string): string[] {
+  return commentsIn(source).map((comment) => comment.text);
+}

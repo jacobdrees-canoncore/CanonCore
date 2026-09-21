@@ -121,9 +121,10 @@ app, so a copy was the only route, and a pattern was not one, for 0177's reason.
 the sweep that no docblock is left standing came with it, in `test/without-comments.test.ts`. The
 four files, with the `git ls-files` read they share, are byte-identical across the two repositories.
 
-**THAT IS THREE COPIES OF THE SCAN, AND NOTHING HOLDS THEM TOGETHER.** Only the prose differs from
-this tree's, and the scan's own docblock here now says a change to it is a change to carry there by
-hand. It is the caveat the provider repositories already carry for their other twinned files.
+**THAT IS THREE COPIES OF THE SCAN, AND NOTHING HOLDS THEM TOGETHER.** Since CNCORE-324 not even
+the prose differs from this tree's: the file is byte-identical in all three, docblock included, and
+that docblock says a change to it is a change to carry to the other two by hand. It is the caveat
+the provider repositories already carry for their other twinned files.
 
 **The directive exemption is not carried.** Neither provider writes a directive.
 

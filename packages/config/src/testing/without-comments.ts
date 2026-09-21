@@ -1,95 +1,75 @@
 /**
- * A source with its comments taken out, SCANNED rather than matched, so a `/*`
- * inside a string is text and not the start of a comment.
+ * A source with its comments taken out, SCANNED rather than matched, so a `/*` inside a string is
+ * text and not the start of a comment.
  *
- * A SUITE THAT READS SOURCE AS TEXT has to do this first, because a comment is
- * prose ABOUT code and a suite counting a token would count its own prose saying
- * it out loud. `prefetch-condition.test.ts` explains the
- * rule using the word `prefetch`; `tree-figures.ts` quotes `redirect()` in the
- * paragraph above the call it is counting; `turbo-cache-inputs.test.ts` writes
- * `../../../` into a note about climbs and measured that sentence alone
- * reporting `packages/config` as reaching outside itself. Without this they each
- * argue with whoever documents them.
+ * THIS FILE IS BYTE-IDENTICAL IN THREE REPOSITORIES, AND NOTHING ENFORCES THAT. CanonCore holds it
+ * at `packages/config/src/testing/without-comments.ts`, and `provider-wiki` and `provider-tmdb`
+ * each at `test/setup/without-comments.ts`, because CanonCore's [[0031-a-provider-is-a-url]] lets
+ * no code cross the boundary between a provider and the app. A change to one is a change to carry
+ * to the other two by hand, and a diff says whether it was. THE PROSE IS COPIED WITH THE CODE
+ * (CNCORE-324), so each file named below says which repository holds it, and a sentence corrected
+ * in one copy is corrected in all three. Every record cited is in CanonCore's `docs/adr/`.
  *
- * IT IS A SCAN BECAUSE A REGULAR EXPRESSION CANNOT DO IT, and the four copies
- * this replaces were four copies of the same defect (CNCORE-300).
- * [[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]] carries the
- * decision, the measurement, and the TypeScript scanner that was tried first.
- * `source.replace(/\/\*[\s\S]*?\*\//g, " ")` does not know a string literal from
- * code, so ANY `/*` opens a comment and swallows source to the next `*\/`. Two
- * spellings in this tree do exactly that -- a glob like `"**\/*"`, which
- * `apps/web/browser/gate.ts` passes to `context.route`, and a `/*` written
- * inside a `//` line comment, which the block pass reaches first because it runs
- * first.
+ * A SUITE THAT READS SOURCE AS TEXT has to do this first, because a comment is prose ABOUT code
+ * and a suite counting a token would count its own prose saying it out loud. In CanonCore,
+ * `prefetch-condition.test.ts` explains its rule using the word `prefetch`, `tree-figures.ts`
+ * quotes `redirect()` in the paragraph above the call it counts, and `turbo-cache-inputs.test.ts`
+ * writes `../../../` into a note about climbs. Without this each would argue with whoever
+ * documents it. In all three repositories, `stacked-docblocks.test.ts` asks where each comment
+ * opens, which is what `commentsIn` answers.
  *
- * MEASURED, not feared. Over the 178 tracked non-test sources on 2026-09-21 the
- * regex lost zero imports and ONE export:
- * `testing/workspace.ts`'s own `isWorkspacePattern`, whose line comment says
- * "Only the `<name>/*` shape this repo uses" and whose `/*` swallowed the
- * fourteen lines to the end of the next docblock, declaration included. That is
- * the SILENT half of the defect rather than the loud one -- a name never
- * collected is a name nothing can report dead, which is the one answer
- * `ui-callers.test.ts` says it must never give.
+ * IT IS A SCAN BECAUSE A REGULAR EXPRESSION CANNOT DO IT.
+ * [[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]] carries the decision, the
+ * measurement of what the pattern lost, and the TypeScript scanner that was tried first.
+ * `source.replace(/\/\*[\s\S]*?\*\//g, " ")` does not know a string literal from code, so ANY `/*`
+ * opens a comment and swallows source to the next `*\/`. This module is one of those `/*`s: the
+ * `pair === "/*"` below is in a string. So is the glob `"**\/*"` that CanonCore's
+ * `apps/web/browser/gate.ts` passes to `context.route`, and so is a `/*` written inside a `//`
+ * comment, which a pattern stripping block comments first reaches first. The four patterns this
+ * replaced in CanonCore were four copies of that defect (CNCORE-300), and one had already
+ * swallowed an exported declaration whole.
  *
- * THE FOLD IS OF THE MECHANISM, WHICH IS
- * [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]'s seam and not
- * a new one. That record left comment stripping with its callers while it was a
- * one-line regex the callers disagreed about; they disagreed because a regex
- * forced each of them to pick a different lossy approximation, and the two
- * disagreements it names both dissolve here rather than being decided.
- * `turbo-cache-inputs.test.ts` stripped a `//` only after whitespace to protect a
- * protocol-relative `"//fonts.googleapis.com"`, and a scanner knows that one is
- * inside a string; the other two stripped a `//` only at a line start and so
- * kept every trailing comment, and a scanner does not have to choose.
+ * A COMMENT IS BLANKED RATHER THAN REMOVED, one space per character and newlines kept, so every
+ * line keeps its anchor. Suites sweep the result line by line -- CanonCore's callers for
+ * `^[ \t]*import\b` and `^[ \t]*export\b`, and each repository's `without-comments.test.ts` for a
+ * `/**` at a line's start -- and a multi-line comment removed rather than blanked joins the line
+ * before it to the line after, taking the second line's anchor with it.
  *
- * A COMMENT IS BLANKED RATHER THAN REMOVED, one space per character and newlines
- * kept. Two callers run line-anchored sweeps over the result -- `^[ \t]*import\b`
- * and `^[ \t]*export\b` -- and the regex collapsed a whole docblock to a single
- * space, so a multi-line comment BETWEEN two statements took the second one's
- * line anchor with it. Keeping the shape can only ever find more of them.
+ * A REGEX LITERAL IS TRACKED, and CanonCore's first version of this did not track one. A BACKTICK
+ * inside a regex opens a template to a scan that does not, and CanonCore's `ui-callers.test.ts`
+ * writes `["'`]([^"'`\n]+)["'`]` -- THREE backticks, an odd number -- so that scan entered a
+ * template at the first and never left, and every comment below it survived. Five tracked files
+ * did this, and every hand-written row stayed green.
  *
- * A REGEX LITERAL IS TRACKED, and the first version of this did not track one.
- * That is not the boundary it reads like: `ui-callers.test.ts` writes
- * `["'`]([^"'`\n]+)["'`]` -- THREE backticks, an odd number -- so the scan
- * entered a template literal at the first and never left, and every comment
- * below it survived. Five tracked files did this, and
- * `turbo-cache-inputs.test.ts` sweeps `packages/*.ts` with NO test-file filter,
- * so it really did read them unstripped. It stayed green only because none of
- * the surviving prose happened to hold a `"../` -- a silent under-strip, which
- * is the same class of failure as the one this module exists to fix.
+ * A `/` OPENS A REGEX ONLY WHERE A VALUE CAN START, which is as far as a scan can resolve that
+ * ambiguity without parsing. The token before it decides. After a punctuator ending in `(`, `,`,
+ * `=`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, `+`, `-`, `*`, `%`, `^`, `~`, `>` or `.` --
+ * which takes in `=>`, `>=` and a spread's `...` -- a `/` opens a regex. So it does after a
+ * keyword a value can follow, like `return` or `default`, and after a `)` that closes the head of
+ * an `if`, `while`, `for` or `with`, since a statement follows that `)` where an operator follows
+ * any other. After anything else -- an identifier, a number, `]`, a quote, an expression's `)`,
+ * and `<` in `</div>` -- it divides.
  *
- * A `/` OPENS ONE ONLY WHERE A VALUE CAN START, which is the safe half of the
- * ambiguity JavaScript cannot resolve without parsing. The preceding token
- * decides: after `(`, `,`, `=`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, an
- * operator, or a keyword like `return`, a `/` begins a regex; after anything
- * else -- an identifier, `)`, `]`, a quote, and notably `<` in `</div>` -- it is
- * division and is copied as one character. TAKING DIVISION FOR A REGEX COSTS AT
- * MOST ONE LINE: a regex literal cannot span one, so a run that reaches a
- * newline without closing is abandoned and the `/` is copied. That guess never
- * DELETES, it only declines to strip. THE OPPOSITE GUESS IS NOT BOUNDED: a regex
- * taken for division is read as code, so a `/*` inside it opens a comment that
- * runs to the next `*\/`. `>` is not in the list, so a regex straight after `=>`
- * is one such guess. None in this tree changes what the scan reads (CNCORE-324).
+ * A WRONG GUESS IN EITHER DIRECTION CAN DELETE CODE, and the list above is what keeps them rare. A
+ * regex read as division is read as code, so a `/*` inside it opens a comment that runs to the
+ * next `*\/`. A regex after `=>` did that until CNCORE-324, and three shapes still would: one
+ * after `<`, which is left out for `</div>`; one after the head of a `for await`, whose `(`
+ * follows `await`; and one opening the line after a TypeScript type left without its semicolon.
+ * Division read as a regex -- after `i++`, a non-null `x!`, or text in JSX -- is usually
+ * harmless, because the run it starts cannot cross a line and is abandoned there. But where a
+ * second `/` follows on that line inside a string or template, the run ends inside the literal,
+ * the rest of it is read as code, and a `/*` there opens a comment too. Measured 2026-09-21
+ * against oxc's parser over every tracked source in the three repositories, 399 files, the scan
+ * finds exactly the comments the parser does, each at the same offset.
  *
- * AND IT REFUSES RATHER THAN ANSWERING WHEN IT LOSES ITS PLACE. A source that
- * ends inside a template literal means the scan took a backtick for an opener
- * that was not one, and every comment after it has been kept. Returning that
- * quietly is how the defect above went unnoticed, so it throws instead. Valid
- * TypeScript always closes its templates, so this fires on a scan that is wrong
- * rather than on a file that is.
+ * AND IT REFUSES RATHER THAN ANSWERING WHEN IT LOSES ITS PLACE. A source that ends inside a
+ * template literal means the scan took a backtick for an opener that was not one, and every
+ * comment after it has been kept. Returning that quietly is how the defect above went unnoticed,
+ * so it throws instead. Valid TypeScript always closes its templates, so this fires on a scan that
+ * is wrong rather than on a file that is.
  *
- * AND AN UNTERMINATED `/*` IS BLANKED TO THE END OF THE FILE, where the regex
- * left it standing for want of a closing delimiter. Either is arbitrary: a
- * source with an unterminated block comment does not compile, so no caller can
- * be reading one.
- *
- * TWO MORE REPOSITORIES RUN THIS CODE, and a change here is a change to carry
- * there by hand. `provider-wiki` and `provider-tmdb` each hold it at
- * `test/setup/without-comments.ts`, copied line for line under CNCORE-321,
- * because ADR-0031 lets no code cross that boundary. The two copies are
- * byte-identical to each other and nothing holds any of the three together. Only
- * the prose differs from this one: below this docblock, a diff shows the two
- * docblocks rewritten to drop the JSX cases, which neither provider has.
+ * AND AN UNTERMINATED `/*` IS BLANKED TO THE END OF THE FILE. A source with an unterminated block
+ * comment does not compile, so no caller can be reading one.
  */
 export function withoutComments(source: string): string {
   return scan(source).code;
@@ -118,6 +98,12 @@ function scan(source: string): { code: string; comments: Comment[] } {
   let significant = "";
   let word = "";
   let previousWord = "";
+
+  // Whether each open `(` began the head of an `if`, `while`, `for` or `with`, and whether the
+  // last `)` closed one: a statement follows that `)`, where an expression's `)` is followed by
+  // an operator.
+  const heads: boolean[] = [];
+  let closedAHead = false;
 
   /** A run of source kept only for its shape: one space per character, newlines as they were. */
   const blanked = (text: string): string => text.replace(/[^\n]/g, " ");
@@ -166,7 +152,10 @@ function scan(source: string): { code: string; comments: Comment[] } {
       continue;
     }
 
-    if (here === "/" && regexCanStartAfter(significant, word.length > 0 ? word : previousWord)) {
+    if (
+      here === "/" &&
+      regexCanStartAfter(significant, word.length > 0 ? word : previousWord, closedAHead)
+    ) {
       const closed = endOfRegex(source, at);
       if (closed !== undefined) {
         out += source.slice(at, closed);
@@ -206,6 +195,12 @@ function scan(source: string): { code: string; comments: Comment[] } {
         braces -= 1;
       }
     }
+    if (here === "(") {
+      heads.push(
+        /[A-Za-z0-9_$]/.test(significant) && HEADS.has(word.length > 0 ? word : previousWord),
+      );
+    }
+    if (here === ")") closedAHead = heads.pop() === true;
 
     out += here;
     at += 1;
@@ -239,6 +234,8 @@ const BEFORE_A_REGEX = new Set([
   "delete",
   "void",
   "case",
+  "default",
+  "extends",
   "do",
   "else",
   "yield",
@@ -246,22 +243,26 @@ const BEFORE_A_REGEX = new Set([
   "throw",
 ]);
 
+/** The keywords whose parenthesised head a statement follows, which may open with a regex. */
+const HEADS = new Set(["if", "while", "for", "with"]);
+
 /**
- * Whether a `/` here can open a regex literal rather than divide.
+ * Whether a `/` here can open a regex literal rather than divide, from the token before it: the
+ * last character of a punctuator, the word it was if it was one, and whether a `)` closed a head.
  *
- * IT ANSWERS FROM THE SAFE SIDE. The listed positions are the ones where a VALUE
- * can start, so everything not listed -- an identifier, `)`, `]`, a quote, and
- * `<` in a closing JSX tag -- is division and the `/` is copied unchanged. The
- * opposite default would take the `/` in `</div>` for a regex opener.
- *
- * TODO(CNCORE-324): `>` is not listed, so the `/` opening a regex after `=>`
- * divides here, and a `/*` inside that regex opens a comment. The three copies
- * of this scan change together.
+ * `<` IS LEFT OUT ALTHOUGH A VALUE CAN FOLLOW IT, because the `/` of a closing JSX tag like
+ * `</div>` follows it too. Read as a regex, that `/` would run to the next one on its line and
+ * take whatever lay between, a `{/* comment *\/}` among it, for the regex's body.
  */
-function regexCanStartAfter(significant: string, precedingWord: string): boolean {
+function regexCanStartAfter(
+  significant: string,
+  precedingWord: string,
+  closedAHead: boolean,
+): boolean {
   if (significant === "") return true;
+  if (significant === ")") return closedAHead;
   if (BEFORE_A_REGEX.has(precedingWord) && /[A-Za-z0-9_$]/.test(significant)) return true;
-  return "(,=:[!&|?{};+-*%^~".includes(significant);
+  return "(,=:[!&|?{};+-*%^~>.".includes(significant);
 }
 
 /**
@@ -269,8 +270,8 @@ function regexCanStartAfter(significant: string, precedingWord: string): boolean
  * is there is not one.
  *
  * A NEWLINE ENDS THE ATTEMPT rather than the literal, because a regex literal
- * cannot span a line. That is what bounds a wrong guess to the line it was made
- * on: the caller copies the `/` and carries on.
+ * cannot span a line. That is what bounds a wrong guess that finds no second `/`
+ * to the line it was made on: the caller copies the `/` and carries on.
  *
  * A `/` INSIDE A CHARACTER CLASS IS NOT THE CLOSER, which is the whole reason
  * this is a scan and not `indexOf`.
@@ -301,8 +302,8 @@ function endOfRegex(source: string, from: number): number | undefined {
  * One past the closing quote of the literal that opens at `from`.
  *
  * A NEWLINE ENDS IT, which is what stops an unbalanced quote from swallowing the
- * rest of the source: an apostrophe is ordinary in prose, and JSX text is read
- * here as code, so `don't` opens a literal that must close at the line end.
+ * rest of the source: an apostrophe is ordinary in prose, and CanonCore's JSX text
+ * is read here as code, so `don't` opens a literal that must close at the line end.
  * An unterminated string is a syntax error in code, so the file a caller is
  * really reading never has one.
  */

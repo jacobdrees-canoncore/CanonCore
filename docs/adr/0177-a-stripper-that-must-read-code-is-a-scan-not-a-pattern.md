@@ -130,18 +130,26 @@ that is wrong rather than on a file that is.
 
 ## What it does not read, stated rather than left to be found
 
-**A `/` IS RESOLVED FROM THE SAFE SIDE, not parsed.** Telling a regex literal from division needs the
-parse this deliberately does not do, so the preceding token decides: after `(`, `,`, `=`, `:`, `[`,
-an operator or a keyword like `return`, a `/` opens a regex; after anything else -- an identifier,
-`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **TAKING DIVISION FOR A REGEX COSTS AT
-MOST ONE LINE**, because a regex literal cannot span one and a run that reaches a newline without
-closing is abandoned. That guess never DELETES; it only declines to strip, and the sweep row asserts
-that it does not. **THE OPPOSITE GUESS IS NOT BOUNDED**, and this paragraph said "a wrong guess"
-without a direction until CNCORE-321's review. A regex taken for division is read as code, so a `/*`
-inside it opens a comment that runs to the next `*/`. `>` is not in the list, so a regex straight
-after `=>` is such a guess. Measured 2026-09-21 with `>` added: nothing moves over this tree or
-`provider-wiki`, and in `provider-tmdb` one regex after `=>` stops having its tail taken for a line
-comment. CNCORE-324 carries the fix.
+**A `/` IS RESOLVED BY THE TOKEN BEFORE IT, not parsed.** Telling a regex literal from division needs
+the parse this deliberately does not do, so the preceding token decides. After `(`, `,`, `=`, `:`,
+`[`, `{`, `}`, `;`, an operator -- `=>`, `>=` and a spread's `...` among them -- a keyword a value can
+follow, like `return` or `default`, or a `)` that closes the head of an `if`, `while`, `for` or
+`with`, a `/` opens a regex. After anything else -- an identifier, `]`, a quote, an expression's `)`,
+and notably `<` in `</div>` -- it divides. **A WRONG GUESS IN EITHER DIRECTION CAN DELETE CODE.** This
+paragraph said first that a wrong guess cost at most one line, then, after CNCORE-321's review, that
+taking division for a regex did, and both were false. A regex taken for division is read as code, so
+a `/*` inside it opens a comment that runs to the next `*/`: a regex after `=>` did that until
+CNCORE-324, and one after `<`, after a `for await` head, or opening the line after a TypeScript type
+left without its semicolon still would. Division taken for a regex -- after `i++`, a non-null `x!`,
+or text in JSX -- is usually abandoned at the end of its line, since a regex cannot span one. But
+where a second `/` follows on that line inside a string or template, the run ends inside the
+literal, the rest of the literal is read as code, and a `/*` there deletes too:
+`let half = i++ / 2 + "a//*";` swallows the docblock below it. **Measured 2026-09-21 against oxc's
+parser**, over every tracked `.ts`, `.tsx`, `.js`, `.mjs` and `.cjs` in the three repositories that
+hold the scan -- 321 here, 54 in `provider-wiki` and 24 in `provider-tmdb` -- the scan finds exactly
+the comments the parser does, each at the same offset. Before CNCORE-324 they disagreed in one file:
+`provider-tmdb`'s `test/image-platforms.test.ts:531`, where a regex after `=>` had its
+`//.test(...)` tail taken for a line comment.
 
 **JSX TEXT IS READ AS CODE, and this changes what two callers see.** A mid-line `//` in rendered text
 is now taken for a comment, where the two line-start copies kept it -- the claim that this is
@@ -205,8 +213,51 @@ and absent from that package's `exports` -- and the abort is unprovisioned rathe
 ## Copied to the provider repositories, under CNCORE-321
 
 **The scan's code now runs in two more repositories**, `provider-wiki` and `provider-tmdb`, each at
-`test/setup/without-comments.ts`, copied line for line so each can refuse a stacked docblock
+`test/setup/without-comments.ts`, copied line for line -- and since CNCORE-324 byte for byte,
+docblock included -- so each can refuse a stacked docblock
 ([[0196-a-docblock-sits-on-the-declaration-it-describes]]). [[0031-a-provider-is-a-url]] rules out
 the shared package that would have kept one copy. "One scan, four callers, no copies" above is
 true of this tree and not across the three. Nothing keeps them in step, and
 `testing/without-comments.ts`'s own docblock says so where an edit would start.
+
+## Fixed in all three copies, under CNCORE-324
+
+**A REGEX AFTER `=>` WAS READ AS DIVISION, AND `>` WAS ONE MISSING TOKEN OF FIVE.** The others were
+found by asking which tokens a value can follow, rather than waiting for each to be filed: a
+spread's `...`, the keywords `default` and `extends`, and the `)` that closes the head of an `if`,
+`while`, `for` or `with`. That last rule is esprima's: its tokenizer's `isRegexStart` answers a `)`
+by the keyword before the matching `(`.
+
+**THE `)` NEEDS PAIRED PARENTHESES**, so each open `(` records whether it began a head, and a `)`
+answers for the `(` it closes rather than the last one opened. `if (ready(s)) /re/` closes two.
+Esprima keeps only the index of the last `(` it saw, and reads that shape as division.
+
+**THE THREE COPIES ARE NOW ONE FILE.** The scan's docblock was rewritten so that every file it names
+says which repository holds it, and `testing/without-comments.ts` is byte-identical to both
+providers' `test/setup/without-comments.ts`, prose included. Under CNCORE-321 only the code was, and
+the correction that pass made to the docblock here reached the providers' in different words. The
+history this docblock carried -- the 178-source measurement, and why the fold is
+[[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]'s seam -- is this record's, above,
+and it left the docblock rather than be copied into two repositories it is not about.
+
+**ELEVEN ROWS BY SHAPE, THE SAME BLOCK IN ALL THREE SUITES.** Seven shapes a regex follows and four a
+division does. The five for the missing tokens were red on the scan as merged under CNCORE-321, in
+all three suites -- `5 failed | 15 passed (20)` here, `5 failed | 19 passed (24)` in each provider --
+and are green now. `return` and an operator held already. Under
+[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]], each division row was run
+against its own token added to the regex list, and the `if` row against a scan that does not pair
+parentheses: each mutation reddens its own row and no other. Two provider rows the table covers were
+deleted rather than kept beside it.
+
+**MEASURED, at the commit this section lands on:** `packages/config` runs 37 files and 362 tests
+green, eleven of them new, and `tsc --noEmit` and `pnpm lint` are clean. `provider-wiki` runs 23
+files and 382 tests, `provider-tmdb` 12 files and 208, each with typecheck and lint clean.
+
+**NOT BUILT: nothing holds the three copies together.** A diff says whether they agree, and no check
+runs one. Nor is the comparison with oxc a check: it ran from outside all three repositories, and
+making it one would put a parser into each one's dependencies to test the module that exists so as
+not to need one.
+
+**NOT BUILT: the shapes that still guess wrong**, named above: a regex after `<`, after a
+`for await` head, or after a type left without its semicolon, and division after `i++`, `x!` or JSX
+text. None changes a comment in the three trees, measured against the parser.
