@@ -267,6 +267,7 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
 
   const configurable = await anInstanceSafeToConfigure(owned);
   project.provide("configurableBaseUrl", configurable.baseUrl);
+  project.provide("configurableDatabaseUrl", configurable.databaseUrl);
 
   const counted = await aCatalogueNobodyElseIsReading();
   project.provide("countedDatabaseUrl", counted.databaseUrl);
@@ -2637,6 +2638,16 @@ declare module "vitest" {
      * the only one the settings surface may be used on (CNCORE-99).
      */
     configurableBaseUrl: string;
+    /**
+     * And that instance's own database, for the one state its surface refuses
+     * to write (CNCORE-326).
+     *
+     * EVERY SETTINGS WRITE PARSES BEFORE IT STORES, so a stored Providers
+     * setting that does not parse cannot be reached through the app at all --
+     * and it is the state the fourth refusal exists for. `settings-page.test.ts`
+     * writes it here, round the surface, which is the only way in.
+     */
+    configurableDatabaseUrl: string;
     /**
      * A catalogue NOTHING ELSE ASKS ANYTHING, and a database rather than a
      * running instance: `item-page-cost.test.ts` starts and stops its own server

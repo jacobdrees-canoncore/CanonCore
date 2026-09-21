@@ -121,6 +121,32 @@ export async function nameProvider(form: FormData): Promise<void> {
   }
   if (refused.code === "NOT_A_URL")
     redirect(`/settings?refused=${entry}&because=${REFUSED.notAUrl}`);
+  /*
+   * AND EVERY OTHER REFUSAL THE PROCEDURE CAN ANSWER (CNCORE-326).
+   *
+   * A FALL-THROUGH AND NOT A FOURTH `if`, which is the whole difference. The
+   * procedure answers a fourth refusal today -- the stored setting failing to
+   * parse, `BAD_REQUEST` -- and matching that CODE would leave the next one
+   * exactly where this one was: three branches taken, none matching, the action
+   * returning, and the page rendering unchanged with nothing said. That is the
+   * silence this file's own docstring forbids, and it was reintroduced here by
+   * the change that fixed it (`git show 80b976d`).
+   *
+   * ADR-0156 ASKS FOR THIS BRANCH BEFORE ANY OTHER: "a closed set needs a
+   * catch-all, or it reintroduces the silence ... a surface adopting this rule
+   * owes a branch for 'a refusal this page cannot name' before it owes anything
+   * else." `REFUSED.unreadable` is that word, and `refusal.ts` says of it that
+   * `WhyNotNamed` does not carry it because `@canoncore/providers` never raises
+   * it: it is the SURFACE's word for a refusal that was not about what the
+   * Owner typed.
+   *
+   * THE ENTRY STILL TRAVELS, THOUGH THIS REFUSAL IS NOT ABOUT IT. The sentence
+   * the page writes names what the Owner typed and then says the fault was
+   * elsewhere -- "<entry> was not named, because this instance cannot read the
+   * Providers it already has" -- which is the one shape that does not leave
+   * them checking an entry that was fine.
+   */
+  redirect(`/settings?refused=${entry}&because=${REFUSED.unreadable}`);
 }
 
 /**

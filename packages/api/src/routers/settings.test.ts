@@ -63,6 +63,31 @@ afterEach(async () => {
   );
 });
 
+/**
+ * THE PROVIDERS A READ NAMED, for the tests whose stored setting parses.
+ *
+ * `settings.read` answers a union since CNCORE-326 -- the list, or that the
+ * stored setting does not parse -- and every test but one below arranges a
+ * setting that reads. Narrowing it in each of them would put four copies of
+ * the same `if` in front of four different assertions, and a cast would throw
+ * the union's whole point away: the branch it forces is what stops a fourth
+ * state arriving on the page as whatever the last one happened to be.
+ *
+ * IT THROWS RATHER THAN RETURNING EMPTY, because an unreadable setting inside
+ * one of those tests is the fixture having gone wrong, and an empty list would
+ * satisfy assertions that are about which Providers are there.
+ */
+function theProvidersNamed<Named>(
+  providers: { kind: "read"; named: Named[] } | { kind: "unreadable" },
+): Named[] {
+  if (providers.kind !== "read") {
+    throw new Error(
+      "the stored Providers setting did not parse, and this test arranged one that should",
+    );
+  }
+  return providers.named;
+}
+
 let db: Database;
 
 /**
@@ -110,7 +135,7 @@ describe("naming a provider", () => {
       {},
       { context: await theNextRequest() },
     );
-    expect(providers.map((provider) => provider.baseUrl)).toEqual([asTyped]);
+    expect(theProvidersNamed(providers).map((provider) => provider.baseUrl)).toEqual([asTyped]);
   });
 
   it("refuses an entry that is not a URL and changes nothing", async () => {
@@ -128,7 +153,7 @@ describe("naming a provider", () => {
       {},
       { context: await theNextRequest() },
     );
-    expect(providers).toEqual([]);
+    expect(theProvidersNamed(providers)).toEqual([]);
   });
 
   /**
@@ -326,10 +351,45 @@ describe("what the settings surface reads", () => {
      * exists to draw: the allowlist refusing a Provider and the Provider not
      * answering are two different faults with two different fixes.
      */
-    expect(providers.map(({ baseUrl, reach }) => [baseUrl, reach.kind])).toEqual([
-      ["http://wiki.test:8080", "unreachable"],
-      ["http://tmdb.test:8080", "not-admitted"],
-    ]);
+    expect(theProvidersNamed(providers).map(({ baseUrl, reach }) => [baseUrl, reach.kind])).toEqual(
+      [
+        ["http://wiki.test:8080", "unreachable"],
+        ["http://tmdb.test:8080", "not-admitted"],
+      ],
+    );
+  });
+
+  /**
+   * A STORED SETTING THAT NO LONGER PARSES IS AN ANSWER, NOT A CRASH
+   * (CNCORE-326).
+   *
+   * THIS READ IS THE ONLY WAY TO `/settings`, so a throw here is the Owner
+   * losing the page rather than losing a list. `parseProviderUrls` refuses a
+   * row that no longer reads -- which is a state only something writing ROUND
+   * this surface can reach, since all three writes parse before they store --
+   * and it threw out of the handler bare: not an `ORPCError`, no code and no
+   * status, so `answer.ts` could not have read it as a refusal either.
+   *
+   * AND THE ALLOWLIST IS STILL ANSWERED, which is the half that makes this
+   * worth answering rather than refusing. They are two settings and neither is
+   * derivable from the other (ADR-0121): the allowlist parses fine, its
+   * textarea is the one control on the page that still works, and a read that
+   * refused wholesale would take it away over a fault in the setting beside it.
+   */
+  it("answers that the stored Providers setting cannot be read, and still reads the allowlist", async () => {
+    await writeProviderSettings(db, {
+      providerUrls: "wiki.test",
+      providerAllowlist: "wiki.test",
+    });
+
+    const { providers, allowlist } = await call(
+      appRouter.settings.read,
+      {},
+      { context: await theNextRequest() },
+    );
+
+    expect(providers.kind).toBe("unreadable");
+    expect(allowlist).toBe("wiki.test");
   });
 
   /**
@@ -363,7 +423,7 @@ describe("what the settings surface reads", () => {
       { context: await theNextRequest() },
     );
 
-    expect(providers[0]?.reach).toEqual({
+    expect(theProvidersNamed(providers)[0]?.reach).toEqual({
       kind: "reached",
       credential: {
         label: "a browser session for the wiki",

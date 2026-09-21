@@ -94,6 +94,17 @@ Two properties came out of writing it that the record above would not have predi
   what the Owner typed. Three branches with no fall-through redirected NOWHERE, which is the original
   defect wearing the fix for it. Found by review, not by the tests. A surface adopting this rule owes
   a branch for "a refusal this page cannot name" before it owes anything else.
+  **THIS BULLET SAT UNDER "BUILT" FOR A DAY WHILE THE BRANCH IT DESCRIBES DID NOT EXIST, and that is
+  the correction CNCORE-326 carries.** Review found the gap and the record wrote down what review had
+  found; nothing wrote the branch. `git show 80b976d -- apps/web/src/app/settings/actions.ts` landed
+  exactly three `if`s and `git log 80b976d..origin/main` for that file was empty, so the word
+  `setting-unreadable` was declared in `refusal.ts`, rendered by `page.tsx`, asserted from a
+  hand-typed address in one e2e test, and written by nothing. **A finding recorded is not a finding
+  fixed, and this record could not tell the two apart because the assertion that would have was the
+  one the e2e file's own docblock declined to write.** Both are here now:
+  [[0197-a-surface-that-cannot-render-its-own-refusal-has-not-reported-it]] carries what building it
+  taught, the fall-through is in `actions.ts`, and `settings-page.test.ts` reaches it through the
+  instance's own database — the state no surface will write.
 - **The set the surface admits is not the set the procedure raises.** `@canoncore/providers` raises
   three; `/settings` renders four. The fourth is the surface's own word for a refusal that was not
   about the reader's text, so the two sets are related by a total function rather than equal, and the

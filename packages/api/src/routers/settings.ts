@@ -154,6 +154,73 @@ const providerReach = z.discriminatedUnion("kind", [
 ]);
 
 /**
+ * THE PROVIDERS THIS INSTANCE NAMES, OR THAT THE SETTING HOLDING THEM DOES NOT
+ * PARSE (CNCORE-326).
+ *
+ * A THIRD STATE THAT WAS A THROW. `parseProviderUrls` refuses a stored string
+ * it cannot read, and it was called in this procedure's return expression --
+ * so the one read behind `/settings` raised a bare `OutboundRefused`, which is
+ * not an `ORPCError` and carries neither code nor status. `answer.ts` reads a
+ * refusal off `status < 500` and would not have recognised it; there is no
+ * error boundary in `apps/web`; and the page renders this read before anything
+ * else it shows. The Owner lost the page.
+ *
+ * A UNION RATHER THAN AN EMPTY LIST, and it is the same argument `providerReach`
+ * above already makes against `admitted: boolean`. "No Provider is named" is
+ * what an empty list says, and the page says exactly that sentence for it --
+ * which would be a lie told to an Owner whose Providers are stored and
+ * unreadable, and the likelier reading, since it is the state a fresh instance
+ * is in. Two facts must not share one shape.
+ *
+ * AND IT MAKES THE PAGE HANDLE IT RATHER THAN HOPE. This ticket exists because
+ * a fourth outcome had no branch and fell through in silence; a union is the
+ * one shape where the fourth cannot be forgotten, since a page that ignores it
+ * fails to compile. `refusal.ts` already states that reasoning for the codes it
+ * holds against `WhyNotNamed`.
+ *
+ * `unreadable` CARRIES NOTHING, ON PURPOSE. `OutboundRefused`'s message names
+ * the entry that would not parse, and it is the OWNER'S OWN configured string:
+ * ADR-0123 makes whose words a reader is shown the question this app answers at
+ * every seam, and the surface writes its own sentence from the state rather
+ * than quoting a refusal into the page. The message goes on reaching a log and
+ * an API caller through the writes below, which is where it is read by somebody
+ * who can act on it.
+ */
+const providersConfigured = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("read"),
+    /** Every Provider the setting named, which may be none at all. */
+    named: z.array(
+      z.object({
+        /** As the owner typed it, which is the provider's identity (ADR-0031). */
+        baseUrl: z.string().min(1),
+        reach: providerReach,
+      }),
+    ),
+  }),
+  /** The stored setting did not survive the parse every read of it goes through. */
+  z.object({ kind: z.literal("unreadable") }),
+]);
+
+/**
+ * THE PROVIDERS A STORED STRING NAMES, or nothing where it does not parse.
+ *
+ * THE REFUSAL IS TURNED INTO AN ABSENCE HERE AND NOWHERE ELSE, so the handler
+ * above reads as the two answers it has rather than as a `try` around a return
+ * expression. Only `OutboundRefused` is caught, which is the rule the three
+ * writes below already keep in their own words: a bare catch would answer
+ * "this instance cannot read its Providers" for a bug in the parser.
+ */
+function theProvidersStored(configured: string): string[] | undefined {
+  try {
+    return parseProviderUrls(configured);
+  } catch (cause) {
+    if (cause instanceof OutboundRefused) return undefined;
+    throw cause;
+  }
+}
+
+/**
  * WHAT THIS INSTANCE IS CONFIGURED TO REACH, AND THE OWNER CHANGING IT
  * (CNCORE-99).
  *
@@ -204,24 +271,39 @@ export const settings = {
   read: ownerProcedure
     .output(
       z.object({
-        providers: z.array(
-          z.object({
-            /** As the owner typed it, which is the provider's identity (ADR-0031). */
-            baseUrl: z.string().min(1),
-            reach: providerReach,
-          }),
-        ),
+        providers: providersConfigured,
         /** ADR-0034's allowlist, as the owner wrote it: hosts and CIDRs. */
         allowlist: z.string(),
       }),
     )
     .handler(async ({ context }) => {
       const configured = await readProviderSettings(context.db);
+      /*
+       * THE STORED SETTING IS PARSED WHERE THE ANSWER CAN CARRY THE REFUSAL
+       * (CNCORE-326). `parseProviderUrls` threw out of this handler bare, and
+       * this read is the only way to `/settings` -- so a row that no longer
+       * parses cost the Owner the page rather than the list, including the
+       * allowlist below, which parses perfectly well and is the one control
+       * that could still be used.
+       */
+      const named = theProvidersStored(configured.providerUrls);
       return {
-        providers: await reachProviders({
-          baseUrls: parseProviderUrls(configured.providerUrls),
-          allowlist: parseAllowlist(configured.providerAllowlist),
-        }),
+        providers:
+          named === undefined
+            ? { kind: "unreadable" as const }
+            : {
+                kind: "read" as const,
+                named: await reachProviders({
+                  baseUrls: named,
+                  // TODO(CNCORE-329): `parseAllowlist` still throws out of this
+                  // handler, so an unreadable ALLOWLIST row costs the Owner the
+                  // page exactly as an unreadable Providers row did. Left here
+                  // deliberately: it is the half ADR-0197 records as NOT built,
+                  // and it needs a sentence of its own, since ADR-0121 makes
+                  // saying WHICH of the two settings refuses the surface's job.
+                  allowlist: parseAllowlist(configured.providerAllowlist),
+                }),
+              },
         allowlist: configured.providerAllowlist,
       };
     }),

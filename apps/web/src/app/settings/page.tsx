@@ -120,13 +120,27 @@ export default async function SettingsPage({
           the CMPP contract rather than code you install, so nothing named here runs inside your
           catalogue.
         </p>
-        {providers.length === 0 ? (
+        {/*
+          THREE STATES AND NOT TWO (CNCORE-326). An unreadable setting used to
+          be none of them: `settings.read` threw where it was parsed, so this
+          page -- the only reader that procedure has -- did not render at all.
+          The state it now reports must not be folded into the empty one below
+          it: "no Provider is named" is what a FRESH instance says, and telling
+          an Owner whose Providers are stored and unreadable that they have
+          none would be the likelier reading of the two and the false one.
+        */}
+        {providers.kind === "unreadable" ? (
+          <p className="mt-4 text-muted-foreground text-sm">
+            This instance <CannotReadWhatIsStored />, so none can be listed. Naming one reads that
+            setting first, and so does removing one, so both are refused until it is readable.
+          </p>
+        ) : providers.named.length === 0 ? (
           <p className="mt-4 text-muted-foreground text-sm">
             No Provider is named, so this instance searches none. Name one below.
           </p>
         ) : (
           <ul className="mt-4 flex flex-col divide-y">
-            {providers.map((provider) => (
+            {providers.named.map((provider) => (
               <li
                 className="flex items-center justify-between gap-4 py-3"
                 data-provider={provider.baseUrl}
@@ -277,8 +291,8 @@ function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string
           to the field above it.
         */
         <>
-          this instance cannot read the Providers it already has. That setting has to be readable
-          before another can be added to it.
+          this instance <CannotReadWhatIsStored />. That setting has to be readable before another
+          can be added to it.
         </>
       ) : (
         <>
@@ -299,6 +313,21 @@ function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string
  */
 function ByItsBaseUrl() {
   return <>A Provider is a URL and nothing more, so name it by its base URL, scheme included.</>;
+}
+
+/**
+ * The fault two of these sentences share, written once (CNCORE-326).
+ *
+ * TWO SECTIONS SAY IT AND THEY SAY DIFFERENT THINGS WITH IT. The Providers
+ * section states what is true of the LIST -- there is none to show; the notice
+ * under the box states what became of the ENTRY the Owner just typed. Both rest
+ * on the one fact, and `ByItsBaseUrl` above is this file's own argument for why
+ * that fact is spelled in one place: the same clause written out twice is two
+ * places for it to drift, which shows up as wording a reader meets in two
+ * versions rather than as anything a type would catch.
+ */
+function CannotReadWhatIsStored() {
+  return <>cannot read the Providers it already has</>;
 }
 
 /**

@@ -370,6 +370,21 @@ export async function anInstanceServing<Fixture>(
 ): Promise<{
   baseUrl: string;
   db: Database;
+  /**
+   * WHERE THIS INSTANCE'S OWN DATABASE IS, for a suite that has to write a
+   * setting ROUND the surface (CNCORE-326).
+   *
+   * THE HANDLE ABOVE CANNOT TRAVEL AND THIS CAN. `global-setup.ts` hands a
+   * suite its fixtures through `project.provide`, which serialises them, so a
+   * `Database` stays in the setup process and a URL does not. `countedDatabaseUrl`
+   * already crosses that line for the same reason.
+   *
+   * WHAT IT IS FOR IS THE STATE NO SURFACE WILL WRITE. Every settings write
+   * parses before it stores, so a stored Providers setting that does not parse
+   * cannot be reached through the app at all -- and it is the state the fourth
+   * refusal exists for. Reaching it is what makes that refusal assertable.
+   */
+  databaseUrl: string;
   fixture: Fixture;
 }> {
   const databaseUrl = await buildTestDatabase(suffix);
@@ -413,7 +428,7 @@ export async function anInstanceServing<Fixture>(
     DATABASE_URL: databaseUrl,
     OWNER_PASSWORD: ownerPassword,
   });
-  return { baseUrl: server.baseUrl, db, fixture };
+  return { baseUrl: server.baseUrl, db, databaseUrl, fixture };
 }
 
 /** A server's minute to start: to bind, to say where, and to answer there. */
