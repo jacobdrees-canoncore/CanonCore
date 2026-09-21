@@ -81,8 +81,13 @@ export async function dropRemovedWorktree({
   branch: string;
 }): Promise<Swept> {
   const root = worktreeDatabaseName(branch);
+  // "OWNS", NOT "HAS IT CHECKED OUT": after `git branch -m` the owner is a
+  // worktree on another branch whose `.env` still names this one's database.
   if (derivesFrom(root, ownedDatabases(repository))) {
-    throw new Error(`refusing: ${branch} is still checked out in a worktree, so these are its`);
+    throw new DropRefused(
+      `refusing: a live worktree still owns ${branch}'s database, ${root}, so it and ` +
+        "the test databases derived from it may be in use. Remove that worktree first.",
+    );
   }
   const family = (await listDatabases(serverUrl))
     .map(({ name }) => name)
@@ -93,6 +98,17 @@ export async function dropRemovedWorktree({
     (database) => !derivesFrom(database, ownedDatabases(repository)),
   );
 }
+
+/**
+ * The one refusal the operator can provoke here: naming a branch a live
+ * worktree still owns, which is running the command before `orca worktree rm`
+ * rather than after. `db:drop-worktree` reports it as a sentence and exits 1,
+ * as `db:setup` reports a detached HEAD, where anything else is a fault and
+ * goes on looking like one (ADR-0191). The refusal of a list naming
+ * `canoncore` is not one of these: no branch derives that name, so only a
+ * caller's broken filter can reach it.
+ */
+export class DropRefused extends Error {}
 
 /** Every database on the server, by name, with its age. */
 async function listDatabases(serverUrl: string): Promise<ListedDatabase[]> {
