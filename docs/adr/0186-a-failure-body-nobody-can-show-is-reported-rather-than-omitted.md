@@ -10,8 +10,17 @@ status: accepted
 > back empty asks `holdsUnshowable` — published from `@canoncore/text` by
 > [[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] — which of the two emptied
 > it. The third sentence is `${answered} with ${UNSHOWABLE_BODY}.`, built from that leaf's
-> `unshowable` so the phrase stays in one place, and it is the FOURTH sentence reaching it after
-> `UNSHOWABLE_REASON`, `UNSHOWABLE_NAME` and `UNSHOWABLE_LABEL`. Four witnesses in `client.test.ts`:
+> `unshowable` so the phrase stays in one place, and it is the FOURTH IN THIS PACKAGE to reach it,
+> after `UNSHOWABLE_REASON`, `UNSHOWABLE_NAME` and `UNSHOWABLE_LABEL` — `reason.ts`, `cmpp.ts`
+> twice, and now `client.ts`. **That is a count of this package, and no tree-wide figure is restated
+> here on purpose.** ADR-0179's own sweep got that wrong twice, and this branch nearly did a third
+> time: `@canoncore/tasks` reaches the phrase BOTH ways, directly and through `quotedTo`, so "sites"
+> and "packages" do not divide the way a grep suggests. Two sentences in `@canoncore/text` still
+> carry a figure counting the tree before CNCORE-305 — already stale when this branch started —
+> and CNCORE-311 carries them, with a TODO at each, because the figure wants a READ rather than a
+> grep.
+>
+> **Four witnesses in `client.test.ts`:**
 > a plain body of only stripped characters, an `error` FIELD of them, an empty `error` beside an
 > unshowable key that must still read as a silence, and the sentence's ceiling. The first was checked
 > RED first; the other three passed on arrival and were each checked by deleting the behaviour they
@@ -139,6 +148,16 @@ to quote. None of the three has a remedy the others do not.
 **ADR-0176's claim that nothing in `client.ts` can hand `reasonFor` a message of only controls still
 holds**, and was re-checked rather than assumed: all three branches now open with
 `${shortly(path)} answered ${status}`, so every message this file throws has showable words in it.
+
+**"MADE ONLY OF" IS LOOSE WHERE A BODY MIXED ZERO-WIDTHS WITH ORDINARY SPACES.** `oneLine` strips
+the controls AND trims, so a body of `"  \u200b  "` empties and `holdsUnshowable` answers `true` —
+and the Owner is told the body was made only of characters that cannot be shown when part of it was
+spaces. **This is not new and it is not this record's to fix**: `boundedOr` has the same shape, so
+`UNSHOWABLE_REASON`, `UNSHOWABLE_NAME` and `UNSHOWABLE_LABEL` all read the same way, and the phrase
+is ADR-0179's. What the strict reading would need is a question distinguishing "the strip emptied
+it" from "the strip and the trim between them emptied it", which is a change at the leaf and to four
+sentences at once. Recorded here because the review found it and a reader of this record would
+otherwise take "made only of" as exact.
 
 **Nothing reports a sentence whose reader has learned to read its absence**, so the argument at the
 top of this record is one somebody had to make by looking. It was made about `failed()` because

@@ -160,10 +160,12 @@ does not re-derive it:
   seam before this record existed. **Re-read under CNCORE-305 and the exclusion stood for a better
   reason: that sentence OMITS rather than contradicts**, telling the Owner a status and nothing about
   a body. Its COMMENT inferred "Said nothing" from `said === ""`, which is this record's conflation.
-  **CNCORE-308 then took the exclusion off it as well**: [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] gives that site a third branch, on the
-  ground that an omission every other failure fills with a colon is read as an absence. `saidBy` is
-  now `offeredBy` and hands back the string UNBOUNDED, so `failed` can ask which of the two emptied
-  it — this bullet is therefore a dated reading rather than a standing exception.
+  **CNCORE-308 then took the exclusion off it as well**:
+  [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] gives that site a third
+  branch, on the ground that an omission every other failure fills with a colon is read as an
+  absence. `saidBy` is now `offeredBy` and hands back the string UNBOUNDED, so `failed` can ask
+  which of the two emptied it — this bullet is therefore a dated reading rather than a standing
+  exception.
 
 `shortenTo` keeps its one caller, `shortly`, and owes these words nothing — **but not for the reason
 that first went in here, which a reviewer refuted.** "No prose for the strip to act on" is not an
