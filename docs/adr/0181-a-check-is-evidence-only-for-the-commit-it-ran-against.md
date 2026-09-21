@@ -138,8 +138,10 @@ gate said            BLOCKED RUNNING 06e1936 ...
 The gate gave a verdict about a commit that was **no longer on the branch**, which is this record's
 own defect committed by the gate that refuses it. Both sources agreed a moment later.
 
-**So the head is confirmed against a second source** — `git ls-remote` on the repository's public
-HTTPS URL, which is what was correct in the measurement — and the two disagreeing is not a verdict
+**So the head is confirmed against a second source**: the branch's own ref, read AUTHENTICATED
+through `gh api repos/<slug>/git/ref/heads/<branch>`. It was first an unauthenticated `git ls-remote`
+on the repository's public HTTPS URL, which is what was correct in the measurement and cannot see
+a private repository at all (below). The two disagreeing is not a verdict
 either way. It means the question was asked inside the window where GitHub has the push and the
 pull request does not, and the honest answer is `LAGGING`: refuse, and look again.
 
@@ -170,6 +172,64 @@ command would have taken another agent's unfinished work while it was still writ
 ready, firing its `READY` line only on `isDraft==false`, so the gate was the one step in the loop
 that did not know. `BLOCKED DRAFT`, named like the rest.
 
+## The second source has to be authenticated
+
+Found on the first provider pull request the gate met, 2026-09-21. provider-tmdb#30's branch
+`jacobdrees/cncore-304` existed, with head `bd37c17`, and the gate said:
+
+```
+BLOCKED UNREADABLE cannot read refs/heads/jacobdrees/cncore-304 in jacobdrees-canoncore/provider-tmdb
+```
+
+**GitHub answers an unauthenticated read of a private repository as though the repository did not
+exist**, rather than with a refusal: `git ls-remote` on provider-tmdb's HTTPS URL printed
+`remote: Repository not found.` and exited 128. CanonCore is the one PUBLIC repository in the
+organisation, and provider-tmdb and provider-wiki are both PRIVATE (`gh repo list`, 2026-09-21), so
+the gate could never pass a pull request in either provider. Every pull request it met before
+landing was CanonCore's, and so was every world in its test, which is how the one shape it breaks
+on went unseen. It failed safe, refusing rather than merging, but a refusal that reads like a
+genuinely missing branch sends its reader looking for the wrong thing.
+
+**The dispatcher merged #30 by hand, asking each of the gate's questions through `gh`**: the tip
+from `gh api .../git/ref/heads/<branch>` against `headRefOid`, the check-runs paginated against
+`total_count`, and draft, state and `mergeStateStatus`. All passed. That is the proof the
+authenticated route answers for a private repository, and it is the route the gate now takes.
+**Every question the gate asks goes through the one authenticated client**, so no repository is
+visible to some of its checks and invisible to others.
+
+Four things measured with gh 2.97.0 on 2026-09-21 hold it in place:
+
+- **The exit status is the verdict, not the output.** A ref GitHub has not got answers 404 with its
+  JSON body on STDOUT, `--jq` or not. A gate reading the output alone would compare
+  `{"message":"Not Found",...}` with the head and report `LAGGING` behind a commit named `{"messa`.
+- **The singular `git/ref` endpoint answers only the exact ref.** Asked for a prefix of CNCORE-319's
+  own branch name, or for the `jacobdrees` directory the dispatched branches sit under, it answered
+  404 rather than a longer branch.
+- **A slash goes into the path as it is.** `heads/jacobdrees/cncore-319` needed no encoding.
+- **Other characters git permits do not, so the name's shape is checked before the request.** The
+  branch name is not the dispatcher's to type, the way the repository name is: it is whatever the
+  author called the branch, and on a public repository that can be a stranger's fork. Git permits
+  names that make this request ask about a DIFFERENT ref. `gh` fills `{branch}` with the caller's
+  own checked-out branch and drops everything from `#`, and GitHub resolves an encoded `..`, so
+  `x/%2e%2e/main` answered with `main`'s tip. The gate refuses as `UNREADABLE`, before asking,
+  anything outside letters, digits, `.`, `_`, `/` and `-`, and any segment that starts with a dot.
+  All 309 distinct branch names across the three repositories that day, standing or named by a pull
+  request (`gh api .../branches` and `gh pr list --state all`), fit that shape. This ticket's own
+  review found it: the unauthenticated read took the name as a ref argument, not as a URL path.
+
+**What is NOT measured is whether this source leads the pull request's field inside the
+force-push window** the way `ls-remote` did in the measurement above. CNCORE-319 pushed its own
+branch twice, the second a force-push, and read `ls-remote`, this endpoint and `headRefOid` back to
+back in twelve rounds over fourteen seconds after each: all three agreed from the first round, so
+the window did not recur to be measured. The endpoint reads the branch's ref rather than the pull
+request, which is the property the check needs; it has not yet been caught leading one.
+
+`merge-gate.test.ts` holds it with #30's own world: a private repository whose stubbed `git`
+answers `ls-remote` the way provider-tmdb's did and whose stubbed `gh` answers normally, and a green
+head that must read `PASSED`. A second row gives the branch no ref at all, and must read
+`UNREADABLE` rather than `LAGGING`. A third hands the gate each of the three names above, and must
+see no ref asked for.
+
 ## What this does not cover
 
 Nothing makes the dispatcher RUN the gate. There are no required checks (ADR-0118) and no required
@@ -184,7 +244,8 @@ the blocking. `actionlint` before pushing is still what catches it.
 
 **BUILT: the gate, the fused merge command, and the rule at the three places a dispatcher reads.**
 `.claude/skills/dispatch/gate.sh` resolves `headRefOid`, `headRefName`, `mergeStateStatus` and
-`state` in one `gh pr view`, confirms that head against `git ls-remote` on the branch, reads
+`state` in one `gh pr view`, confirms that head against the branch's own ref (by `git ls-remote` as
+built here, by an authenticated `gh api` since CNCORE-319, above), reads
 `repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
 `total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
 `NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `DRAFT`,
@@ -192,8 +253,9 @@ the blocking. `actionlint` before pushing is still what catches it.
 `.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit status, with nothing
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
-`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over twenty-one
-scenarios, including #210's own world — the head with no runs beside the pre-rebase commit's green.
+`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
+twenty-four scenarios (twenty-one as built here, and CNCORE-319's three), including #210's own
+world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
 
