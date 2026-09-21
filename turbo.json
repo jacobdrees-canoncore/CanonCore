@@ -94,6 +94,10 @@
     "db:restore": {
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
+    },
+    "db:drop-worktree": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
     }
   }
 }

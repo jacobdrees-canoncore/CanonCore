@@ -7,7 +7,13 @@ import { afterEach, describe, expect, inject, it } from "vitest";
 
 import { worktreeDatabaseName } from "./index";
 import { holdingSetupLock } from "./setup-worktree";
-import { deadDatabases, dropDatabases, type ListedDatabase, ownedDatabases } from "./sweep";
+import {
+  deadDatabases,
+  dropDatabases,
+  dropRemovedWorktree,
+  type ListedDatabase,
+  ownedDatabases,
+} from "./sweep";
 
 /**
  * What a sweep of the shared container drops, and what it may never touch
@@ -151,14 +157,19 @@ describe("ownedDatabases", () => {
 });
 
 /**
+ * The shared container, reached the way this suite's own run database is.
+ * Both describes below drop real databases on it.
+ */
+const run = new URL(inject("databaseUrl"));
+const serverUrl = Object.assign(new URL(run), { pathname: "/postgres" }).toString();
+
+/**
  * Dropping, against the real container. EVERY PROBE IS NAMED OFF THIS SUITE'S
  * OWN RUN DATABASE, which puts it in this worktree's family: a `db:setup` in
  * another worktree sweeping at the same moment leaves it alone, and it fits
  * the 63 bytes on the longest branch (52 + `_test` + `_swpN`).
  */
 describe("dropDatabases", () => {
-  const run = new URL(inject("databaseUrl"));
-  const serverUrl = Object.assign(new URL(run), { pathname: "/postgres" }).toString();
   const probe = (n: number) => `${decodeURIComponent(run.pathname.slice(1))}_swp${n}`;
   const quoted = `${decodeURIComponent(run.pathname.slice(1))}_sw"q`;
 
@@ -170,6 +181,22 @@ describe("dropDatabases", () => {
         ),
       ),
     );
+  });
+
+  it("refuses a list naming canoncore whole, before it connects to anything", async () => {
+    // `canoncore` is what the Owner's install calls its catalogue (ADR-0191).
+    // The server here is one nothing listens on, so a refusal that came only
+    // AFTER connecting fails this test as ECONNREFUSED: no test ever hands that
+    // name to a server that could act on it.
+    const nowhere = "postgresql://postgres:password@127.0.0.1:1/postgres";
+
+    await expect(
+      dropDatabases(
+        nowhere,
+        ["canoncore_cncore_181_scope_in_a_link_a604650f", "canoncore"],
+        () => true,
+      ),
+    ).rejects.toThrow("refusing to drop anything: the list names canoncore");
   });
 
   it("drops each database it is handed that nobody is using", async () => {
@@ -255,49 +282,133 @@ describe("dropDatabases", () => {
     expect(await sweeping).toEqual({ dropped: [], inUse: [] });
     expect(await existing(probe(1))).toEqual([probe(1)]);
   });
-
-  /** Until a backend is queued behind an advisory lock another one holds. */
-  async function somebodyWaitingOnAnAdvisoryLock(): Promise<void> {
-    for (;;) {
-      const { rowCount } = await admin((client) =>
-        client.query(
-          `select 1 from pg_locks waiting
-             join pg_locks holding using (locktype, classid, objid, objsubid)
-            where locktype = 'advisory' and not waiting.granted and holding.granted`,
-        ),
-      );
-      if (rowCount !== 0) return;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-  }
-
-  async function create(...databases: string[]): Promise<void> {
-    await admin(async (client) => {
-      for (const database of databases) await client.query(`create database "${database}"`);
-    });
-  }
-
-  async function existing(...databases: string[]): Promise<string[]> {
-    return admin(async (client) =>
-      (
-        await client.query<{ datname: string }>(
-          "select datname from pg_database where datname = any($1) order by datname",
-          [databases],
-        )
-      ).rows.map((row) => row.datname),
-    );
-  }
-
-  async function admin<T>(work: (client: Client) => Promise<T>): Promise<T> {
-    const client = new Client({ connectionString: serverUrl });
-    await client.connect();
-    try {
-      return await work(client);
-    } finally {
-      await client.end();
-    }
-  }
 });
+
+/**
+ * What the dispatcher runs after removing a worktree (ADR-0191), against the
+ * real container. EVERY BRANCH IS NAMED OFF THIS SUITE'S OWN RUN DATABASE, and
+ * the fingerprint is of the whole branch, so the same file running in another
+ * worktree derives other names. A sweep elsewhere leaves them alone because
+ * they are minutes old.
+ */
+describe("dropRemovedWorktree", () => {
+  const branch = (n: number) => `reviewer/${decodeURIComponent(run.pathname.slice(1))}-gone-${n}`;
+  const root = (n: number) => worktreeDatabaseName(branch(n));
+
+  afterEach(async () => {
+    await admin(async (client) => {
+      const { rows } = await client.query<{ datname: string }>("select datname from pg_database");
+      const ours = rows
+        .map((row) => row.datname)
+        .filter((name) =>
+          [1, 2, 3].some((n) => name === root(n) || name.startsWith(`${root(n)}_test`)),
+        );
+      for (const database of ours) {
+        await client.query(`drop database if exists "${database}" with (force)`);
+      }
+    });
+  });
+
+  it("drops a removed worktree's database and every one derived from it, however young", async () => {
+    // Its last suite run rebuilt each `_test…` database minutes before the PR
+    // merged, which is inside the sweep's hour: this is what the sweep cannot.
+    const { main, linked } = repositoryWithAWorktree(branch(1));
+    git(main, "worktree", "remove", linked);
+    const family = [root(1), `${root(1)}_test`, `${root(1)}_test_api`];
+    await create(...family, root(2));
+
+    const swept = await dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) });
+
+    expect(swept).toEqual({ dropped: family, inUse: [] });
+    expect(await existing(...family, root(2))).toEqual([root(2)]);
+  });
+
+  it("refuses while a worktree still has the branch checked out, and drops nothing", async () => {
+    // Run before `orca worktree rm` rather than after, it would take the
+    // databases out from under an agent that may still be running its suite.
+    const { main } = repositoryWithAWorktree(branch(1));
+    await create(root(1), `${root(1)}_test`);
+
+    await expect(
+      dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) }),
+    ).rejects.toThrow(`refusing: ${branch(1)} is still checked out in a worktree`);
+    expect(await existing(root(1), `${root(1)}_test`)).toEqual([root(1), `${root(1)}_test`]);
+  });
+
+  it("leaves a database whose branch got a worktree again while it waited on db:setup's lock", async () => {
+    // A ticket re-dispatched straight after its removal reuses the branch, and
+    // its `db:setup` adopts the database still standing. The question asked
+    // before listing is out of date by then, so it is asked again under the
+    // lock, as the sweep asks it.
+    const { main, linked } = repositoryWithAWorktree(branch(1));
+    git(main, "worktree", "remove", linked);
+    await create(root(1));
+    let lockTaken!: () => void;
+    const taken = new Promise<void>((resolve) => {
+      lockTaken = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const setup = holdingSetupLock(serverUrl, root(1), async () => {
+      lockTaken();
+      await released;
+      git(main, "worktree", "add", "--quiet", linked, branch(1));
+    });
+    await taken;
+
+    const dropping = dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) });
+    await somebodyWaitingOnAnAdvisoryLock();
+    release();
+    await setup;
+
+    expect(await dropping).toEqual({ dropped: [], inUse: [] });
+    expect(await existing(root(1))).toEqual([root(1)]);
+  });
+});
+
+/** Until a backend is queued behind an advisory lock another one holds. */
+async function somebodyWaitingOnAnAdvisoryLock(): Promise<void> {
+  for (;;) {
+    const { rowCount } = await admin((client) =>
+      client.query(
+        `select 1 from pg_locks waiting
+           join pg_locks holding using (locktype, classid, objid, objsubid)
+          where locktype = 'advisory' and not waiting.granted and holding.granted`,
+      ),
+    );
+    if (rowCount !== 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+async function create(...databases: string[]): Promise<void> {
+  await admin(async (client) => {
+    for (const database of databases) await client.query(`create database "${database}"`);
+  });
+}
+
+async function existing(...databases: string[]): Promise<string[]> {
+  return admin(async (client) =>
+    (
+      await client.query<{ datname: string }>(
+        "select datname from pg_database where datname = any($1) order by datname",
+        [databases],
+      )
+    ).rows.map((row) => row.datname),
+  );
+}
+
+async function admin<T>(work: (client: Client) => Promise<T>): Promise<T> {
+  const client = new Client({ connectionString: serverUrl });
+  await client.connect();
+  try {
+    return await work(client);
+  } finally {
+    await client.end();
+  }
+}
 
 /** A repository on `trunk` with one linked worktree on `branch`. */
 function repositoryWithAWorktree(branch: string): { main: string; linked: string } {
