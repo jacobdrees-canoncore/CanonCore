@@ -998,6 +998,39 @@ describe("readCatalogue, and what sorts before the alphabet", () => {
     // IT SORTS LAST, so the jump to Z answers both Rows in that order.
     expect(jumped.rows.map((row) => row.id)).toStrictEqual(ids);
   });
+
+  it("carries the keyless block onto every jump, so an untitled Item is reached by any letter", async () => {
+    // WHAT AN UNTITLED ITEM IS REACHED BY (CNCORE-292, ADR-0189), and the
+    // reason this Listing owes no control of its own for it: a letter is a
+    // SEEK and `atOrPastTheValueIn` reads the keyless block as AT OR PAST
+    // EVERY value -- `or(isNull(key), atOrPast)` in `order.ts` -- so the tail
+    // rides on whichever letter the reader already pressed.
+    //
+    // IT IS NOT A FIXTURE'S STATE, WHICH IS WHAT THE TICKET ASSUMED. A purge
+    // leaves every Item the Owner still places or still holds in a Group
+    // standing with no title at all (`import.test.ts`, "leaves what another
+    // source said" and "keeps an item the owner put in a group"), so this is
+    // the shape the catalogue wears the day a Provider's licence ends.
+    //
+    // ASSERTED ON BOTH ENDS OF THE BAR, because one letter passing says
+    // nothing about the rule: a seek that filtered would answer the untitled
+    // Row on neither, and one that OR'd the block in at a hardcoded Z would
+    // answer it on Z alone. A and Z are where those two failures separate.
+    const group = await createGroupByHand(db, { name: "A Group a purge left a survivor in" });
+    const titled = await anItemTitled(db, "Zoe and the far end");
+    const untitled = await anItem(db);
+    for (const id of [titled, untitled])
+      await putItemInGroupByHand(db, { groupId: group, itemId: id });
+
+    const toA = await readCatalogue(db, { limit: 10, group, letter: "A" });
+    const toZ = await readCatalogue(db, { limit: 10, group, letter: "Z" });
+
+    // LAST ON EACH, because the keyless block sorts `nulls last` whichever
+    // letter the seek named -- so the Owner lands on it rather than walking
+    // the catalogue's whole length to it.
+    expect(toA.rows.map((row) => row.id)).toStrictEqual([titled, untitled]);
+    expect(toZ.rows.map((row) => row.id)).toStrictEqual([titled, untitled]);
+  });
 });
 
 /**

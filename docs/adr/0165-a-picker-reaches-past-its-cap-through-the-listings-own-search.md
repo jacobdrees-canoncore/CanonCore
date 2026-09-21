@@ -132,7 +132,7 @@ where it is read. The reasoning above is untouched, because it turns on where a 
 one lands in a form field and this one landed in a sentence, which is why only one of them owed a
 bound.
 
-## The half this does not build: an Item with no title
+## The half this does not build: an Item with no title -- ANSWERED, AND IT IS NOT A HALF
 
 The reach here is **reach by title**, and an Item that has none is outside it twice over. It sorts
 LAST, because the catalogue orders on `coalesce(sort_name, title)` with `nulls last`, so it is off
@@ -140,10 +140,26 @@ the picker's page on a catalogue of any size; and no query finds it, because Cat
 `title ilike ...`, which is NULL for a row with no title -- `catalogue-search.ts` says so of itself.
 
 **Measured rather than assumed: ZERO of the Owner's 8,052 Items are untitled** (counted against the
-2026-09-20 dump). So nothing on the only install that exists is unreachable this way, and the state
-is still constructible -- `aCatalogueLargerThanOnePage` seeds two untitled Items deliberately. It is
-**CNCORE-292**, named here because a record that leaves half a mechanism unbuilt and says nothing is
-the false signal `CLAUDE.md` is about.
+2026-09-20 dump; re-counted against the live install 2026-09-21, still zero). So nothing on the only
+install that exists is unreachable this way, and the state is still constructible --
+`aCatalogueLargerThanOnePage` seeds two untitled Items deliberately. It was **CNCORE-292**, named
+here because a record that leaves half a mechanism unbuilt and says nothing is the false signal
+`CLAUDE.md` is about.
+
+**AND A FIXTURE IS NOT THE ONLY THING THAT WRITES ONE, WHICH THE SENTENCE ABOVE IMPLIED.** A PURGE
+does: an Item the Owner still places, or still holds in a live Group, survives a Provider purge with
+no title at all, because every word it had was that Provider's (`purge.ts`, and two tests in
+`import.test.ts`). The state is a product's rather than a test's, and the correction is here rather
+than only in the record that answers it, because the sentence above is the one that would otherwise
+go on saying nobody can have one.
+
+**CLOSED BY [[0189-an-untitled-item-is-one-the-owner-titles-first]], WHICH BUILT NO MECHANISM.** The
+Owner reaches such an Item through the Listing they already have -- every letter jump carries the
+keyless block -- TITLES it there, and the reach this record built then finds it. **So this section
+names no unbuilt half any more**: what was missing was a decision, and the reason a second reach is
+refused is that the picker renders every such row "Untitled item" and could not tell the Owner which
+one they were choosing. That is this record's own lesson one surface along -- an option OFFERED and
+an option that can be CHOSEN are two claims.
 
 ## What the e2e fixture cost, and the server that was NOT started
 
