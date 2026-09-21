@@ -1,16 +1,18 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A figure about a run is found by sweeping the tree, not by a roll call somebody maintains
 
-> **PROPOSED 2026-09-21. The mechanism is whole and lands in three PRs, so the flip waits for the
-> other two.** `packages/config/src/run-figures.test.ts` sweeps every tracked `.ts` and `.md` in
-> this repository for a figure stating how a test run went, and reddens on one that neither derives
-> from the tree nor says which tree it was taken on. The two provider repositories hold the same
-> check, as `test/run-figures.test.ts`, in `provider-wiki#67` and `provider-tmdb#36`. **This record
-> reads `accepted` when those two merge**, and not before: no PR in a provider repository reaches
-> `docs/adr/`, so a reviewer of this diff cannot check a claim about theirs
+> **ACCEPTED 2026-09-21, whole, in all three repositories.**
+> `packages/config/src/run-figures.test.ts` sweeps every tracked `.ts` and `.md` here for a figure
+> stating how a test run went, and reddens on one that neither derives from the tree nor says which
+> tree it was taken on. Each provider repository holds the same check as `test/run-figures.test.ts`,
+> in two PRs **MERGED before this one**: `provider-wiki#67` as `6b8e56c` and `provider-tmdb#36` as
+> `d50a245`. **THE FLIP IS ON THIS, THE SECOND TICKET OF THE PAIR, AND IT NAMES THE MERGE COMMITS
+> BECAUSE THAT IS THE ONLY THING ITS REVIEWER CAN CHECK** — `docs/adr/` is in this repository and no
+> PR in a provider repository reaches it, so a flip asserting their state without naming a merged
+> commit would be an assertion nobody could check against a diff
 > ([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). CNCORE-339 assigned this
 > number; the dispatcher issued it.
 
@@ -141,7 +143,7 @@ file before reading it and keeps an offset map so the line number survives the f
   written without stating the spellings they match. Each is held to finding something, so a third
   name added to buy silence reddens the run that adds it.
 
-## As built, under CNCORE-339 — and this record stays PROPOSED
+## As built, under CNCORE-339
 
 **BUILT: the sweep, the rule and the register, in this repository.**
 `packages/config/src/run-figures.test.ts` and `testing/run-figures.ts` read every tracked `.ts` and
@@ -151,13 +153,12 @@ population. Nine defects in this tree were repaired under
 [[0188-a-count-nobody-routes-by-is-deleted-rather-than-derived]], and the register holds four
 entries across three documents, each of which must keep finding its figure.
 
-**NOT BUILT HERE, BECAUSE IT CANNOT BE: the two provider halves, which are the same check in
-`provider-wiki#67` and `provider-tmdb#36`.** `docs/adr/` is in this repository and no PR in a
-provider repository reaches it, so a claim about their trees is one a reviewer of this diff cannot
-check against the diff
-([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). Both PRs are open and
-green. **This record reads `accepted` when they merge, and the ticket that flips it is the second
-one**, which is CLAUDE.md's rule for a cross-repo pair.
+**BUILT IN THE TWO PROVIDER REPOSITORIES, AND MERGED BEFORE THIS.** The same check, as
+`test/run-figures.test.ts`, in `provider-wiki#67` (`6b8e56c`) and `provider-tmdb#36` (`d50a245`).
+This record was written `proposed` and flipped in the same pass, once those merged: until they did,
+a claim about their trees was one a reviewer of this diff could not check against the diff. The
+reader half is the same file in both providers and nothing enforces that, which is the caveat
+`test/merge-argv.test.ts` already carries in each.
 
 **AND THE CHECK CAUGHT THIS RECORD, on the rebase that added it.** The section naming the two
 spellings has to write them down, so the sweep reported both. They are registered as `foreign`
