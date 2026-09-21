@@ -140,8 +140,10 @@ than fixed here:**
 - **`bounded-parameters.test.ts`: "Seven sites in this tree owe that bound".**
   - It counts a DIFFERENT population: the sites owing ADR-0123's levers, not ADR-0179's phrase.
   - It sits in the file whose argument is that a count is not a check.
-  - It was not measured, so whether it is right is unknown.
-  - CNCORE-314 carries it.
+  - It was not measured here. CNCORE-314 then measured it: the file derives three, and the seven
+    was [[0170-a-value-a-page-both-asks-with-and-quotes-is-two-values]]'s list copied in. It is
+    deleted, by this record's test
+    ([[0194-a-count-copied-from-a-record-is-not-the-population-a-check-derives]]).
 - **`client.ts`: "the four sentences stay one concept".**
   - The count was true, but the four span three files, so it was the kind this record describes.
   - The same docblock's "NO FULL STOP, UNLIKE THE OTHER THREE" was FALSE, because `UNSHOWABLE_NAME`
