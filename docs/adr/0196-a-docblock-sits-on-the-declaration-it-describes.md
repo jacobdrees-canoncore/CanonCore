@@ -101,7 +101,7 @@ sits. Each turns at least one fixture row red, and not only the sweep over the t
   finds them.
 - **The provider repositories.** Neither has the scan, and porting it is a second copy to keep in
   step. CNCORE-321 carries that, with a `TODO` naming it at the check.
-- **The count this suite moved.** `packages/config` now holds 33 suites that read the repository at
-  large, up from 32, and `tree-figures.test.ts` holds the figure where `turbo-cache-inputs.test.ts`
+- **The count this suite moved.** `packages/config` now holds 34 suites that read the repository at
+  large, up from the 33 CNCORE-295 left, and `tree-figures.test.ts` holds the figure where `turbo-cache-inputs.test.ts`
   states it. By ADR-0188's test that count may route nobody. Whether it should be deleted is left to
   a pass about that count.
