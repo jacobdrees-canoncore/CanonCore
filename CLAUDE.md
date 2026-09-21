@@ -184,7 +184,7 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
 
 **Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` cleans up
 only a worktree it created itself and never creates one here. As the PR merges, retire it with
-`.claude/skills/dispatch/retire.sh <worktree>`, never by hand: ADR-0199 is what it refuses and why.
+`.claude/skills/dispatch/retire.sh <worktree>`, never by hand: ADR-0198 is what it refuses and why.
 
 Before merging any ticket branch, read `git diff <base>..<branch>` rather than trusting that
 checks passed. Parallel agents produce semantic contradictions that compile cleanly.

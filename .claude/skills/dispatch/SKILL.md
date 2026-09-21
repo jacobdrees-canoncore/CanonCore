@@ -69,7 +69,7 @@ shell happened to run things.
 `main-ahead` when some commit on `main` holds the file EXACTLY as the branch has it, `ticket-named`
 when `main`'s history on it carries this ticket's subject. "`main` holds a later commit touching it"
 is NOT one of them — that is equally true of a file another ticket edited while this branch's change
-to it never merged (ADR-0199).
+to it never merged (ADR-0198).
 
 It needs no branch argument and no repo: the branch comes off the worktree before the removal takes
 it, and `--git-dir` against `--git-common-dir` both refuses a MAIN CHECKOUT and derives where the

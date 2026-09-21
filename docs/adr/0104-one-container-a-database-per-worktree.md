@@ -844,7 +844,7 @@ templates. A future hand-built database is its author's to drop.
 |---|---|---|---|
 | `max_connections` | 300, 288 usable | four agents' `pnpm test:e2e` at 55 to 67 each | `DATABASE_MAX_CONNECTIONS=4` in the e2e harness (CNCORE-137) |
 | `shm_size` | 256mb | about 4,500 databases at 57 KiB | this sweep (CNCORE-231) |
-| Databases on disk | nothing | the volume | `db:drop-worktree` at each removal, which `retire.sh` runs rather than the dispatcher (ADR-0191, ADR-0199), then this sweep, so what stands is the live worktrees' own |
+| Databases on disk | nothing | the volume | `db:drop-worktree` at each removal, which `retire.sh` runs rather than the dispatcher (ADR-0191, ADR-0198), then this sweep, so what stands is the live worktrees' own |
 
 **Evidence**, all 2026-09-19. The counts and sizes are `select count(*),
 pg_size_pretty(sum(pg_database_size(datname))) from pg_database`, `df -h /dev/shm` and `du -sh
