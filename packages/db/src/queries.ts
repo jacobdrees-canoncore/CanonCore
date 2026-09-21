@@ -1001,6 +1001,12 @@ export interface BrowsedListing extends Catalogue {
    * Jellyfin's `#` is the same range: `nameLessThan: 'A'` compared against
    * SortName, never a character class.
    *
+   * AND THE TWO ALREADY DISAGREE ON THE OWNER'S CATALOGUE rather than only in
+   * principle: 37 against 46 on a 2026-09-20 dump, measured 2026-09-21. The
+   * nine a character test would wrongly take include `"Death to the Daleks!"`,
+   * which `catalogue.test.ts` already names as filing under D. ADR-0180 lists
+   * them, and corrects CNCORE-242's own sentence saying they agree.
+   *
    * ASKED AS THE COMPLEMENT OF THE JUMP TO A, so it is one predicate read from
    * both ends rather than a second spelling of the bucket. The Rows behind
    * that Cut are exactly the Rows the jump to A leaves behind, which is the
@@ -1173,11 +1179,11 @@ async function readListing(
  *
  * NOT A SECOND SPELLING OF THE BUCKET, which is the whole reason it is written
  * this way. An implementation testing the first character for a digit or a
- * mark would agree with this on the Owner's 8,052 Items and disagree the
- * moment a sort name opens with something the collation files elsewhere --
- * `!bang` under B, a Cyrillic title past Z. `theCut` renders the comparison
- * the jump itself uses, so the entry the bar offers and the page it lands on
- * cannot come to mean different things.
+ * mark disagrees with this ON THE CATALOGUE THAT EXISTS -- 46 Items against
+ * 37, measured 2026-09-21 -- because the collation files a title opening in
+ * punctuation under the letter inside it and a non-Latin one past Z.
+ * `theCut` renders the comparison the jump itself uses, so the entry the bar
+ * offers and the page it lands on cannot come to mean different things.
  *
  * IT ASKS WHETHER, NOT HOW MANY, because nothing shows a figure for it: a
  * count would be a number no surface prints, and the row this stops at is the

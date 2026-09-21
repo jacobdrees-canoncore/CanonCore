@@ -952,6 +952,11 @@ describe("readCatalogue, and what sorts before the alphabet", () => {
     // level, so `!bang` files under B and `-dash first` under D: both open
     // with a mark and NEITHER sorts before A. A character test would offer the
     // entry over a Listing A to Z already reaches whole.
+    //
+    // AND THIS IS NOT A HYPOTHETICAL SHAPE. The Owner's catalogue holds nine
+    // such Items today -- 46 against the range's 37, measured 2026-09-21 --
+    // and one of them is `"Death to the Daleks!"`, which the jump test above
+    // already names as filing under D. ADR-0180 lists all nine.
     const group = await createGroupByHand(db, { name: "Nothing files before A" });
     for (const title of ["!bang", "-dash first", "Aliens of London"]) {
       await putItemInGroupByHand(db, { groupId: group, itemId: await anItemTitled(db, title) });

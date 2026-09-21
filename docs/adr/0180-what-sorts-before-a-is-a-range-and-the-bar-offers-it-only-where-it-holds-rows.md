@@ -32,9 +32,22 @@ Measured on this repository's own engine on 2026-09-21 — PostgreSQL 18.6 as `c
 | `-dash first` | **no** | before A — **wrong**, the collation files it under D |
 | `Дневник` | **no** | before A — **wrong**, the collation files it PAST Z |
 
-The collation ignores punctuation at the first level, so a leading mark decides nothing. A
-character test agrees with the range on all 8,052 of today's Items and parts from it on the first
-title that opens in punctuation or in a non-Latin script.
+The collation ignores punctuation at the first level, so a leading mark decides nothing.
+
+**THE TWO ALREADY DISAGREE ON THE OWNER'S OWN CATALOGUE, AND CNCORE-242 SAID THEY DID NOT.** That
+ticket's corrected description reads "The two agree on today's 8,052 Items and diverge on a
+non-Latin sort name", and its `/verify` comment repeats it. Measured on a 2026-09-20 dump of the
+live install on 2026-09-21: the range answers **37** and a leading `[^a-zA-Z]` test answers **46**.
+The nine it would wrongly take are real Items, filed today under six different letters:
+
+`...And Eternity In An Hour (short story)`, `...and from the Tower She Did Fall (short story)`,
+`...Be Forgot (short story)`, `...ish (audio story)` (A and I), `"Death to the Daleks!" (audio
+story)` (D), `(Final) Doctor Who History Tour (comic story)` (F), `*Sub Zero (comic story)` (S),
+`'Twas the Night Before Christmas (webcast)` (T), and `Übermensch (audio story)` (U).
+
+So the range is not the better of two readings that happen to agree today. It is nine Items right on
+the catalogue that exists, and `"Death to the Daleks!"` is one this repository's own suite ALREADY
+names as filing under D.
 
 **Jellyfin's `#` is the same range**, which is what settled this rather than taste: its
 `getAlphaPickerQuery` sends `nameLessThan: 'A'` and the server compares that against SortName, so

@@ -692,8 +692,8 @@ export const browsedListingPublic = cataloguePublic.extend({
    * beside a fixed A-Z whether or not anything is there.
    *
    * A RANGE UNDER THE CATALOGUE'S COLLATION and never a digit-or-symbol test,
-   * which the db seam owns and measures. The two agree on today's corpus and
-   * part company on a title opening in punctuation.
+   * which the db seam owns and measures. The two disagree on the Owner's own
+   * catalogue today, by nine Items (ADR-0180).
    */
   beforeTheAlphabet: z.boolean(),
 });
