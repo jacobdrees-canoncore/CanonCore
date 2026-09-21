@@ -40,7 +40,8 @@ described here rather than quoted, since this record is inside the corpus that w
 | `.claude/rules/docs.md` cites a record number no record holds | passes: never read | red in `adr-citations` |
 | `.claude/rules/frontend.md` links record 0175 by a slug it never carried | passes: never read | red in `adr-citations` |
 
-On `main` all 22 tests in the three files passed over the four. Here the same run was
+On `main` all 22 tests in the three files passed over the four. On this branch at `eeabc74`, before
+`markdownIn`'s rows moved out of `doc-line-citations.test.ts`, the same run was
 `3 failed | 19 passed (22)`, each failure naming its planted line. **The control**: dropping
 `.claude` from the reader's list with the four still planted turns the three suites green again,
 and what goes red instead is the reader's own rows (below).
@@ -53,20 +54,37 @@ slug. Nothing about them earns the history exemption: they are not research, and
 for what was known on an earlier date. `CLAUDE.md` itself sends its reader to
 `.claude/rules/workflows.md`.
 
-**ADDING IT CHANGED NO VERDICT TODAY, which was checked rather than assumed.** No line citation
-anywhere points into `.claude/`. None of its eight documents shares a basename with one under
-`docs/` or at the root, and that one mattered: `byBasename` drops a name two documents share, so a
-collision would have made `doc-line-citations` NARROWER by gaining a file. Every record number
+**ADDING IT CHANGED NO VERDICT, which was checked rather than assumed on 2026-09-21.** No line
+citation anywhere pointed into `.claude/`. None of its eight documents shares a basename with one
+under `docs/` or at the root, and that one mattered: `byBasename` drops a name two documents share,
+so a collision would have made `doc-line-citations` NARROWER by gaining a file. Every record number
 `.claude/` cites is one the tree holds, and its one wiki link names its record's real slug.
-`doc-line-citations` and `adr-citations` each read 241 documents where they read 233;
-`terminal-send-hazards` reads the same 241 it did.
+`doc-line-citations` and `adr-citations` each gained exactly those eight documents, and
+`terminal-send-hazards` reads the set it read before.
 
 **WHAT IT DOES NOT HOLD.** Three of the eight are named `SKILL.md`, so a bare `SKILL.md` citation
 by line written outside the skill's own directory is ambiguous, is dropped by `byBasename`, and is
 excused as history. That is the existing rule for a shared basename, not a new one, and it is
-stated here rather than changed. And `.claude/rules/docs.md` still loads its cite-by-section rule
-for `docs/**` only, so an agent editing a skill meets the rule at the build rather than in its
-context.
+stated here rather than changed. `.claude/rules/docs.md` now loads its cite-by-section rule for
+`.claude/**` as well as `docs/**`, so an agent editing a skill meets the rule in its context rather
+than first at the build.
+
+**THE CORPUS IS READ FROM THE DISK AND THE GUARD ASKS ONE WAY.** `proseIn` walks the working tree,
+as `markdownIn` always has (ADR-0103), and the standing guard below asks only that everything git
+tracks is in the corpus, never that everything in the corpus is tracked. So an untracked document
+under `docs/` or `.claude/` is swept on the machine that holds it and nowhere else, which is the
+exposure `docs/` has had since the first sweep. Asking the other way was refused, because it would
+redden every draft before its first commit, this record included. Nothing writes under `.claude/`
+in this repository today: the main checkout holds `rules/`, `skills/` and two settings files, and
+Claude Code's own worktree isolation, which would write a checkout there, is ruled out by
+`CLAUDE.md` and denied by `.claude/settings.json`. A checkout carrying pnpm's symlinks would throw,
+naming them, rather than pass.
+
+**AND IT CATCHES A NEW DIRECTORY, NOT A NEW COPY.** `markdownIn` stays exported, because its own
+rows ask it directly, so a fourth suite could still spell a directory list of its own and nothing
+here would say so. A check that no suite but this module calls `markdownIn` was weighed and not
+built: it would catch that one spelling of a copy and not a suite walking `docs/` with
+`readdirSync`, which is the spelling CNCORE-259 met.
 
 ## Why this is not the question ADR-0171 leaves with the caller
 
@@ -83,7 +101,7 @@ asserts its own population is not empty.
 
 The reader returns paths relative to the root it is given, and sorted, because two of the three
 copies sorted and POSIX leaves `readdir`'s order unspecified. `adr-citations` had been joining
-`repoRoot` on and slicing it back off to report, and it now does neither.
+`repoRoot` on to read and slicing it back off to report. It now joins it only to read.
 
 ## The standing guard, and the named exclusion
 
@@ -108,8 +126,9 @@ could not be named instead in any case. Measured on this branch on 2026-09-21, a
 `markdownIn`'s own rows moved with it. ADR-0103 kept them in `doc-line-citations.test.ts` "because
 only this sweep lists markdown this way", and that stopped being true at CNCORE-259. They now sit in
 `testing/markdown-corpus.test.ts` beside the new rows, unchanged but for two phrases that said "this
-sweep". The new rows were each driven red before their code existed. Each mutation of the finished
-reader reddens only the rows written for it:
+sweep" and one row put back in order: CNCORE-211's review had slipped the corpus-itself row between
+a docblock saying "the row above" and the row it meant. The new rows were each driven red before
+their code existed. Each mutation of the finished reader reddens only the rows written for it:
 
 * **`.claude` dropped from the list** reddens the `.claude/` row, the order row, and the standing
   guard, which names all eight `.claude/` documents.

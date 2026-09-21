@@ -1,6 +1,7 @@
 ---
 paths:
   - "docs/**"
+  - ".claude/**"
 ---
 
 # Documents

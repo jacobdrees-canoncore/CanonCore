@@ -20,9 +20,9 @@ import { trackedFiles } from "./tracked-files";
  * reader, and this tree's own directories answer for today's layout only.
  *
  * The rows the three sweeps lean on are proved by what they caught rather than
- * by being green. Four defects planted under `.claude/` passed all three sweeps
- * on the reader-per-suite code and redden them through this one; ADR-0190 has
- * the run.
+ * by being green. Four defects in or pointing into `.claude/` passed all three
+ * sweeps on the reader-per-suite code and redden them through this one;
+ * ADR-0190 has the run.
  */
 describe("the prose corpus", () => {
   let root: string;
@@ -208,21 +208,6 @@ describe("a symlinked directory under the corpus", () => {
    * control: it fails loudly rather than passing vacuously wherever permission
    * bits are not enforced, as they are not for root.
    */
-  /**
-   * The corpus's own directory is walked into like every directory under it,
-   * and `docs` is an entry git holds exactly as it holds one beneath it -- so a
-   * link THERE splits node and git over every document in the corpus at once.
-   */
-  it("is refused when it is the corpus itself, which a recursive read enters first", () => {
-    mkdirSync(join(directory, "elsewhere"));
-    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
-    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus"));
-
-    expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
-      /symlinked directory.*corpus$/,
-    );
-  });
-
   it("is refused before it is read through, so a target nothing can open is no obstacle", () => {
     mkdirSync(join(directory, "elsewhere"));
     writeFileSync(join(directory, "elsewhere", "outside.md"), "");
@@ -238,6 +223,21 @@ describe("a symlinked directory under the corpus", () => {
     } finally {
       chmodSync(join(directory, "elsewhere"), 0o755);
     }
+  });
+
+  /**
+   * The corpus's own directory is walked into like every directory under it,
+   * and `docs` is an entry git holds exactly as it holds one beneath it -- so a
+   * link THERE splits node and git over every document in the corpus at once.
+   */
+  it("is refused when it is the corpus itself, which a recursive read enters first", () => {
+    mkdirSync(join(directory, "elsewhere"));
+    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
+    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus"));
+
+    expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
+      /symlinked directory.*corpus$/,
+    );
   });
 
   /**

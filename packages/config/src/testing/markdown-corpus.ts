@@ -116,15 +116,15 @@ export function markdownIn(directory: string, { recursive = false } = {}): strin
  * about it earns the exemption `docs/research/README.md` gives history. Two of
  * the three suites left it out and one put it in, and none of them said why.
  */
-const PROSE = ["docs", ".claude"] as const;
+const PROSE_DIRECTORIES = ["docs", ".claude"] as const;
 
 /**
  * Markdown git tracks that is NOT prose this repository writes, each NAMED with
- * its reason rather than left out by a directory list that happens to miss it --
- * a pattern that missed one generated file would miss the second the same way.
- * `markdown-corpus.test.ts` asks git for every tracked document and fails on
- * one that is neither in the corpus nor named here, so a new directory of prose
- * is DECIDED rather than excused.
+ * its reason rather than left out by a directory list that happens to miss it
+ * -- a pattern that missed one generated file would miss the second the same
+ * way. `markdown-corpus.test.ts` asks git for every tracked document and fails
+ * on one that is neither in the corpus nor named here, so a new directory of
+ * prose is DECIDED rather than excused.
  */
 export const NOT_PROSE: readonly string[] = [
   // Written and re-added by `next dev`, which says so in its own text: a rule
@@ -135,8 +135,8 @@ export const NOT_PROSE: readonly string[] = [
 ];
 
 /**
- * THE PROSE CORPUS: every markdown document under `PROSE`, plus the root's own,
- * spelled relative to `root` and sorted.
+ * THE PROSE CORPUS: every markdown document under `PROSE_DIRECTORIES`, plus
+ * the root's own, spelled relative to `root` and sorted.
  *
  * ONE READER SINCE CNCORE-313, and the divergence is why rather than the
  * tidiness. `adr-citations.test.ts`, `doc-line-citations.test.ts` and
@@ -159,7 +159,7 @@ export const NOT_PROSE: readonly string[] = [
  */
 export function proseIn(root: string): string[] {
   return [
-    ...PROSE.flatMap((directory) =>
+    ...PROSE_DIRECTORIES.flatMap((directory) =>
       markdownIn(join(root, directory), { recursive: true }).map((path) => join(directory, path)),
     ),
     ...markdownIn(root),
