@@ -272,9 +272,15 @@ importers:
       '@canoncore/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@canoncore/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@canoncore/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
+      '@canoncore/text':
+        specifier: workspace:*
+        version: link:../../packages/text
       '@canoncore/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -330,9 +336,6 @@ importers:
       '@canoncore/providers':
         specifier: workspace:*
         version: link:../../packages/providers
-      '@canoncore/text':
-        specifier: workspace:*
-        version: link:../../packages/text
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.3.3

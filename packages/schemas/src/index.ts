@@ -10,6 +10,8 @@
  */
 import { z } from "zod";
 
+export { A_NARROWING } from "./narrowing";
+
 /** What `healthCheck` answers. Published in the OpenAPI document. */
 export const healthCheckResult = z.literal("OK");
 

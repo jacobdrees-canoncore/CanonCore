@@ -1,6 +1,7 @@
+import { A_NARROWING } from "@canoncore/schemas/narrowing";
 import { describe, expect, it } from "vitest";
 
-import { oneValue, theQueryQuoted } from "./query-params";
+import { oneGroup, oneKind, oneValue, theQueryQuoted } from "./query-params";
 
 /**
  * ADR-0179. Both surfaces that print a reader's query quote it inside a
@@ -41,5 +42,45 @@ describe("theQueryQuoted", () => {
    */
   it("quotes a query the strip only partly took", () => {
     expect(theQueryQuoted("dalek‮master")).toBe("dalekmaster");
+  });
+});
+
+/**
+ * THE CEILING A NARROWING IS READ AT (CNCORE-284, CNCORE-309, ADR-0182).
+ *
+ * THIS IS THE SEAM THAT KEEPS IT OUT OF EVERY LINK, and that is why it is
+ * asserted here rather than only at the router. `queryFor` writes what these
+ * two answer into the `href` of `Everything`, of each Group's link, of both
+ * order links and of the `#` entry -- one copy per Group in the served
+ * document. The router's own ceiling cannot reach any of them: a link is built
+ * from what the SURFACE read, never from what the seam saw.
+ *
+ * NOTHING RATHER THAN A CUT VALUE, which is the decision ADR-0182 turns on. A
+ * narrowing is asked with and CARRIED, never printed -- CNCORE-281 and
+ * CNCORE-262 took it out of both headings -- so there is no printed copy for a
+ * cut to bound. Cutting the carried one would put a value the reader never
+ * typed into every link for the next click to send back, which is
+ * `theQueryQuoted`'s own reason for keeping the whole query in what replays a
+ * search: a cut value is a different question.
+ */
+describe("a narrowing read off the address", () => {
+  it("answers nothing for a kind past the ceiling, and the kind itself at it", () => {
+    expect(oneKind("x".repeat(A_NARROWING + 1))).toBeUndefined();
+
+    // AT THE CEILING IT COMES BACK WHOLE. The bound refuses what cannot be a
+    // kind; it does not edit what can, and a value at the limit narrows to
+    // nothing the ordinary way rather than being dropped.
+    expect(oneKind("x".repeat(A_NARROWING))).toBe("x".repeat(A_NARROWING));
+  });
+
+  /**
+   * THE GROUP READS THE SAME WAY (CNCORE-309), and it is asserted rather than
+   * inferred from the two functions being alike. They were alike before this
+   * ceiling and one of them was bounded first: a test that trusted the likeness
+   * would have passed over the half that was still open.
+   */
+  it("answers nothing for a Group past the ceiling, and the id itself at it", () => {
+    expect(oneGroup("x".repeat(A_NARROWING + 1))).toBeUndefined();
+    expect(oneGroup("x".repeat(A_NARROWING))).toBe("x".repeat(A_NARROWING));
   });
 });
