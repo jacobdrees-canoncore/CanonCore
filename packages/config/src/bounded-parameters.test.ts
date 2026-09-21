@@ -11,26 +11,29 @@ import { trackedFiles } from "./testing/tracked-files";
  * A SURFACE DOES NOT PRINT A VALUE IT DID NOT WRITE INSIDE ONE OF ITS OWN
  * SENTENCES WITHOUT BOUNDING IT FIRST (ADR-0123, ADR-0163, ADR-0170, ADR-0178).
  *
- * TODO(CNCORE-314): "Seven sites" is a count in prose that nothing holds, in
- * the file whose own argument is that a count is not a check (ADR-0188). It
- * was not re-measured under CNCORE-311, which noticed it.
+ * WHY A CHECK AND NOT CARE. `?q=` at `/search` and `/import` both owed that
+ * bound, and BOTH WERE FOUND BY A PERSON READING A DIFF: `/search` by inspection
+ * while CNCORE-256 was deciding something else, `/import` by the code review ON
+ * CNCORE-291 -- in the same sentence where that ticket asserted the set was now
+ * complete. ADR-0163 had made the identical claim one record earlier and was
+ * wrong the same way. Two for two is not a run of bad luck, it is the absence
+ * of an instrument: a count of `boundedTo`'s callers is a count of the sites
+ * that ANSWER the rule and never of the sites that OWE it.
  *
- * WHY A CHECK AND NOT CARE. Seven sites in this tree owe that bound. The sixth
- * and the seventh were `?q=` at `/search` and `/import`, and BOTH WERE FOUND BY
- * A PERSON READING A DIFF: `/search` by inspection while CNCORE-256 was deciding
- * something else, `/import` by the code review ON CNCORE-291 -- in the same
- * sentence where that ticket asserted the set was now complete. ADR-0163 had
- * made the identical claim one record earlier and was wrong the same way. Two
- * for two is not a run of bad luck, it is the absence of an instrument: a count
- * of `boundedTo`'s callers is a count of the sites that ANSWER the rule and
- * never of the sites that OWE it.
+ * AND NO COUNT OF THOSE SITES, WHICH IS A DECISION RATHER THAN AN OMISSION
+ * (ADR-0194). The paragraph above opened with one, and it was a figure this
+ * file never derived: another record's list, copied in, most of which sits in
+ * the packages below that render nothing. The argument never rested on it --
+ * two misses, each found by a person, is the case for an instrument however
+ * many sites there are -- and the population this file DOES derive is reported
+ * by name wherever it fails, which is the only form of it worth holding.
  *
  * THE POPULATION IS DERIVED FROM THE TREE, which is ADR-0153's preference and
  * the difference between a check and a note. Nothing here lists the surfaces,
  * the parameters, or even the calls that count as bounding: it reads every
  * `.tsx` under `apps/web/src`, finds what each one takes off its own address,
  * and follows it. A list would pass forever by being edited whenever it failed,
- * and the seventh site is precisely the one a list could not have named.
+ * and `/import` is precisely the site a list could not have named.
  *
  * ## The rule
  *
@@ -1490,7 +1493,7 @@ describe("the parameters this app quotes inside its own sentences", () => {
 
   /**
    * THE ROLL CALL ITSELF, which went red on `/search` and `/import` until
-   * CNCORE-291 landed and is what stops the eighth site arriving unremarked.
+   * CNCORE-291 landed and is what stops the next site arriving unremarked.
    *
    * IT PASSES ON AN EMPTY LIST, and an empty list is also what a walk that had
    * stopped asking returns -- which is why every row below it exists.
@@ -1529,10 +1532,10 @@ describe("the parameters this app quotes inside its own sentences", () => {
   });
 
   /**
-   * AND THE SEVENTH SITE, which is the one that matters most here: `/import` was
-   * found by a REVIEWER reading the diff of the ticket that fixed `/search`, in
-   * the same sentence where that ticket said the set was complete. A check that
-   * caught the sixth and not the seventh would have shipped the same mistake.
+   * AND `/import`, which is the site that matters most here: it was found by a
+   * REVIEWER reading the diff of the ticket that fixed `/search`, in the same
+   * sentence where that ticket said the set was complete. A check that caught
+   * `/search` and not `/import` would have shipped the same mistake.
    */
   it("names /import's query, which no count of the bound's callers could", () => {
     const surfaces = reverted(IMPORT, "quoted: theQueryQuoted(query)", "quoted: query");
@@ -1541,11 +1544,11 @@ describe("the parameters this app quotes inside its own sentences", () => {
   });
 
   /**
-   * AND THE FIFTH SITE, whose bound is taken through a wrapper in ANOTHER
-   * MODULE. `/settings` never says `boundedTo`: it calls `theEntryRefused`,
-   * which `settings/refusal.ts` defines. This row is what proves the derived set
-   * of bounding calls reaches it, because with a hardcoded pair this page reads
-   * as a breach.
+   * AND `/settings`, whose bound is taken through a wrapper in ANOTHER MODULE.
+   * The page never says `boundedTo`: it calls `theEntryRefused`, which
+   * `settings/refusal.ts` defines. This row is what proves the derived set of
+   * bounding calls reaches it, because with a hardcoded pair this page reads as
+   * a breach.
    */
   it("names /settings' entry where the bound its own wrapper takes is dropped", () => {
     const surfaces = reverted(
