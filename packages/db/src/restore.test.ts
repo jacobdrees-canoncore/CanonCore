@@ -28,9 +28,9 @@ import { buildTestDatabase } from "./testing/build-database";
 /** A custom-format dump of the database a URL names, on disk. */
 async function dumpOf(url: string): Promise<string> {
   const { username, pathname } = new URL(url);
-  const directory = await mkdtemp(join(tmpdir(), "canoncore-dump-"));
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-  const file = join(directory, "catalogue.dump");
+  const dumpDirectory = await mkdtemp(join(tmpdir(), "canoncore-dump-"));
+  onTestFinished(() => rm(dumpDirectory, { recursive: true, force: true }));
+  const file = join(dumpDirectory, "catalogue.dump");
   const out = openSync(file, "w");
   try {
     const dumped = spawnSync(
@@ -110,9 +110,9 @@ async function rungsAppliedTo(url: string): Promise<number> {
  * day this was written: its ledger stopped at migration 18 while `main` held 20.
  */
 async function theLadderBelowItsHead(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "canoncore-restore-"));
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-  const folder = join(directory, "migrations");
+  const ladderDirectory = await mkdtemp(join(tmpdir(), "canoncore-restore-"));
+  onTestFinished(() => rm(ladderDirectory, { recursive: true, force: true }));
+  const folder = join(ladderDirectory, "migrations");
   await cp(migrationsFolder, folder, { recursive: true });
   const entries = await readJournal(folder);
   await writeFile(

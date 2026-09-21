@@ -10,7 +10,14 @@ describe("a temporary directory a suite makes", () => {
     ].join("\n");
 
     expect(temporaryDirectoriesIn(source)).toStrictEqual([
-      { line: 1, call: "mkdtempSync", bound: "dir", removed: false },
+      {
+        line: 1,
+        call: "mkdtempSync",
+        bound: "dir",
+        sitesSharingItsName: 1,
+        removals: 0,
+        removed: false,
+      },
     ]);
   });
 
@@ -25,7 +32,14 @@ describe("a temporary directory a suite makes", () => {
       'const envFile = join(await mkdtemp(join(tmpdir(), "canoncore-setup-")), ".env");';
 
     expect(temporaryDirectoriesIn(source)).toStrictEqual([
-      { line: 1, call: "mkdtemp", bound: null, removed: false },
+      {
+        line: 1,
+        call: "mkdtemp",
+        bound: null,
+        sitesSharingItsName: 0,
+        removals: 0,
+        removed: false,
+      },
     ]);
   });
 
@@ -70,5 +84,75 @@ describe("a temporary directory a suite makes", () => {
       false,
       false,
     ]);
+  });
+
+  /**
+   * SURPLUS REMOVALS GAVE A FILE SLACK, and `run-suite.test.ts` had three of
+   * them against one site. Under a plain "as many removals as sites" rule those
+   * two spare removals would have absorbed two NEWLY ADDED sites in silence --
+   * the exact thing this check exists to refuse. So a lone site takes any
+   * number of removals, and a name borne by several must pair with them
+   * exactly.
+   */
+  it("takes any number of removals while one site alone bears the name", () => {
+    const source = [
+      'const root = mkdtempSync(join(tmpdir(), "run-suite-"));',
+      "rmSync(root, { recursive: true, force: true });",
+      "rmSync(root, { recursive: true, force: true });",
+      "rmSync(root, { recursive: true, force: true });",
+    ].join("\n");
+
+    expect(temporaryDirectoriesIn(source).map((site) => site.removed)).toStrictEqual([true]);
+  });
+
+  it("is reported when a site joins a name whose removals no longer pair with it", () => {
+    const slack = [
+      'const root = mkdtempSync(join(tmpdir(), "run-suite-"));',
+      "rmSync(root, { recursive: true, force: true });",
+      "rmSync(root, { recursive: true, force: true });",
+      "rmSync(root, { recursive: true, force: true });",
+    ].join("\n");
+    const joined = `${slack}\nconst root = mkdtempSync(join(tmpdir(), "run-suite-"));`;
+    const paired = [
+      'const dir = mkdtempSync(join(tmpdir(), "first-"));',
+      "rmSync(dir, { recursive: true, force: true });",
+      'const dir = mkdtempSync(join(tmpdir(), "second-"));',
+      "rmSync(dir, { recursive: true, force: true });",
+    ].join("\n");
+
+    expect(temporaryDirectoriesIn(joined).map((site) => site.removed)).toStrictEqual([
+      false,
+      false,
+    ]);
+    expect(temporaryDirectoriesIn(paired).map((site) => site.removed)).toStrictEqual([true, true]);
+  });
+
+  /**
+   * A REMOVAL OF SOMETHING DERIVED FROM THE NAME IS NOT A REMOVAL OF IT. The
+   * argument has to BE the binding, so the match ends at the comma or the
+   * closing bracket rather than anywhere the name appears first.
+   */
+  it("is not covered by a removal of something merely derived from its name", () => {
+    const source = [
+      'const dir = mkdtempSync(join(tmpdir(), "first-"));',
+      'rmSync(dir.replace("a", "b"), { recursive: true, force: true });',
+    ].join("\n");
+
+    expect(temporaryDirectoriesIn(source)[0]?.removed).toBe(false);
+  });
+
+  /**
+   * `$` IS LEGAL IN AN IDENTIFIER AND SPECIAL IN A PATTERN, so a name lifted
+   * out of a source file and dropped into a `RegExp` unescaped stops meaning
+   * itself: `$dir` asserts end-of-input and then matches nothing, reporting a
+   * site that IS cleaned. Loud rather than silent, and still wrong.
+   */
+  it("is covered when its name holds a character a pattern would read as syntax", () => {
+    const source = [
+      'const $dir = mkdtempSync(join(tmpdir(), "first-"));',
+      "rmSync($dir, { recursive: true, force: true });",
+    ].join("\n");
+
+    expect(temporaryDirectoriesIn(source)[0]?.removed).toBe(true);
   });
 });

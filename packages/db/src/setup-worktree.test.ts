@@ -31,13 +31,20 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await rm(envDirectory, { recursive: true, force: true });
-  const admin = new Client({ connectionString: serverUrl });
-  await admin.connect();
+  // THE DATABASE FIRST, AND THE DIRECTORY IN A `finally`. Removing the
+  // directory ahead of the drop made the drop conditional on it: `envDirectory`
+  // is undefined where `beforeAll` threw, `rm` throws on that, and the worktree
+  // database it was holding would then survive the run.
   try {
-    await admin.query(`drop database if exists "${database}" with (force)`);
+    const admin = new Client({ connectionString: serverUrl });
+    await admin.connect();
+    try {
+      await admin.query(`drop database if exists "${database}" with (force)`);
+    } finally {
+      await admin.end();
+    }
   } finally {
-    await admin.end();
+    await rm(envDirectory, { recursive: true, force: true });
   }
 });
 
@@ -113,9 +120,9 @@ describe("setUpWorktreeDatabase", () => {
     const raced = worktreeDatabaseName(racing);
     const envFiles = await Promise.all(
       [0, 1].map(async () => {
-        const directory = await mkdtemp(join(tmpdir(), "canoncore-race-"));
-        onTestFinished(() => rm(directory, { recursive: true, force: true }));
-        return join(directory, ".env");
+        const racingDirectory = await mkdtemp(join(tmpdir(), "canoncore-race-"));
+        onTestFinished(() => rm(racingDirectory, { recursive: true, force: true }));
+        return join(racingDirectory, ".env");
       }),
     );
 
