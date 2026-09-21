@@ -44,8 +44,10 @@ Over a hook, the command has three advantages:
   check the sweep already uses (`ownedDatabases`). A hook runs while its worktree still exists, and
   the worktree would still own the databases it was dropping.
 - **It refuses the mistake that matters.** Run before `orca worktree rm` instead of after, it
-  answers `refusing: <branch> is still checked out in a worktree` and drops nothing, where a hook
-  has nothing to refuse.
+  answers `refusing: a live worktree still owns <branch>'s database, <root>, so it and the test
+  databases derived from it may be in use. Remove that worktree first.` and drops nothing, where a
+  hook has nothing to refuse. How that answer is reported is under "Running it too early is a
+  sentence, not a crash", below.
 
 ## Why the branch, and not the ticket number
 
@@ -61,6 +63,35 @@ The second is for each name, under `db:setup`'s advisory lock, which is how the 
 ticket re-dispatched straight after its removal gets its branch back, and its `db:setup` adopts
 the database still standing. If that happens while this command waits on the lock, the second
 question sees it and the database stays.
+
+## Running it too early is a sentence, not a crash
+
+**The refusal while a live worktree owns the family is `DropRefused`, and `db:drop-worktree`
+prints its message and exits 1, with no stack trace.** Until CNCORE-317 it was an uncaught `Error`
+whose sentence stopped at "so these are its", followed by a stack trace and the Node version. That
+is what a crash looks like, and the dispatcher who ran the command in the wrong order had to open
+the source to tell a refusal from a bug.
+
+**It matches how `db:setup` reports the refusals it makes itself.** A detached HEAD, or a
+`CANONCORE_DB_PORT` that is not a port, is one sentence on stderr and exit 1
+(`packages/db/scripts/worktree.ts`), as is every usage line in `packages/db/scripts`. The class
+follows `packages/db`'s own refusals: `ItemRefused`, `GroupRefused`, `PlacementRefused` and
+`ImportRunRefused`. A caller catches each one by class and reports it, and anything else goes on
+being a fault. `packages/api/scripts/import-list.ts` does the same in a script: it prints a
+`BAD_REQUEST` and exits 1, and rethrows everything else.
+
+**It says "owns", not "checked out".** After `git branch -m`, the owner is a worktree on the new
+branch whose `apps/web/.env` still names the old branch's database, so "still checked out" would be
+false there.
+
+**Three things keep their stack trace.** The refusal of a list naming `canoncore` stays a plain
+`Error` on purpose. No branch derives that name, so only a caller's broken filter can reach it, and
+a bug is what a stack trace is for. A failure is not a refusal: `db:setup`'s "nothing is listening"
+is thrown with the refused connection as its cause, so it prints its advice above a trace. And a
+branch no database could be named after, `feature/` say, is refused by `worktreeDatabaseName` with
+a plain `Error`, as it is under `db:setup` and `db:restore`, which share that function. Its sentence
+is whole and names the input, so it cannot be mistaken for the unfinished one. This record leaves
+the last two as they are.
 
 ## The refusal sits at the point of destruction, and it refuses the whole list
 
@@ -105,7 +136,8 @@ and it is what a regression would look like.
 
 - **A renamed branch.** After `git branch -m`, a worktree's `apps/web/.env` still names the old
   branch's database, and the command, given the new name, does not reach it. The sweep takes it
-  once it is an hour old.
+  once it is an hour old. Given the old name while that worktree lives, the command refuses,
+  because the worktree still owns that database.
 - **A second clone on the same machine.** The owners are one repository's worktrees, as they are
   for the sweep (ADR-0104, "What it costs, said out loud"). A worktree in another clone on the same
   branch is not an owner here.
@@ -119,7 +151,9 @@ All 2026-09-21, on `canoncore-postgres` with four CanonCore worktrees live (the 
 CNCORE-292, CNCORE-311 and this one):
 
 - `pnpm db:drop-worktree jacobdrees/cncore-312`, run from this ticket's own worktree, answered
-  `refusing: jacobdrees/cncore-312 is still checked out in a worktree, so these are its`.
+  `refusing: jacobdrees/cncore-312 is still checked out in a worktree, so these are its`: a
+  sentence that stopped before its object, thrown uncaught with a stack trace. CNCORE-317 finished
+  it; its evidence is the last entry here.
 - A walk on a staged orphan. Five databases were created for `jacobdrees/cncore-312-walk`, a branch
   with no worktree (`canoncore_cncore_312_walk_fd663445` with `_test`, `_test_api`, `_test_web`
   and `_test_gone`), each seconds old and so inside the sweep's hour. `pnpm db:drop-worktree
@@ -133,3 +167,12 @@ CNCORE-292, CNCORE-311 and this one):
 - The ages: `pg_stat_file('base/<oid>/PG_VERSION')` over the live families.
 - The 71 databases and 689 MB are the dispatcher's figures, from CNCORE-312. They were not measured
   again here: by the time this ticket began, the dispatcher had dropped them by hand.
+- CNCORE-317, same day. `pnpm db:drop-worktree jacobdrees/cncore-317`, run from that ticket's own
+  live worktree, printed the refusal quoted above, naming `canoncore_cncore_317_d71a7768`, then
+  pnpm's `Command failed with exit code 1`, with no stack trace. Both of that worktree's databases
+  still stood afterwards. The same command with `CANONCORE_DB_PORT=1`, on a branch no worktree
+  owns, still printed `AggregateError [ECONNREFUSED]` with its trace, and `pnpm db:drop-worktree
+  feature/` printed `branch "feature/" has no name a database could be called after` with its trace.
+  In a throwaway repository, a
+  worktree renamed from `reviewer/before` to `reviewer/after`, whose `.env` named the first
+  branch's database, was refused as `DropRefused` for `reviewer/before` before any connection.

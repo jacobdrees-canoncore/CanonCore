@@ -213,8 +213,9 @@ sweeps the other's: ADR-0104 has that and the rest.
 
 **Removing a worktree leaves its databases behind until somebody drops them.** `orca worktree rm`
 takes the files only. `pnpm db:drop-worktree <branch>`, run after the removal, drops the removed
-branch's database and every `_test…` one derived from it, however young. It refuses while a
-worktree still has that branch checked out, and refuses any list that names `canoncore`: ADR-0191.
+branch's database and every `_test…` one derived from it, however young. It refuses while a live
+worktree still owns them, by its branch or by its `.env`, and refuses any list that names
+`canoncore`: ADR-0191.
 
 **Real data comes from a dump, never from an install.** `pnpm db:restore <dump>` DROPS this
 worktree's database and creates it from a `pg_dump --format=custom` archive, then migrates it up to

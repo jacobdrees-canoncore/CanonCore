@@ -8,6 +8,7 @@ import { afterEach, describe, expect, inject, it } from "vitest";
 import { worktreeDatabaseName } from "./index";
 import { holdingSetupLock } from "./setup-worktree";
 import {
+  DropRefused,
   deadDatabases,
   dropDatabases,
   dropRemovedWorktree,
@@ -341,12 +342,18 @@ describe("dropRemovedWorktree", () => {
   it("refuses while a worktree still has the branch checked out, and drops nothing", async () => {
     // Run before `orca worktree rm` rather than after, it would take the
     // databases out from under an agent that may still be running its suite.
+    // A `DropRefused` is the operator's mistake rather than a fault, which is
+    // what lets the command say so without a stack trace (CNCORE-317).
     const { main } = repositoryWithAWorktree(branch(1));
     await create(root(1), `${root(1)}_test`);
 
-    await expect(
-      dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) }),
-    ).rejects.toThrow(`refusing: ${branch(1)} is still checked out in a worktree`);
+    const dropping = dropRemovedWorktree({ serverUrl, repository: main, branch: branch(1) });
+
+    await expect(dropping).rejects.toThrow(DropRefused);
+    await expect(dropping).rejects.toThrow(
+      `refusing: a live worktree still owns ${branch(1)}'s database, ${root(1)}, so it and ` +
+        "the test databases derived from it may be in use. Remove that worktree first.",
+    );
     expect(await existing(root(1), `${root(1)}_test`)).toEqual([root(1), `${root(1)}_test`]);
   });
 

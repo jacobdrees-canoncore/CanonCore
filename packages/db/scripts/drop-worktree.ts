@@ -11,7 +11,7 @@
  * A thin CLI over `dropRemovedWorktree`, which is where the behaviour lives and
  * where the suite reaches it.
  */
-import { dropRemovedWorktree } from "../src/sweep.ts";
+import { DropRefused, dropRemovedWorktree } from "../src/sweep.ts";
 import { repository, serverUrl } from "./worktree.ts";
 
 // ONE BRANCH A CALL, because a refusal halfway through a list would leave
@@ -22,7 +22,16 @@ if (branch === undefined || rest.length > 0) {
   process.exit(1);
 }
 
-const swept = await dropRemovedWorktree({ serverUrl, repository, branch });
+// A REFUSAL IS A SENTENCE, NOT A CRASH (ADR-0191): run before `orca worktree
+// rm`, nothing is wrong but the order. Anything else is a fault, and keeps its
+// stack trace.
+const swept = await dropRemovedWorktree({ serverUrl, repository, branch }).catch(
+  (cause: unknown) => {
+    if (!(cause instanceof DropRefused)) throw cause;
+    console.error(cause.message);
+    process.exit(1);
+  },
+);
 console.log(`${branch}  dropped ${swept.dropped.length}`);
 for (const database of swept.dropped) console.log(`          ${database}`);
 for (const database of swept.inUse) {
