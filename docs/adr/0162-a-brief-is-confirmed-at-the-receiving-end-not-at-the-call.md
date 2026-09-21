@@ -106,14 +106,23 @@ lands in the input box, the UI shows `ctrl+x ctrl+s to send now`, and the call s
 `ok: true` with a byte count. Measured three times on 2026-09-20 against cncore-205, cncore-254 and
 cncore-252. In all three the message was an attribution correction, and in all three it would have
 arrived after the PR body it was meant to correct had been written. `ctrl+x ctrl+s`, sent as
-`printf '\030\023'`, flushes it.
+`printf '\030\023'`, flushes it **and INTERRUPTS the turn in progress**: the agent abandons what it
+was doing and answers the brief instead. Corrected here on 2026-09-21 under CNCORE-306, which
+measured the flush against CNCORE-288's agent mid-search and read back
+`|_ Interrupted - What should Claude do instead?`. The first draft of this sentence stopped at
+"flushes it", which invites the harmless reading — that the queued text merely arrives — when the
+behaviour is closer to Escape followed by Enter.
 
 **Input sent to a PARKED agent goes to the prompt widget, not the chat.** Measured broadcasting a
 merge notice to eight agents: six received it, two were sitting on an `AskUserQuestion`. Both known
 tells read clean — no `ctrl+x ctrl+s` hint, no unsent text — because the input never reached the
 box. Worse, **`--enter` on a parked agent SELECTS the option under the cursor**, and on a
-multi-select with a free-text field the text can land in the field. Neither agent's answer was
-corrupted here; that was luck, not design.
+multi-select with a free-text field the text can land in the field. The way through — which
+keystrokes, in which order, for each shape of widget, and what the widget swallows until its confirm
+screen clears — is [[0187-wait-for-the-prompt-because-the-flush-costs-the-turn]], added 2026-09-21
+under CNCORE-306: this record stated the hazard and stopped, which is what left the recipe
+undocumented for as long as it was. Neither agent's answer was corrupted here; that was luck, not
+design.
 
 ## The decision
 
@@ -131,8 +140,11 @@ three, and not a read that resolves against the asker instead of the subject.
 what the terminal renders, so it cannot show an input box at all.
 
 **The parked case is read before the send, not after it**, and that is the ordering this record
-fixes rather than the check. The other two are recoverable by re-sending. A send into a prompt widget
-is not: it may already have answered a question on the agent's behalf.
+fixes rather than the check. The other two are recoverable by re-sending — the MESSAGE is, at least,
+and that is all this sentence ever meant. A TURN a flush interrupted is not recoverable by anything,
+which is the cost corrected into this record above; re-sending the words does not give back the work
+the agent abandoned to read them. A send into a prompt widget is recoverable by neither: it may
+already have answered a question on the agent's behalf.
 
 **And the binding is read from `worktree list`, never from `--current`.** `--current` answers about
 the asker, so it is the right tool for an agent reading its OWN ticket and the wrong one for a
