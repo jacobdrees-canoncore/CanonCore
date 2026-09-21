@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { repoRoot } from "./repo-root";
+import { trackedFiles } from "./tracked-files";
 import { withoutComments } from "./without-comments";
 
 /**
@@ -50,7 +54,7 @@ describe("source with its comments taken out", () => {
       "  return true;",
       "}",
       "",
-      "/** The next docblock, whose `*/` the line comment above reached. */",
+      "/** The next docblock, whose end the line comment above reached. */",
     ].join("\n");
 
     expect(withoutComments(source)).toContain("export function isWorkspacePattern");
@@ -66,8 +70,10 @@ describe("source with its comments taken out", () => {
    * THE WHITESPACE IS WHAT MAKES THIS ROW MEAN ANYTHING. With the `//` written
    * hard against the quote, that rule is saved by the quote and the row passes
    * on the very expression it is meant to disagree with -- measured, and it is
-   * how this row read first. A space before the `//` is the same string and is
-   * red on both rules this replaces.
+   * how this row read first. A space before the `//` makes it red on the
+   * whitespace rule. It stays GREEN on the line-start rule, which strips nothing
+   * mid-line and so never had this failure: this row is the one that disagrees
+   * with the rule `turbo-cache-inputs.test.ts` chose, not with all of them.
    */
   it("does not read a `//` inside a string literal as opening a comment", () => {
     const source = 'const doc = "see //fonts.googleapis.com"; const climb = "../../../root";';
@@ -111,6 +117,57 @@ describe("source with its comments taken out", () => {
     // biome-ignore lint/suspicious/noTemplateCurlyInString: the text left alone, quoted
     expect(code).toContain("http://${host}");
     expect(code).toContain("@canoncore/ui/components/card");
+  });
+
+  /**
+   * A BACKTICK INSIDE A REGEX LITERAL DOES NOT OPEN A TEMPLATE, which is the
+   * defect the first version of this scan shipped.
+   *
+   * IT IS THE WORST SHAPE THE DEFECT HAS, because it fails SILENTLY and
+   * WHOLESALE: not one swallowed statement but a file that stops being stripped
+   * from that point down. `ui-callers.test.ts` writes a character class holding
+   * THREE backticks, an odd number, so the scan entered a template at the first
+   * and never left.
+   */
+  it("does not read a backtick inside a regex literal as opening a template", () => {
+    const source = [
+      "const backtick = /`/;",
+      "/** A docblock below it, which must still come out. */",
+      "const after = 1;",
+    ].join("\n");
+
+    const code = withoutComments(source);
+
+    expect(code).not.toContain("must still come out");
+    expect(code).toContain("const after = 1;");
+  });
+
+  /**
+   * AND THE WHOLE TREE IS THE ROW THAT WOULD HAVE CAUGHT IT.
+   *
+   * Every row above is a shape somebody thought of. This one is a sweep, and it
+   * is here because the shape above was NOT thought of: five tracked files
+   * stopped being stripped and every hand-written row stayed green.
+   * `turbo-cache-inputs.test.ts` reads `packages/*.ts` with no test-file filter,
+   * so it read them unstripped and passed anyway -- none of the surviving prose
+   * happened to hold a `"../`.
+   *
+   * A SURVIVING `/**` IS THE TELL, because it can only mean the scan stopped
+   * stripping somewhere above it.
+   */
+  it("leaves no docblock standing in any tracked source", () => {
+    const tracked = trackedFiles(["packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"]);
+    expect(tracked.length).toBeGreaterThan(100);
+
+    const leaky = tracked
+      .map((path) => {
+        const code = withoutComments(readFileSync(join(repoRoot, path), "utf8"));
+        return [path, [...code.matchAll(/^[ \t]*\/\*\*/gm)].length] as const;
+      })
+      .filter(([, standing]) => standing > 0)
+      .map(([path, standing]) => `${path}: ${standing}`);
+
+    expect(leaky).toStrictEqual([]);
   });
 
   /**

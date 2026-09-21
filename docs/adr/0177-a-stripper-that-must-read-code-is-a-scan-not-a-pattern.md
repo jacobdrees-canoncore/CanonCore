@@ -22,8 +22,10 @@ the import between them gone entirely.
 `<name>/*` shape this repo uses" in a line comment, and that `/*` swallowed the fourteen lines to the
 end of the next docblock -- `export function isWorkspacePattern` among them.
 
-Measured over the 178 tracked non-test sources on 2026-09-21, by running the expression and comparing
-the statements found before and after: **zero imports lost, one export lost.** The loud failure was
+Measured over the 178 tracked non-test sources `main` held on 2026-09-21, by running the expression
+and comparing the statements found before and after: **zero imports lost, one export lost.** (The
+population is 179 with this branch's own new file in it; the figure is of the tree the defect was
+measured in.) The loud failure was
 absent and the silent one was not, which is the order [[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]
 would predict. A swallowed import is a red on correct code; a swallowed `export` list means the names
 are never collected, so nothing can report them dead -- the one answer `ui-callers.test.ts`'s own
@@ -80,39 +82,93 @@ That is more machinery than taking comments out of a file deserves, against an A
 unstable. **The sixty lines that do it here have no dependency, and the population they read passes
 through them in the time the suite already took.**
 
+## The first version of this scan shipped the same class of defect
+
+**A HAND-WRITTEN SCAN THAT DOES NOT TRACK REGEX LITERALS IS STILL A THING THAT CANNOT TELL A LITERAL
+FROM CODE.** The first version of this module declared regex literals an untracked boundary, on the
+measured ground that no regex in this tree holds a `/*`. That measurement was true and the conclusion
+drawn from it was wrong, because the hazard is not only `/*`. **A BACKTICK inside a regex literal
+opens a TEMPLATE**, and `ui-callers.test.ts` writes `["'`]([^"'`\n]+)["'`]` -- three backticks, an odd
+number -- so the scan entered a template at the first and never left.
+
+Five tracked files stopped being stripped at the point of their first such regex:
+`adr-identifiers.test.ts`, `corpus-figures.test.ts`, `sweep-shard-citations.test.ts`,
+`ui-callers.test.ts` and `providers/src/boundary.test.ts`.
+`turbo-cache-inputs.test.ts` sweeps `packages/*.ts` with NO test-file filter, so it read all five
+unstripped, and **it stayed green** -- none of the surviving prose happened to hold a `"../`. A
+silent under-strip, which is the same failure this record exists to end, reintroduced by the fix for
+it and caught in review rather than by any of the seven hand-written rows.
+
+**SO REGEX LITERALS ARE TRACKED, and the guard is a sweep rather than another row.** Every hand-written
+row is a shape somebody thought of; the shape that bit was the one nobody did. The eighth and ninth
+rows are the defect and a sweep over every tracked source asserting no docblock is left standing,
+which is the row that would have caught it.
+
+**AND THE SCAN REFUSES WHEN IT LOSES ITS PLACE.** A source that ends inside a template literal means a
+backtick was taken for an opener it was not, and every comment below it has been kept. It throws
+rather than returning that. Valid TypeScript always closes its templates, so this fires on a scan
+that is wrong rather than on a file that is.
+
 ## What it does not read, stated rather than left to be found
 
-**A REGEX LITERAL IS NOT TRACKED.** A `/*` inside one -- `/https:\/*\//` -- would still open a
-comment. Telling a regex literal from division needs the parse this deliberately does not do, none of
-the four copies tracked one either, and this tree contains none: measured 2026-09-21 with
-`git grep -nE '/[^/*\n]([^/\n]|\\/)*\\/\*'` over the same population, whose only hit is a sentence in
-a docblock.
+**A `/` IS RESOLVED FROM THE SAFE SIDE, not parsed.** Telling a regex literal from division needs the
+parse this deliberately does not do, so the preceding token decides: after `(`, `,`, `=`, `:`, `[`,
+an operator or a keyword like `return`, a `/` opens a regex; after anything else -- an identifier,
+`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **A WRONG GUESS COSTS AT MOST ONE LINE**,
+because a regex literal cannot span one and a run that reaches a newline without closing is
+abandoned. The scan never DELETES on a wrong guess; it only declines to strip, and the sweep row
+asserts that it does not.
 
-**JSX TEXT IS READ AS CODE**, so a `//` in rendered text would be taken for a comment. This is
-unchanged from all four copies, and the shared scan is now the one place a refusal could go.
+**JSX TEXT IS READ AS CODE, and this changes what two callers see.** A mid-line `//` in rendered text
+is now taken for a comment, where the two line-start copies kept it -- the claim that this is
+"unchanged from all four copies" was in an earlier draft of this record and is false. A new case
+comes with the scan: an apostrophe in JSX text (`don't`) opens a string literal that runs to the end
+of its line, so a comment later on that same line survives. Neither occurs in this tree today, and
+both hits of a grep for the second are inside comments, where the scan consumes them first.
 
 **AN UNTERMINATED `/*` IS BLANKED TO THE END OF THE FILE**, where the regex left it standing for want
 of a closing delimiter. Either is arbitrary: a source with an unterminated block comment does not
-compile, so no caller reads one. It is named because it is the only case where the two disagree on
-input that is not a literal.
+compile, so no caller reads one.
 
 **A COMMENT IS BLANKED, NOT REMOVED** -- one space per character, newlines kept. Two callers sweep
 with `^[ \t]*import\b` and `^[ \t]*export\b`, and collapsing a multi-line comment to a single space
 joined the line before it to the line after, taking the second statement's anchor with it. Keeping the
 shape can only ever find more of them.
 
+**TWO THINGS THAT LOOK LIKE COPIES ARE NOT.** `tree-figures.ts`'s `directiveCarriers` and
+`packages/ui/src/components/directives.test.ts` both hold
+`/^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/`. That is not a stripper: it asks whether a
+`"use client"` directive is the first thing in the file that is not a comment, so it must SEE the
+comments to answer. Folding it into this module would destroy the question it asks. They are named
+here because a reader counting `/\*[\s\S]*?\*\//` in the tree will find them.
+
 ## As built, under CNCORE-300
 
-**BUILT: one scan, four callers, no copies.** `git grep 'replace(/\/\*'` over `*.ts` and `*.tsx`
-returns nothing. `packages/config` runs 31 files and 282 tests green, the same count as before the
-change, and `tsc --noEmit` is clean.
+**BUILT: one scan, four callers, no copies.** The only matches for `replace(/\/\*` over `*.ts` and
+`*.tsx` are the two docblocks in this module and its suite that QUOTE the old expression as prose.
+No call site holds one.
 
-**BUILT: seven rows, each proved non-hollow.** Under
-[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]] every row was run against three
-mutations -- the two regex rules it replaces and a body returning its argument unchanged -- and each
-row is red on at least one. One row was HOLLOW when first written: `"//fonts.googleapis.com"` with the
-`//` hard against the quote passes the whitespace rule by accident, and the row was changed to put a
-space before the `//` rather than kept.
+**BUILT: nine rows, each proved non-hollow.** Under
+[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]] every row was run against four
+mutations -- the two regex rules it replaces, a body returning its argument unchanged, and the first
+version of this scan, which did not track regex literals -- and each row is red on at least one. The
+last mutation is the one that matters: it reddens exactly the two rows added after review, and
+nothing else, which is what says those two rows earn their place.
+
+**TWO ROWS WERE HOLLOW OR WRONG WHEN FIRST WRITTEN, and both were fixed rather than kept.**
+`"//fonts.googleapis.com"` with the `//` hard against the quote passes the whitespace rule by
+accident, so a space was put before it. And the docblock on that row claimed it was red on BOTH rules
+it replaces; it is red on the whitespace rule only, since the line-start rule strips nothing mid-line.
+
+**A DERIVED FIGURE MOVED, and it is stated rather than quietly updated.** The sweep row makes
+`without-comments.test.ts` a suite that reads the repository at large, so that count went from 27 to
+28. `turbo-cache-inputs.test.ts` states it in two sentences and `tree-figures.test.ts` asserts it;
+all three were updated together, which is [[0153-a-figure-about-this-tree-is-derived-or-dated]]
+working as intended.
+
+**MEASURED, at the commit this record lands on:** `packages/config` runs 31 files and 284 tests green,
+up from 30 files and 275 tests on `main` -- one new file and nine new rows, with no existing row
+changed. `tsc --noEmit` and `pnpm lint` are clean.
 
 **NOT BUILT: nothing stops a fifth copy.** No check refuses a comment-stripping regex in a new file;
 this is a rule a reviewer applies, which is the same missing half ADR-0168 names for itself.

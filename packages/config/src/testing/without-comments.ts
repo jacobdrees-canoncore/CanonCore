@@ -13,6 +13,8 @@
  *
  * IT IS A SCAN BECAUSE A REGULAR EXPRESSION CANNOT DO IT, and the four copies
  * this replaces were four copies of the same defect (CNCORE-300).
+ * [[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]] carries the
+ * decision, the measurement, and the TypeScript scanner that was tried first.
  * `source.replace(/\/\*[\s\S]*?\*\//g, " ")` does not know a string literal from
  * code, so ANY `/*` opens a comment and swallows source to the next `*\/`. Two
  * spellings in this tree do exactly that -- a glob like `"**\/*"`, which
@@ -46,13 +48,32 @@
  * space, so a multi-line comment BETWEEN two statements took the second one's
  * line anchor with it. Keeping the shape can only ever find more of them.
  *
- * WHAT IT DOES NOT READ, said here rather than left to be found: a REGEX LITERAL
- * is not tracked, so a `/*` inside one (`/https:\/*\//`) would still open a
- * comment. Telling a regex literal from division needs the parse this file
- * deliberately does not do, the previous four copies did not track one either,
- * and this tree contains none -- measured 2026-09-21 with
- * `git grep -nE '/[^/*\n]([^/\n]|\\/)*\\/\*'` over the same population, whose
- * only hit is this sentence's neighbour in a docblock.
+ * A REGEX LITERAL IS TRACKED, and the first version of this did not track one.
+ * That is not the boundary it reads like: `ui-callers.test.ts` writes
+ * `["'`]([^"'`\n]+)["'`]` -- THREE backticks, an odd number -- so the scan
+ * entered a template literal at the first and never left, and every comment
+ * below it survived. Five tracked files did this, and
+ * `turbo-cache-inputs.test.ts` sweeps `packages/*.ts` with NO test-file filter,
+ * so it really did read them unstripped. It stayed green only because none of
+ * the surviving prose happened to hold a `"../` -- a silent under-strip, which
+ * is the same class of failure as the one this module exists to fix.
+ *
+ * A `/` OPENS ONE ONLY WHERE A VALUE CAN START, which is the safe half of the
+ * ambiguity JavaScript cannot resolve without parsing. The preceding token
+ * decides: after `(`, `,`, `=`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, an
+ * operator, or a keyword like `return`, a `/` begins a regex; after anything
+ * else -- an identifier, `)`, `]`, a quote, and notably `<` in `</div>` -- it is
+ * division and is copied as one character. GUESSING WRONG COSTS AT MOST ONE
+ * LINE: a regex literal cannot span one, so a run that reaches a newline without
+ * closing is abandoned and the `/` is copied. The scan never DELETES on a wrong
+ * guess, it only declines to strip.
+ *
+ * AND IT REFUSES RATHER THAN ANSWERING WHEN IT LOSES ITS PLACE. A source that
+ * ends inside a template literal means the scan took a backtick for an opener
+ * that was not one, and every comment after it has been kept. Returning that
+ * quietly is how the defect above went unnoticed, so it throws instead. Valid
+ * TypeScript always closes its templates, so this fires on a scan that is wrong
+ * rather than on a file that is.
  *
  * AND AN UNTERMINATED `/*` IS BLANKED TO THE END OF THE FILE, where the regex
  * left it standing for want of a closing delimiter. Either is arbitrary: a
@@ -70,6 +91,11 @@ export function withoutComments(source: string): string {
   let braces = 0;
   let inTemplate = false;
 
+  // The last token that could decide whether a `/` divides or opens a regex.
+  let significant = "";
+  let word = "";
+  let previousWord = "";
+
   /** A run of source kept only for its shape: one space per character, newlines as they were. */
   const blanked = (text: string): string => text.replace(/[^\n]/g, " ");
 
@@ -85,11 +111,13 @@ export function withoutComments(source: string): string {
         out += here;
         at += 1;
         inTemplate = false;
+        significant = "`";
       } else if (pair === "${") {
         out += pair;
         at += 2;
         suspended.push(braces);
         inTemplate = false;
+        significant = "{";
       } else {
         out += here;
         at += 1;
@@ -113,10 +141,27 @@ export function withoutComments(source: string): string {
       continue;
     }
 
+    if (here === "/" && regexCanStartAfter(significant, word.length > 0 ? word : previousWord)) {
+      const closed = endOfRegex(source, at);
+      if (closed !== undefined) {
+        out += source.slice(at, closed);
+        at = closed;
+        significant = "/";
+        word = "";
+        previousWord = "";
+        continue;
+      }
+    }
+
     if (here === '"' || here === "'") {
       const closed = endOfQuoted(source, at, here);
       out += source.slice(at, closed);
       at = closed;
+      significant = here;
+      if (word.length > 0) {
+        previousWord = word;
+        word = "";
+      }
       continue;
     }
 
@@ -139,17 +184,96 @@ export function withoutComments(source: string): string {
 
     out += here;
     at += 1;
+    if (!/\s/.test(here)) significant = here;
+    if (/[A-Za-z0-9_$]/.test(here)) {
+      word += here;
+    } else if (word.length > 0) {
+      previousWord = word;
+      word = "";
+    }
+  }
+
+  if (inTemplate) {
+    throw new Error(
+      "the comment scan ended inside a template literal, so it took a backtick for an opener " +
+        "it was not and has left every comment after it standing",
+    );
   }
 
   return out;
 }
 
+/** The keywords a `/` may follow and still open a regex rather than divide. */
+const BEFORE_A_REGEX = new Set([
+  "return",
+  "typeof",
+  "instanceof",
+  "in",
+  "of",
+  "new",
+  "delete",
+  "void",
+  "case",
+  "do",
+  "else",
+  "yield",
+  "await",
+  "throw",
+]);
+
+/**
+ * Whether a `/` here can open a regex literal rather than divide.
+ *
+ * IT ANSWERS FROM THE SAFE SIDE. The listed positions are the ones where a VALUE
+ * can start, so everything not listed -- an identifier, `)`, `]`, a quote, and
+ * `<` in a closing JSX tag -- is division and the `/` is copied unchanged. The
+ * opposite default would take the `/` in `</div>` for a regex opener.
+ */
+function regexCanStartAfter(significant: string, precedingWord: string): boolean {
+  if (significant === "") return true;
+  if (BEFORE_A_REGEX.has(precedingWord) && /[A-Za-z0-9_$]/.test(significant)) return true;
+  return "(,=:[!&|?{};+-*%^~".includes(significant);
+}
+
+/**
+ * One past the end of the regex literal opening at `from`, or `undefined` if what
+ * is there is not one.
+ *
+ * A NEWLINE ENDS THE ATTEMPT rather than the literal, because a regex literal
+ * cannot span a line. That is what bounds a wrong guess to the line it was made
+ * on: the caller copies the `/` and carries on.
+ *
+ * A `/` INSIDE A CHARACTER CLASS IS NOT THE CLOSER, which is the whole reason
+ * this is a scan and not `indexOf`.
+ */
+function endOfRegex(source: string, from: number): number | undefined {
+  let at = from + 1;
+  let inClass = false;
+  while (at < source.length) {
+    const here = source[at];
+    if (here === "\n") return undefined;
+    if (here === "\\") {
+      at += 2;
+      continue;
+    }
+    if (here === "[") inClass = true;
+    else if (here === "]") inClass = false;
+    else if (here === "/" && !inClass) {
+      at += 1;
+      while (at < source.length && /[a-z]/.test(source[at] as string)) at += 1;
+      return at;
+    }
+    at += 1;
+  }
+  return undefined;
+}
+
 /**
  * One past the closing quote of the literal that opens at `from`.
  *
- * A NEWLINE ENDS IT, which is what stops an unbalanced quote in a comment-free
- * file from swallowing the rest of the source: `'` appears in this repository's
- * prose as an apostrophe, and a single quote with no partner is ordinary there.
+ * A NEWLINE ENDS IT, which is what stops an unbalanced quote from swallowing the
+ * rest of the source: an apostrophe is ordinary in prose, and JSX text is read
+ * here as code, so `don't` opens a literal that must close at the line end.
  * An unterminated string is a syntax error in code, so the file a caller is
  * really reading never has one.
  */
