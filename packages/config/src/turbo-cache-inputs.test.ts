@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import { trackedFiles } from "./testing/tracked-files";
 import { plannedTasks } from "./testing/turbo-dry-run";
+import { withoutComments } from "./testing/without-comments";
 
 /**
  * A SUITE THAT READS A FILE OUTSIDE ITS PACKAGE IS CACHED AGAINST THAT FILE.
@@ -115,7 +116,7 @@ const READS_OUTSIDE_ITS_PACKAGE = [
 const NOTHING_FOR_TURBO_TO_HASH = [
   {
     package: "@canoncore/config",
-    // Twenty-seven suites here read the repository at large -- `biome-config.test.ts`
+    // Twenty-eight suites here read the repository at large -- `biome-config.test.ts`
     // asks whether the linter reaches every file git tracks -- so the inputs
     // cannot be enumerated and the task opts out of caching entirely instead.
     // Asserted below rather than taken on trust: this excuse rotting back into a
@@ -208,28 +209,6 @@ describe.each(READS_OUTSIDE_ITS_PACKAGE)(
  * package belong on a list", never "is that list complete".
  */
 /**
- * The source with its comments stripped, because this scan reads TEXT and a
- * comment is prose ABOUT code rather than code.
- *
- * WITHOUT THIS THE CHECK ARGUES WITH WHOEVER DOCUMENTS IT. The comment above
- * explains the rule using `../../../` as its example, and that sentence alone was
- * enough to report `packages/config` as reaching outside itself -- measured, not
- * feared. A guard that fires on a description of itself is the
- * arguing-with-the-check death ADR-0124 warns about, and it would fire again on
- * the next person who writes a path into a note.
- *
- * A `//` IS ONLY A COMMENT AFTER WHITESPACE, which is the rung that keeps this
- * from causing the silence it exists to prevent. Excluding a preceding `:` is not
- * enough: a PROTOCOL-RELATIVE `"//fonts.googleapis.com"` has a quote before it,
- * so that version read the rest of the line as a comment and ATE a real climb
- * sitting after it -- a false negative, which is worse here than the false
- * positive it was fixing. Measured both ways before choosing.
- */
-function withoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/.*$/gm, "$1");
-}
-
-/**
  * Where each of `@canoncore/config`'s published helpers actually lives, read off
  * that package's own `exports` rather than guessed -- so a renamed or added helper
  * cannot quietly drop out of the walk below.
@@ -306,6 +285,14 @@ function importsOf(path: string, source: string, helpers: Map<string, string>): 
 function packagesReachingOutsideThemselves(): string[] {
   const tracked = trackedFiles(["packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"]);
 
+  // COMMENTS COME OUT FIRST, because this scan reads TEXT and would otherwise
+  // argue with whoever documents it: the docblock above explains the rule using
+  // `../../../` as its example, and that sentence alone was enough to report
+  // `packages/config` as reaching outside itself -- measured, not feared. The
+  // stripping itself is `without-comments.ts`, which is where the reason the
+  // rule cannot be a regular expression lives (CNCORE-300); the `//`-after-
+  // whitespace rung this file used to argue for is gone because a scan knows a
+  // protocol-relative `"//fonts.googleapis.com"` is inside a string.
   const sources = new Map(
     tracked.map((path) => [path, withoutComments(readFileSync(join(repoRoot, path), "utf8"))]),
   );
@@ -390,7 +377,7 @@ describe("the packages that reach outside themselves", () => {
 
   it("really is uncached where that is the excuse given", () => {
     // The one excuse above that could rot back into the defect. `packages/config`
-    // holds twenty-seven suites reading the repository at large; the day its task caches,
+    // holds twenty-eight suites reading the repository at large; the day its task caches,
     // all of them start replaying stale passes and no other check would notice.
     const uncached = NOTHING_FOR_TURBO_TO_HASH.filter(({ why }) => why.includes("uncached"));
 

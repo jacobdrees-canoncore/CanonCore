@@ -5,6 +5,7 @@ import { pnpmSetupSteps, workflow } from "./ci-workflow";
 import { flatten } from "./flatten";
 import { repoRoot } from "./repo-root";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
+import { withoutComments } from "./without-comments";
 import { packageDirectories } from "./workspace";
 
 /**
@@ -392,11 +393,20 @@ export function handBuiltRedirectsIn(path: string): number {
   return [...codeOf(path).matchAll(/\bredirect\(/g)].length;
 }
 
-/** The code of a file, with every comment taken out of it. */
+/**
+ * The code of a file, with every comment taken out of it.
+ *
+ * NOT `flattenSource` ABOVE, which is the opposite operation: that one keeps the
+ * prose and drops the leader, this one keeps the code and drops the prose.
+ *
+ * THE STRIPPING IS `without-comments.ts` SINCE CNCORE-300. The two lines that
+ * stood here could not tell a string literal from code, so any `/*` in one
+ * opened a comment and ate source to the next `*\/`; they also took a `//` only
+ * at a line start, which left every TRAILING comment standing in a count whose
+ * whole purpose is to not read prose.
+ */
 function codeOf(path: string): string {
-  return read(path)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "");
+  return withoutComments(read(path));
 }
 
 /**

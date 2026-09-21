@@ -563,7 +563,9 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
-    expect(suitesReadingTheRepository()).toBe(27);
+    // Twenty-eight since CNCORE-300, whose `without-comments.test.ts` sweeps every
+    // tracked source to prove the scan leaves no docblock standing.
+    expect(suitesReadingTheRepository()).toBe(28);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

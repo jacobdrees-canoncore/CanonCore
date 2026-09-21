@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import { trackedFiles } from "./testing/tracked-files";
+import { withoutComments } from "./testing/without-comments";
 
 /**
  * A ROLL CALL OVER `packages/ui`, HOLDING EVERY MODULE IN IT TO HAVING A CALLER.
@@ -243,10 +244,15 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * `-z` argued two paragraphs up. [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
  * carries the fold and that measurement.
  *
- * WHAT STAYS HERE IS WHAT IS THIS SUITE'S OWN: the pathspec, the test-file
- * filter and the comment stripping. Those are the three things the five readers
- * genuinely disagreed about, and the fold deliberately left them with their
- * callers.
+ * WHAT STAYS HERE IS WHAT IS THIS SUITE'S OWN: the pathspec and the test-file
+ * filter. The comment stripping stood beside them until CNCORE-300 and does not
+ * any more, which is [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * holding rather than bending: what the five readers disagreed about was the
+ * APPROXIMATION each had picked, because a regular expression cannot tell a
+ * string literal from code and every one of them had to choose which way to be
+ * wrong. `testing/without-comments.ts` scans instead, so there is nothing left
+ * to disagree about -- and the defect that argument was hiding was live here,
+ * a `/*` inside a string or a line comment swallowing source to the next `*\/`.
  */
 function theTrackedSources(): Map<string, string> {
   const tracked = trackedFiles([
@@ -271,12 +277,7 @@ function theTrackedSources(): Map<string, string> {
   }
 
   return new Map(
-    tracked.map((path) => [
-      path,
-      readFileSync(join(repoRoot, path), "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, " ")
-        .replace(/(^|\s)\/\/.*$/gm, "$1"),
-    ]),
+    tracked.map((path) => [path, withoutComments(readFileSync(join(repoRoot, path), "utf8"))]),
   );
 }
 
