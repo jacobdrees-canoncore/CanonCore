@@ -46,11 +46,36 @@ a line on a ladder no ticket owns: the migration index, the shared fixture, a to
 and CNCORE-119 each built `migration_12`; the second was still in its worktree when the first
 merged, and one `terminal send` turned a silent overwrite into a renumber.
 
+**RECOGNISE THE SHAPE, BECAUSE THE INSTANCES RUN OUT.** The three above were the known rungs and the
+list kept growing under the people reading it. A rung is anything with all four of these, whatever it
+is called:
+
+- **One shared list, in one file, that no ticket owns.**
+- **Every ticket of a kind appends to it** — so it grows on the wave's schedule, not on any one
+  author's.
+- **Something states its SIZE, or its next free value** — a count in prose, a highest number taken.
+- **Each author sees the row they are adding and not the rows arriving beside it.**
+
+**THE FAILURE MODE FOLLOWS FROM WHERE THE APPENDS LAND**, and it decides what you owe it. Two
+branches taking the same NUMBER is a silent overwrite and wants a guard. Two branches APPENDING to
+one region of one file is a conflict git reports at merge, which is already the right failure and
+wants no mechanism. **Either way the loser's PR goes `DIRTY` and gets NO CI run at all**, so the
+guard never fires on the branch that lost — it protects `main`, and the loser learns from git.
+
 **THE ADR NUMBER IS A RUNG AND IT DOES NOT LOOK LIKE ONE.** `docs/adr/` is a ladder no ticket owns,
 so two branches both take the next free number and the loser's CI dies on `adr-numbering.test.ts`.
 CNCORE-177 took 0136 while CNCORE-167 was already holding it, 2026-09-16 — the guard caught what
 the merge should have announced. Broadcast it with the migration index, and name what is CLAIMED
 rather than only what is taken: told "0137 is CNCORE-167's", CNCORE-161 took 0138 unprompted.
+
+**A CLAIMS TABLE IS A RUNG TOO, AND ITS FAILURE IS THE SOFTER ONE.**
+`packages/config/src/tree-figures.test.ts` holds one row per figure this repository states about
+itself and ADR-0153 states how many rows it holds, so it has all four marks. It was contended the day
+it landed: three branches appended within two hours of CNCORE-251 merging on 2026-09-20, and
+CNCORE-248 went `DIRTY` on the collision. Broadcast an append to it the way you broadcast a number.
+Do not reach for a guard — [[0175-a-claims-table-is-a-rung-and-the-removable-part-was-the-self-claim]]
+measured the append path going red rather than silent, and found the real hole in the row that holds
+the record's OWN figure, which deleted with every test still passing.
 
 **3. Recompute the frontier.** Nothing else is doing it. A ticket is dispatchable when every file
 it names is free of every open branch.
