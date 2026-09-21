@@ -150,5 +150,8 @@ and the assertion would then be about the stub. What holds that surface is the d
 `unknown` on the field, plus the witness at `reasonFor` itself. This sentence is here rather than a
 demonstration nobody ran.
 
-**`failed()` in `client.ts` is a different site and CNCORE-308 carries it.** It builds its sentence
+**`failed()` in `client.ts` is a different site and CNCORE-308 carried it.** It builds its sentence
 from a response body rather than from a thrown value, so nothing here reaches it.
+[[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] closed it, and took one
+thing out of this record with it: the `unknown` on `FailedProvider.reason` left two comments
+claiming a consumer that reads `reason.message`, and `asError`'s deletion is why nothing does.

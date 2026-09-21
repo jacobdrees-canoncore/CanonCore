@@ -24,7 +24,10 @@ status: accepted
 > PARTLY unshowable value, and means "the value went" only inside a guard its caller owns — pinned in
 > `index.test.ts` rather than left in a docblock. The fallbacks' own ceiling is asserted, having been
 > held by nothing. And `failed()` in `client.ts` keeps its exclusion while its COMMENT does not:
-> CNCORE-308.
+> CNCORE-308 — **which then took the exclusion off the sentence too.**
+> [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] answered the question
+> deferred below and gave that site a third branch, so the fallbacks reaching `unshowable` IN THIS
+> PACKAGE are FOUR rather than the three this paragraph counts.
 
 [[0179-a-bound-that-empties-a-value-says-so]] settled that **a value nobody can show is not a value
 nobody sent**, and gave six callers one phrase for it. It also recorded, in its own "What this does
@@ -121,27 +124,38 @@ is valid JSON and satisfies `min(1)`, and so is the credential's `label`.
 
 **`reasonFor`'s branch is reached through the `unknown` a `catch` holds, and not from any throw this
 package writes.** Every `throw` in `@canoncore/providers` carries fixed prose, and `failed()`
-prefixes a provider's body with words of its own — `${answered}: ${said}` — so nothing in
-`client.ts` can hand it a message of only controls. What can is undici, the DNS layer, zod, or a
-provider repo's own code. The witness therefore drives `reasonFor` directly rather than a live
-Provider, and this sentence says so instead of implying a demonstration nobody ran.
+prefixes a provider's body with words of its own — `${answered}: ${said}`, and since CNCORE-308 two
+further frames that open the same way — so nothing in `client.ts` can hand it a message of only
+controls. What can is undici, the DNS layer, zod, or a provider repo's own code. The witness
+therefore drives `reasonFor` directly rather than a live Provider, and this sentence says so
+instead of implying a demonstration nobody ran.
 
 ## What this does not cover
 
-**`failed()` in `client.ts` was read again, and the exclusion holds for the SENTENCE but not for the
-COMMENT.** A body of only controls gives `said === ""` and the sentence stops at `${answered}.`, so
-the Owner is told the status and not told there was a body. That is an OMISSION, not a contradiction:
-nothing there asserts the Provider sent nothing, which is the claim this record exists to remove, and
-it is why the site was not folded into a diff agreed for three.
+**`failed()` in `client.ts` was read again, and the exclusion HELD FOR THE SENTENCE AND NEVER FOR
+THE COMMENT — until CNCORE-308 took it off the sentence as well.** A body of only controls GAVE
+`said === ""` and the sentence STOPPED at `${answered}.`, so the Owner was told the status and not
+told there was a body. That WAS an OMISSION rather than a contradiction: nothing there asserted the
+Provider sent nothing, which is the claim this record exists to remove, and it is why the site was
+not folded into a diff agreed for three.
+
+**That reading is kept rather than corrected away, because
+[[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] is built on it.** The
+omission was not a contradiction. What it turned out to be instead is an omission a reader has been
+TAUGHT to read, every other failure carrying a colon — a smaller thing than these three fallbacks
+did, and still enough to have the Owner reach for the wrong remedy.
 
 **Its comment is another matter, and ADR-0179 did not read it.** `// Said nothing, so there is nothing
 to introduce` sits on `said === ""`, and `said` arrived through `bounded` — so the premise is this
 record's conflation, stated beside a line whose output happens to be merely incomplete. A wrong reason
 for a right line is what the next change to that line reads, which is the argument
 [[0179-a-bound-that-empties-a-value-says-so]] makes about its own refuted `shortenTo` paragraph.
-**CNCORE-308** carries it, and with it the question this record does not decide: whether the Owner
+**CNCORE-308** carried it, and with it the question this record did not decide: whether the Owner
 should be told a body arrived that could not be shown, given that no body and an unshowable body
-render identically today.
+rendered identically. **The answer is yes**, and
+[[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] has it: the two failures
+have different remedies, and the Owner reached for the wrong one because the sentences were the
+same.
 
 **Nothing reports a fallback that answers two inputs with one sentence**, so the count of them is
 only ever as good as the last reading. ADR-0179 said as much about its own list, and was wrong by one

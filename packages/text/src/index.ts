@@ -158,6 +158,10 @@ export function boundedTo(text: string, max: number): string {
  * trade. A witness in `index.test.ts` goes red if it is shortened back.
  *
  * ONE PHRASE FOR EVERY CALLER, WHICH IS WHY IT IS HERE RATHER THAN AT EACH.
+ * TODO(CNCORE-311): "six sites in four packages" counts the tree before
+ * CNCORE-305 added three in `@canoncore/providers` -- a fifth package -- and
+ * CNCORE-308 a fourth there. ADR-0179's own block already says so; this sentence
+ * does not, and the figure wants a READ rather than a grep before it is rewritten.
  * Six sites owe these words and they sit in four packages; each composing its
  * own `boundedTo(...) || "..."` would ship ONE concept in six voices, which is
  * the two-readings defect rather than a matter of taste. The NOUN is the
@@ -170,6 +174,9 @@ const UNSHOWABLE = "made only of characters that cannot be shown";
 /**
  * The words naming a value that could not be shown at all, for a caller placing
  * them in a sentence of its own (ADR-0179).
+ *
+ * TODO(CNCORE-311): "FOR ONE CALLER" was true when `@canoncore/tasks` was the
+ * only one; there are six direct callers now.
  *
  * PUBLISHED BESIDE `quotedTo` FOR ONE CALLER, on the same argument that
  * publishes `shortenTo` beside `boundedTo`. `@canoncore/tasks` bounds a
@@ -219,11 +226,12 @@ export function quotedTo(text: string, max: number, thing: string): string {
  * value is QUOTED, as `249643`, by the strip alone -- so a caller reaching for
  * this as "the value went" would say "made only of" about a value that partly
  * survived, which is the one error `UNSHOWABLE`'s own docblock says must not
- * happen. BOTH CALLERS ASK IT ONLY ONCE THE BOUND HAS COME BACK EMPTY:
- * `quotedTo` below behind `if (quoted !== "")`, and `boundedOr` in
- * `@canoncore/providers` behind `bounded(text) ||`. The guard is what turns this
- * answer into "the strip is why", and it belongs to the caller because only the
- * caller knows its ceiling.
+ * happen. ALL THREE CALLERS ASK IT ONLY ONCE THE BOUND HAS COME BACK EMPTY:
+ * `quotedTo` below behind `if (quoted !== "")`, `boundedOr` in
+ * `@canoncore/providers` behind `bounded(text) ||`, and `failed` in that
+ * package's `client.ts` behind `if (said !== "")` (ADR-0186). The guard is what
+ * turns this answer into "the strip is why", and it belongs to the caller
+ * because only the caller knows its ceiling.
  *
  * NOTHING THERE IS NOT SOMETHING UNSHOWABLE, and answering the first with the
  * second is the defect this file's own words would otherwise commit.
@@ -245,10 +253,14 @@ export function quotedTo(text: string, max: number, thing: string): string {
  *
  * PUBLISHED FOR THE CALLERS THAT ALREADY HAVE WORDS FOR BOTH ANSWERS (ADR-0176).
  * `quotedTo` hands back a bare noun phrase or `""`, which is what a caller
- * interpolating a value into a sentence of its own wants. The three fallbacks in
+ * interpolating a value into a sentence of its own wants. The four fallbacks in
  * `@canoncore/providers` are not that shape: each already carries a whole
  * sentence for the silent case and needs a second one beside it, so what it is
- * short of is the QUESTION rather than either answer. Spelling that question
+ * short of is the QUESTION rather than either answer. The fourth is `failed`'s,
+ * and it is short of the question for a SECOND reason (ADR-0186): its three
+ * answers go in three different FRAMES -- `: ` quotes the provider, ` with `
+ * reports about it -- so `boundedOr`, which collapses the three to one string,
+ * cannot serve it either. Spelling that question
  * there would put a second copy of `CONTROLS` in the package ADR-0163 moved the
  * levers out of, which is the duplication this file exists to end.
  */

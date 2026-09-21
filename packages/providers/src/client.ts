@@ -1,3 +1,4 @@
+import { holdsUnshowable, unshowable } from "@canoncore/text";
 import { Agent, fetch } from "undici";
 import type { z } from "zod";
 
@@ -443,22 +444,85 @@ function hopTo(location: string, from: URL): URL {
  * in its own lead sentence already -- `/import` rendered it twice. Without it the
  * framing is at most 95 characters at full stretch, so a provider's remedy
  * arrives whole and only a provider that floods is cut.
+ *
+ * THREE ANSWERS WHERE THERE WERE TWO, WHICH IS ADR-0186. `bounded` returns the
+ * empty string for a body that carried nothing AND for one made of nothing the
+ * strip leaves, so `said === ""` was a two-branch expression over a three-way
+ * question -- and the comment on it read `Said nothing`, which is ADR-0176's
+ * conflation stated beside a line whose OUTPUT was merely incomplete. A provider
+ * that answered 500 with three zero-width spaces did not say nothing: it said
+ * something nobody can show, and its error path is producing garbage, which is a
+ * different next move for the Owner from a provider that sent no body at all.
+ *
+ * THE QUESTION IS ASKED HERE AND NOT THROUGH `boundedOr`, which is the one other
+ * place in this package asking it. That function collapses the three answers
+ * into a STRING, because its two callers put both of theirs in the same frame.
+ * This site has three FRAMES rather than two sentences, so what it is short of
+ * is the question rather than either answer -- which is the caller
+ * `holdsUnshowable` was published for, behind the guard its docblock requires:
+ * asked only once the bound has come back empty, and asked by the caller because
+ * only the caller knows its ceiling.
+ *
+ * THE COLON IS NOT REUSED FOR IT, AND THAT IS THE REASON THERE ARE THREE FRAMES.
+ * `${answered}: ${said}` introduces THE PROVIDER'S OWN WORDS, and a sentence
+ * about a body nobody can show is CanonCore's observation rather than anything
+ * the provider said. `wrote` draws that line BETWEEN reasons (ADR-0123) and
+ * cannot draw it inside one, so the frame has to: `with` reports, `:` quotes.
+ *
+ * THE THIRD SENTENCE IS 151 CHARACTERS AT FULL STRETCH against
+ * `REASON_MAX_LENGTH`'s 300, derived 2026-09-21 -- and it is asserted rather than
+ * counted here, because what a sentence edited past that ceiling loses is its
+ * END. That is the whole clause saying a body arrived, so it would degrade back
+ * into `answered 500…` -- this defect again, arriving through the fix for it and
+ * wearing a truncation's marker.
  */
 async function failed(response: Response, path: string): Promise<Error> {
-  const said = await saidBy(response);
+  const offered = await offeredBy(response);
+  // BOUNDED HERE AND NOT ONLY ON THE WAY TO A PAGE, which is not the same cap
+  // twice. `reasonFor` bounds what a page RENDERS; this Error is ALSO carried
+  // whole, as `FailedProvider`'s `reason` -- typed `unknown` since ADR-0183 so
+  // that it travels as it was thrown -- so a provider's text left unbounded
+  // here would reach whoever holds that Error at whatever length it chose.
+  // ADR-0123's rule is that the value is bounded WHERE IT ENTERS the sentence,
+  // and this is the line that enters it.
+  const said = bounded(offered);
   const answered = `${shortly(path)} answered ${response.status}`;
-  // A BODY IS THE PROVIDER'S CHOICE AND AN EMPTY ONE IS A CHOICE IT MAY MAKE.
-  // Said nothing, so there is nothing to introduce: the sentence stops where it
-  // stopped before CNCORE-140 rather than trailing a colon into blank space.
-  // TODO(CNCORE-308): "said nothing" is inferred from `said === ""`, and `said`
-  // came through `bounded` -- so a body of only stripped characters reaches this
-  // branch having said something nobody can show. The SENTENCE only omits, which
-  // is why ADR-0176 left it; this reason is the part that is wrong.
-  return new Error(said === "" ? `${answered}.` : `${answered}: ${said}`);
+  if (said !== "") return new Error(`${answered}: ${said}`);
+  return new Error(
+    holdsUnshowable(offered) ? `${answered} with ${UNSHOWABLE_BODY}.` : `${answered}.`,
+  );
 }
 
 /**
- * The provider's own sentence about its failure, bounded (ADR-0123).
+ * What is said when the provider's failure body was made of nothing showable
+ * (ADR-0186).
+ *
+ * THE PHRASE IS `@canoncore/text`'S AND THE FRAME IS THIS FILE'S, which is
+ * ADR-0179's split kept and the reason this is not spelled out here. The noun is
+ * `a body` because that is what this site is about: `reasonFor`'s
+ * `UNSHOWABLE_REASON` names a REASON and `cmpp.ts` names a NAME and a LABEL, and
+ * the four sentences stay one concept by sharing the words after the noun.
+ *
+ * NO FULL STOP, UNLIKE THE OTHER THREE. Those ARE the sentence a page prints;
+ * this one is a clause inside a sentence `failed` finishes, and a stop here would
+ * land mid-sentence.
+ */
+const UNSHOWABLE_BODY = unshowable("a body");
+
+/**
+ * The string the provider OFFERED as its reason, as it stands (ADR-0123).
+ *
+ * UNBOUNDED, AND THE BOUND IS ONE LINE AWAY IN `failed`. This hands back the
+ * value that ENTERS the sentence, and `failed` asks it the two questions
+ * ADR-0186 leaves it with -- what it bounds to, and whether the strip is why
+ * that came back empty. Bounding here would answer the first and throw away
+ * what the second needs, which is the defect that record removes.
+ *
+ * IT IS `errorIn(text) ?? text` THAT BOTH QUESTIONS ARE ABOUT, not the body it
+ * came out of. A provider that writes `error` and puts nothing in it has said
+ * nothing even when a key BESIDE it holds a zero-width space, and asking the raw
+ * envelope would tell the Owner that provider's reason could not be shown when
+ * it gave none. A witness in `client.test.ts` pins it.
  *
  * `error` IS UNWRAPPED WHERE IT IS THERE AND NOTHING IS REQUIRED OF A PROVIDER
  * THAT SPELLS IT OTHERWISE. `packages/contract` refuses to make the failure
@@ -472,15 +536,9 @@ async function failed(response: Response, path: string): Promise<Error> {
  * fragment of a stack of braces; a JSON envelope spends them the same way, on
  * punctuation and on a `provider` key the page names in its own lead sentence.
  */
-async function saidBy(response: Response): Promise<string> {
+async function offeredBy(response: Response): Promise<string> {
   const text = await firstBytesOf(response);
-  // BOUNDED HERE AND NOT ONLY ON THE WAY TO A PAGE, which is not the same cap
-  // twice. `reasonFor` bounds what a page RENDERS; this Error is also carried
-  // whole by `FailedProvider`, whose `reason.message` `search.ts` reads
-  // directly -- so a provider's text left unbounded here reaches that consumer
-  // at whatever length it chose. ADR-0123's rule is that the value is bounded
-  // WHERE IT ENTERS the sentence, and this is where it enters.
-  return bounded(errorIn(text) ?? text);
+  return errorIn(text) ?? text;
 }
 
 /**
