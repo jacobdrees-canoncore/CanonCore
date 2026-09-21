@@ -1,8 +1,8 @@
-import { env } from "@canoncore/env/server";
 import { call, ORPCError, safe } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -51,19 +51,7 @@ describe("a caller with no session", () => {
   });
 });
 
-const OWNER_PASSWORD = env.OWNER_PASSWORD;
-if (OWNER_PASSWORD === undefined) {
-  throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-}
-
-const logInAs = async () => {
-  const { token } = await call(
-    appRouter.session.logIn,
-    { password: OWNER_PASSWORD },
-    { context: anyone },
-  );
-  return createContext({ sessionToken: token });
-};
+const logInAs = async () => createContext({ sessionToken: await aTokenForTheOwner() });
 
 describe("the owner", () => {
   it("reads every task this instance runs, with its trigger", async () => {

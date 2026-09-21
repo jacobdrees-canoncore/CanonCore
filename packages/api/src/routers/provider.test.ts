@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { type Database, items, sources, writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { A_NARROWING } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
@@ -10,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -20,17 +20,6 @@ import { appRouter } from "./index";
  * loopback address here is the one CanonCore's CI reaches the real provider on.
  * What the real image adds over this is the fixture's own data, and that is the
  * CI job's to prove rather than this suite's.
- */
-/**
- * THE OWNER'S CONTEXT, because most of what this file drives WRITES: `import`,
- * `browse` and `purge` are behind `ownerProcedure` since CNCORE-109, and a
- * caller with no session is refused before it reaches any of the behaviour
- * asserted below.
- *
- * IT LOGS IN THROUGH THE ROUTER rather than assembling a session object, so the
- * context these tests run on is the one a real caller gets. A hand-made session
- * would keep passing on the day the shape of one changes, which is the day it
- * would matter most.
  */
 /** The CIDR this file's stub providers bind inside, and this suite's allowlist. */
 const LOOPBACK = "127.0.0.0/8";
@@ -57,6 +46,12 @@ await writeProviderSettings(await connect(), {
   providerUrls: "",
 });
 
+/**
+ * THE OWNER'S CONTEXT, because most of what this file drives WRITES: `import`,
+ * `browse` and `purge` are behind `ownerProcedure` since CNCORE-109, and a
+ * caller with no session is refused before it reaches any of the behaviour
+ * asserted below.
+ */
 const context = await createContext({ sessionToken: await aTokenForTheOwner() });
 
 /**
@@ -81,19 +76,6 @@ const asAVisitor = await createContext();
 const reaching =
   ({ providers = [], allowlist = LOOPBACK }: { providers?: string[]; allowlist?: string }) =>
   async () => ({ allowlist: parseAllowlist(allowlist), urls: providers });
-
-async function aTokenForTheOwner(): Promise<string> {
-  const password = env.OWNER_PASSWORD;
-  if (password === undefined) {
-    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-  }
-  const { token } = await call(
-    appRouter.session.logIn,
-    { password },
-    { context: await createContext() },
-  );
-  return token;
-}
 
 let db: Database;
 

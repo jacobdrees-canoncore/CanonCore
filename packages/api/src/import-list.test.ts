@@ -1,13 +1,13 @@
 import { createServer, type Server } from "node:http";
 import { writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
-import { call, createRouterClient } from "@orpc/server";
+import { createRouterClient } from "@orpc/server";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { createContext } from "./context";
 import { importContainerList, theContainerIdsIn } from "./import-list";
 import { appRouter } from "./routers";
+import { aTokenForTheOwner } from "./testing/the-owner";
 
 /**
  * ADR-0103's FIRST SEAM over its SECOND. `importContainerList` is a package
@@ -34,15 +34,7 @@ await writeProviderSettings(await connect(), {
   providerUrls: "",
 });
 
-const password = env.OWNER_PASSWORD;
-if (password === undefined) {
-  throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-}
-const { token } = await call(
-  appRouter.session.logIn,
-  { password },
-  { context: await createContext() },
-);
+const token = await aTokenForTheOwner();
 
 /**
  * THE APP AS THE DRIVER SEES IT. `createRouterClient` is ADR-0103's second seam
