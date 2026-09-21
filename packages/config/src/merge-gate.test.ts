@@ -57,8 +57,20 @@ const realGit =
  * non-zero. An empty ARRAY and a missing COMMIT are different worlds and the
  * gate is entitled to tell them apart.
  */
+/**
+ * The fields of a pull request this gate reads, and no others -- a spread of a
+ * `Record<string, unknown>` loses every known key, which is what put
+ * `headRefOid` out of reach of the default above.
+ */
+type PullRequestFields = {
+  readonly headRefOid?: string;
+  readonly headRefName?: string;
+  readonly mergeStateStatus?: string;
+  readonly state?: string;
+};
+
 type World = {
-  readonly pr: Record<string, unknown>;
+  readonly pr: PullRequestFields;
   readonly checks: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   /** A `total_count` this many higher than the runs actually handed over. */
   readonly shortBy?: number;
@@ -86,7 +98,7 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
   mkdirSync(bin);
   // A BRANCH NAME UNLESS THE WORLD SAYS OTHERWISE, so only the test that is
   // ABOUT its absence has to mention it.
-  const pr = { headRefName: "jacobdrees/cncore-244", ...world.pr };
+  const pr: PullRequestFields = { headRefName: "jacobdrees/cncore-244", ...world.pr };
   writeFileSync(join(dir, "pr.json"), JSON.stringify(pr));
   for (const [sha, runs] of Object.entries(world.checks)) {
     // GITHUB'S OWN PAGING, because it is what the gate has to get past. The
@@ -134,7 +146,7 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
       // tell a gate that queries the right branch from one that queries any
       // branch, and the tip check is the thing under test here.
       `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] || exit 0`,
-      `  printf '%s\\t%s\\n' ${JSON.stringify(world.branchTip ?? (pr.headRefOid as string))} "$3"`,
+      `  printf '%s\\t%s\\n' ${JSON.stringify(world.branchTip ?? pr.headRefOid ?? "")} "$3"`,
       "  exit 0",
       "fi",
       `exec ${JSON.stringify(realGit)} "$@"`,
