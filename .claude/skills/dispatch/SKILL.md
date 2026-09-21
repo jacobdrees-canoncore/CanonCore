@@ -45,8 +45,8 @@ removing.
 HAND.** It resolves the PR's head and asks about THAT COMMIT's check-runs, because a check is
 evidence only for the commit it ran against (ADR-0181) and a rebased PR goes on showing the old
 head's green. It is one command rather than a gate you read and a merge you then type, because
-`gate.sh <n> | tail -2 && gh pr merge` once merged over a printed `BLOCKED` — a pipeline's exit
-status is the LAST command's, and `tail` always succeeds. Give it the worktree path too and it
+`gate.py <n> | tail -2 && gh pr merge` once merged over a printed `BLOCKED` in the scratch version
+this replaces — a pipeline's exit status is the LAST command's, and `tail` always succeeds. Give it the worktree path too and it
 refuses over uncommitted work, which is the condition `CLAUDE.md` already puts on removing one.
 
 **A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is

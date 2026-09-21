@@ -26,8 +26,9 @@ import { repoRoot } from "./testing/repo-root";
  * MEASURED TWICE, ONE DAY APART, THE SECOND TIME BY SOMEONE WHO KNEW THE RULE.
  * PR #210 was force-pushed at 22:06:44 on 2026-09-20 and had no run against its
  * new head for four minutes and five seconds, while `gh pr checks` answered
- * from the pre-rebase commit. PR #221 was merged at 00:11:39 on 2026-09-21; its
- * head's CI finished at 00:15:21, three minutes and forty-two seconds later.
+ * from the pre-rebase commit. PR #221 was merged at 00:11:39 on 2026-09-21 with
+ * three of its sixteen check-runs completed; its head's CI finished at
+ * 00:15:21, three minutes and forty-two seconds later.
  * Both went green afterwards, so nothing broke either time -- which is exactly
  * what makes the class invisible, and why this is a test rather than a sentence
  * added to the gotchas the dispatcher had already read.
@@ -83,7 +84,10 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
   const dir = mkdtempSync(join(tmpdir(), "merge-gate-"));
   const bin = join(dir, "bin");
   mkdirSync(bin);
-  writeFileSync(join(dir, "pr.json"), JSON.stringify(world.pr));
+  // A BRANCH NAME UNLESS THE WORLD SAYS OTHERWISE, so only the test that is
+  // ABOUT its absence has to mention it.
+  const pr = { headRefName: "jacobdrees/cncore-244", ...world.pr };
+  writeFileSync(join(dir, "pr.json"), JSON.stringify(pr));
   for (const [sha, runs] of Object.entries(world.checks)) {
     // GITHUB'S OWN PAGING, because it is what the gate has to get past. The
     // check-runs endpoint answers 30 per page by default and states the real
@@ -126,9 +130,11 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
     [
       "#!/usr/bin/env bash",
       'if [ "$1" = "ls-remote" ]; then',
-      `  printf '%s\\trefs/heads/branch\\n' ${JSON.stringify(
-        world.branchTip ?? (world.pr.headRefOid as string),
-      )}`,
+      // ONLY FOR THE REF ACTUALLY ASKED FOR. A stub answering every ref cannot
+      // tell a gate that queries the right branch from one that queries any
+      // branch, and the tip check is the thing under test here.
+      `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] || exit 0`,
+      `  printf '%s\\t%s\\n' ${JSON.stringify(world.branchTip ?? (pr.headRefOid as string))} "$3"`,
       "  exit 0",
       "fi",
       `exec ${JSON.stringify(realGit)} "$@"`,
@@ -147,6 +153,7 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
     status: ran.status,
     output: `${ran.stdout}${ran.stderr}`,
     merged: calls.some((call) => call.startsWith("pr merge")),
+    calls,
     dir,
   };
 }
@@ -383,7 +390,107 @@ describe("a check the gate reads", () => {
     expect(output).not.toContain("UNREADABLE");
     expect(status).not.toBe(0);
   });
+
+  /**
+   * A CONCLUSION THIS GATE HAS NEVER HEARD OF BLOCKS, rather than falling
+   * through to the pass.
+   *
+   * The first version listed the bad conclusions and the good ones and let
+   * anything else past, which is the spec line's own defect wearing a third
+   * hat: `stale` is a documented check-run conclusion that **only GitHub sets**
+   * (its REST docs: "You cannot change a check run conclusion to stale, only
+   * GitHub can set this"), so it can appear on a commit with no warning and
+   * without this repository doing anything. Beside one `success` it read
+   * `PASSED`.
+   *
+   * SO THE GOOD SET IS THE CLOSED ONE and everything else is refused by name.
+   * That is the reading that survives GitHub adding a value, which is the only
+   * assumption worth making about somebody else's enum.
+   */
+  it("blocks a conclusion it does not know, naming it rather than passing it", () => {
+    const { status, output } = gateAgainst({
+      pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN", headRefName: "b" },
+      checks: { [REBASED]: [check("Lint", "success"), check("Test", "stale")] },
+    });
+
+    expect(output).toContain("Test");
+    expect(output).toContain("stale");
+    expect(output).not.toContain("PASSED");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * THE REPOSITORY ARGUMENT REACHES A URL AND A CLONE ADDRESS, so its shape is
+   * checked before either is built. It is typed by a dispatcher rather than
+   * taken from a stranger, which is why this is a shape check and not an
+   * allowlist: a list of three names is a fourth repository's maintenance
+   * burden, while `..` in a path segment is never anything but a mistake.
+   *
+   * IT REFUSES BEFORE IT ASKS, which is the part worth asserting -- a guard
+   * that builds the wrong URL and then judges the answer has already made the
+   * request.
+   */
+  it("refuses a repository name that is not one, before it asks anything", () => {
+    const { status, output, calls } = gateAgainst(
+      { pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN" }, checks: { [REBASED]: [] } },
+      ["210", "../../orgs/somebody-else"],
+    );
+
+    expect(calls).toStrictEqual([]);
+    expect(output).toContain("BLOCKED");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * AND A PULL REQUEST WITH NO BRANCH NAME IS SAID IN THOSE WORDS. Without the
+   * check the ref becomes `refs/heads/` and the refusal reads "cannot read
+   * refs/heads/ in ...", which sends its reader looking for a git problem --
+   * the same misdirection the closed-PR outcome above exists to remove.
+   */
+  it("says a pull request names no branch, rather than asking for an empty ref", () => {
+    const { status, output } = gateAgainst({
+      pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN", headRefName: "" },
+      checks: { [REBASED]: [check("Test", "success")] },
+    });
+
+    expect(output).toContain("BLOCKED");
+    expect(output).not.toContain("refs/heads/ ");
+    expect(status).not.toBe(0);
+  });
 });
+
+/**
+ * A throwaway repository with an upstream, for the worktree half of the merge
+ * command. `pushed` commits reach the bare origin; `held` ones stay local, which
+ * is the "nothing unpushed" half of the condition `CLAUDE.md` puts on removing a
+ * worktree.
+ */
+function aRepoWith({ held = 0 }: { held?: number } = {}) {
+  const origin = mkdtempSync(join(tmpdir(), "merge-gate-origin-"));
+  spawnSync("git", ["init", "--bare", "-q", origin]);
+  const worktree = mkdtempSync(join(tmpdir(), "merge-gate-wt-"));
+  const git = (...args: string[]) =>
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: worktree });
+
+  git("init", "-q", "-b", "main");
+  writeFileSync(join(worktree, "landed.ts"), "export const landed = 1;\n");
+  git("add", "-A");
+  git("commit", "-qm", "landed");
+  git("remote", "add", "origin", origin);
+  git("push", "-q", "-u", "origin", "main");
+
+  for (let i = 0; i < held; i++) {
+    writeFileSync(join(worktree, `held-${i}.ts`), `export const held${i} = 1;\n`);
+    git("add", "-A");
+    git("commit", "-qm", `held ${i}`);
+  }
+  return worktree;
+}
+
+const greenWorld = {
+  pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN", headRefName: "b" },
+  checks: { [REBASED]: [check("Test", "success")] },
+} as const;
 
 /**
  * THE GATE AND THE MERGE ARE ONE COMMAND, so the guard cannot be stepped past.
@@ -472,5 +579,64 @@ describe("the command that merges", () => {
     expect(merged).toBe(false);
     expect(output).toMatch(/no-such-worktree-cncore-288/);
     expect(status).not.toBe(0);
+  });
+
+  /**
+   * NOTHING UNPUSHED IS THE OTHER HALF OF THE CONDITION, and the guard was
+   * citing it while checking only the first. `CLAUDE.md` makes removing a
+   * worktree conditional on "nothing is uncommitted and nothing unpushed", and
+   * a commit that never reached the remote is not in the pull request -- so
+   * merging lands work that is missing a piece its author already wrote, and
+   * the worktree removal that follows destroys it.
+   *
+   * A HALF-GUARD CITING A WHOLE CONDITION is this ticket's own defect in the
+   * comment rather than the code: it reads as covering more than it refuses.
+   */
+  it("refuses to merge over a worktree holding commits the remote has not got", () => {
+    const { merged, output, status } = inAWorldOf(greenWorld, "merge-if-green.sh", [
+      "210",
+      "CanonCore",
+      aRepoWith({ held: 2 }),
+    ]);
+
+    expect(merged).toBe(false);
+    expect(output).toMatch(/unpushed|not pushed|ahead/i);
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * AND THE PATH HAS TO BE THE WORKTREE, not merely inside one. `git -C` walks
+   * UP to the enclosing repository, so a path that is a subdirectory -- or a
+   * mistyped path that still lands inside some checkout -- gets a clean report
+   * about a repository nobody asked about, while the worktree meant by the
+   * argument goes unread. The guard above only fails safe if the thing it read
+   * is the thing that was named.
+   */
+  it("refuses a path that is inside a repository rather than the root of one", () => {
+    const worktree = aRepoWith();
+    const inside = join(worktree, "packages");
+    mkdirSync(inside);
+
+    const { merged, output, status } = inAWorldOf(greenWorld, "merge-if-green.sh", [
+      "210",
+      "CanonCore",
+      inside,
+    ]);
+
+    expect(merged).toBe(false);
+    expect(output).toContain("packages");
+    expect(status).not.toBe(0);
+  });
+
+  /** And a worktree that really is clean and really is pushed does not stop it. */
+  it("merges over a worktree that is clean and fully pushed", () => {
+    const { merged, status } = inAWorldOf(greenWorld, "merge-if-green.sh", [
+      "210",
+      "CanonCore",
+      aRepoWith(),
+    ]);
+
+    expect(merged).toBe(true);
+    expect(status).toBe(0);
   });
 });

@@ -32,8 +32,9 @@ through that gate; all six were verified green on `main` afterwards, so nothing 
 
 **PR #221, 2026-09-21, by a dispatcher who had already read the ticket.** Its head `3c28ae5` got a
 run at 00:11:01. **The merge went in at 00:11:39 and that run finished at 00:15:21** — three minutes
-and forty-two seconds after the evidence was acted on. One check-run had completed at the moment of
-merge; the other fifteen had not. It went green, so again nothing broke.
+and forty-two seconds after the evidence was acted on. THREE of its sixteen check-runs had completed
+at the moment of merge (00:11:24, 00:11:32, 00:11:36); the other thirteen had not. It went green, so
+again nothing broke.
 
 **Nothing breaking is what makes this invisible.** Both merges look correct in hindsight, and in
 both the gate answered from something other than the commit it was asked about.
@@ -63,6 +64,15 @@ it fires; anything else means none has come YET, so re-check. Both refuse the me
 remedy differs, and a gate that leaves that to be inferred gets it inferred wrong under time
 pressure.
 
+**A conclusion the gate does not know is absent evidence, not good evidence.** The good set is
+the closed one — `success`, `skipped`, `neutral` — and anything else is refused by name. Listing the
+BAD conclusions and letting the rest past is this defect wearing a third hat: `stale` is a
+documented check-run conclusion that **only GitHub sets** ("You cannot change a check run conclusion
+to stale, only GitHub can set this", REST docs read 2026-09-21), so it arrives without this
+repository doing anything, and beside one `success` it read `PASSED`. Inverting the test is what
+survives GitHub adding a value, which is the only assumption worth making about somebody else's
+enum.
+
 **Each outcome is named distinctly rather than folded into "red".** `NO-RUN`, `RUNNING`, `FAILED`,
 `SUPERSEDED`, `UNREADABLE`, `PASSED`. `cancelled` is `SUPERSEDED` and not a defect: `ci.yml` sets
 `cancel-in-progress` on a group keyed by the head ref ([[0111-ci-optimises-billed-minutes-over-named-checks]]),
@@ -71,8 +81,8 @@ nineteen that ran to an answer (18 `success`, 1 `skipped`, counted 2026-09-21). 
 failures produced a false "genuine breakage" claim on 2026-09-20. It still BLOCKS when nothing else ran: a commit whose only runs were killed has no more
 evidence behind it than one with none.
 
-**The gate and the merge are one command.** The gate was being run as `gate.sh <pr> | tail -2 &&
-gh pr merge`, and a pipeline's exit status is the LAST command's — `tail` always succeeds, so the
+**The gate and the merge are one command.** The scratch gate was being run as
+`gate.py <pr> | tail -2 && gh pr merge`, and a pipeline's exit status is the LAST command's — `tail` always succeeds, so the
 guard printed `BLOCKED` and the merge ran anyway. Separating "show me" from "decide" is what made
 that possible.
 
@@ -142,11 +152,11 @@ Observed on #210 and #221 the moment the tip check landed.
 
 Nothing makes the dispatcher RUN the gate. There are no required checks (ADR-0118) and no required
 review, so this is a convention with a mechanism behind it rather than an enforced gate, exactly as
-that record says. The gate also asks nothing about whether the checks that ran are the RIGHT set: a
-workflow file that fails to parse creates no run at all, which arrives here as `NO-RUN` with a
-`mergeStateStatus` that is not `DIRTY` — correctly blocking, and attributed to the wrong cause.
-`actionlint` before pushing is still what catches that, and `.claude/rules/workflows.md` still says
-so.
+that record says. The gate also asks nothing about whether the checks that ran are the RIGHT set.
+`.claude/rules/workflows.md` records that a workflow file which fails to parse creates no run at
+all; on that measurement it arrives here as `NO-RUN` against a `mergeStateStatus` that is not
+`DIRTY` — correctly blocking, and attributed to the wrong cause. That attribution is the limit, not
+the blocking. `actionlint` before pushing is still what catches it.
 
 ## As built, under CNCORE-288
 
@@ -155,10 +165,12 @@ so.
 `state` in one `gh pr view`, confirms that head against `git ls-remote` on the branch, reads
 `repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
 `total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
-`NO-RUN`, `RUNNING`, `FAILED`, `SUPERSEDED`, `LAGGING`, `MERGED`/`CLOSED` and `UNREADABLE`.
+`NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `MERGED`/`CLOSED`
+and `UNREADABLE`.
 `.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit status, with nothing
-piped, and refuses a named worktree that is unreadable or holds uncommitted work.
-`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over fourteen
+piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
+uncommitted or unpushed work.
+`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over twenty
 scenarios, including #210's own world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
