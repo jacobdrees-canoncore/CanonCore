@@ -213,6 +213,169 @@ function publishingSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
   });
 }
 
+/**
+ * THE STEPS THAT GET A PAGE OUT OF THE BUILT IMAGE.
+ *
+ * BOTH HALVES IN ONE STEP, AND THAT IS THE CORRECTION RATHER THAN A DETAIL.
+ * This filter asked only for a step that ran `canoncore:smoke` at first, and a
+ * mutation caught it: deleting the image from the step that SERVES left the
+ * assertion green, because the step below it that proves the container
+ * REFUSES to serve an unmigrated database runs the same tag and matched
+ * instead. A run and an answer in two different steps is not evidence that the
+ * shipped entry point served anything.
+ */
+function stepsThatServeTheBuiltImage(parsed: Workflow): Step[] {
+  const steps = parsed.jobs?.image?.steps ?? [];
+  // Not vacuous: a renamed or deleted job would satisfy every assertion below
+  // by having no subject, which is the failure this whole file is written
+  // against.
+  expect(
+    steps.length,
+    "the `image` job has no steps, so nothing below has a subject",
+  ).toBeGreaterThan(0);
+
+  return steps.filter((step) => {
+    const shell = theShellOf(step);
+    return /docker\s+run\b/.test(shell) && /canoncore:smoke/.test(shell) && /curl/.test(shell);
+  });
+}
+
+/**
+ * A STEP'S SHELL WITH ITS COMMENTS TAKEN OUT, because an assertion about code
+ * that prose can satisfy is not an assertion about code.
+ *
+ * MEASURED, NOT FEARED. The 404 assertion below matched the whole `run:` block
+ * at first, and the step EXPLAINS itself in a comment -- "an unknown id must
+ * come back 404 -- the app asked and found nothing". So changing the guard
+ * itself to `[ "$code" = "200" ]` left the test green: the number it was
+ * looking for was still there, in the sentence about the number. That is the
+ * vacuous premise [[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]
+ * is about, and the workflow's own comments are unusually long, which makes
+ * this file unusually exposed to it.
+ *
+ * A `#` MUST START A WORD TO BE A COMMENT, which is what keeps `${DIGEST#sha256:}`
+ * in the publish steps from being read as one.
+ */
+function theShellOf(step: Step): string {
+  return (step.run ?? "")
+    .split("\n")
+    .map((line) => line.replace(/(^|\s)#.*$/, "$1"))
+    .join("\n");
+}
+
+/**
+ * THE SMOKE TEST THE E2E SUITE'S ENTRY POINT LEANS ON (ADR-0185, CNCORE-302).
+ *
+ * THIS IS AN ARGUMENT AND NOT ONLY AN ASSERTION, so it is worth stating the
+ * argument before the code. `apps/web/next.config.ts` sets `output:
+ * "standalone"` and the e2e harness serves every one of its eleven instances
+ * with `next start`, which Next warns is not the entry point that
+ * configuration ships. ADR-0185 accepts that warning, and the acceptance is
+ * CONDITIONAL: it holds only because SOMETHING ELSE runs the entry point that
+ * does ship. That something else is the `image` job below.
+ *
+ * SO THE CONDITION IS WHAT IS PINNED HERE. `next start` and
+ * `.next/standalone/apps/web/server.js` load the same `.next/server` output
+ * through the same `startServer`, and differ in which `node_modules` resolve:
+ * the shipped tree carries ONLY WHAT TRACING FOUND -- 30 packages, measured on
+ * 16.3.4 -- where `next start` resolves from the whole workspace. A module the
+ * app reaches that the trace did not carry works under `next start` and fails
+ * under the server that ships, and `next start` cannot see the difference
+ * because it never consults the subset. That is the one class of defect the
+ * e2e suite is structurally blind to.
+ *
+ * THE `Dockerfile`'S MIGRATOR TREE IS NOT AN INSTANCE OF IT, which is worth
+ * saying because this docblock claimed it was at first. That workaround exists
+ * because the migrator is code the app NEVER reaches, so tracing correctly
+ * left it out. It is evidence of how small the subset is, not of a trace miss.
+ *
+ * WHICH MAKES THIS THE ASSERTION THAT KEEPS ADR-0185 TRUE. Delete the smoke
+ * test, or weaken it to a route that answers without opening a connection, and
+ * nothing anywhere runs the shipped entry point -- while the e2e suite goes on
+ * reporting its 374 green tests and claiming it tests the page that ships. The
+ * claim becomes false with nothing in the diff saying so, which is the shape
+ * [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] is about.
+ */
+describe("the smoke test the e2e suite's entry point leans on", () => {
+  /**
+   * THE IMAGE'S OWN SERVER, not a build on the runner. `docker run` of the tag
+   * the build step loaded is what makes this the shipped entry point at all:
+   * the Dockerfile's `CMD` is `node apps/web/server.js`, so running the image
+   * is the only thing in this repository that executes that file.
+   */
+  it("runs the server that ships, and gets an answer out of it", () => {
+    const parsed = workflow();
+
+    expect(
+      stepsThatServeTheBuiltImage(parsed).map(({ name }) => name),
+      "no step both runs the built image and asks it for a page, so the standalone entry point is served nowhere",
+    ).not.toStrictEqual([]);
+  });
+
+  /**
+   * AND IT RUNS ON A PULL REQUEST, which is the event this condition is FOR.
+   *
+   * The assertions either side of this one read the job's steps and never its
+   * `if`. So gating the `image` job on `main` would leave both of them green
+   * while no pull request ran the shipped entry point at all -- and a branch is
+   * exactly where a change that breaks it arrives. The suite's own acceptance
+   * (ADR-0185) is about what runs BEFORE a merge, so the event is part of the
+   * claim rather than a detail of it.
+   */
+  it("does that on a pull request, and not only once something has merged", () => {
+    const parsed = workflow();
+    const serving = stepsThatServeTheBuiltImage(parsed).filter((step) =>
+      runs(step.if, PULL_REQUEST),
+    );
+
+    expect(
+      runs(parsed.jobs?.image?.if, PULL_REQUEST),
+      "the `image` job does not run on a pull request, so nothing runs the shipped entry point before a merge",
+    ).toBe(true);
+    expect(
+      serving.map(({ name }) => name),
+      "every step that serves the built image is conditioned off on a pull request",
+    ).not.toStrictEqual([]);
+  });
+
+  /**
+   * A ROUTE THAT READS THE DATABASE, which is the half that carries the proof.
+   *
+   * `/` answers 200 with the server never having opened a connection, so a
+   * smoke test that asked only for it would pass against an image whose traced
+   * module subset cannot reach PostgreSQL at all. An unknown id must come back
+   * 404 -- the app asked and found nothing -- and never 500, which is what an
+   * unreachable driver produces. The workflow says so in its own comment; this
+   * holds it to it.
+   */
+  it("asks it a question only a server that reached its database can answer", () => {
+    const parsed = workflow();
+    const asking = stepsThatServeTheBuiltImage(parsed).filter((step) =>
+      /\/items\/[0-9a-f]{8}-[0-9a-f-]+/.test(theShellOf(step)),
+    );
+
+    expect(
+      asking.map(({ name }) => name),
+      "the smoke test asks for no database-backed route, so it would pass against an image that cannot reach PostgreSQL",
+    ).not.toStrictEqual([]);
+
+    // THE COMPARISON ITSELF, not the number anywhere in the step. Stripping the
+    // comments was not enough: flipping the guard to `= "200"` leaves `not 404.`
+    // standing in its own error message, so a bare /404/ went on passing against
+    // a step that accepts a 200. What is pinned is the shape that DECIDES --
+    // `$code` tested against 404 -- and that granularity is part of the claim
+    // ([[0169-a-check-answers-at-one-granularity-and-that-is-part-of-its-claim]]):
+    // rename the variable or restructure the guard and this goes red and wants
+    // rewriting, which is the right end to fail at.
+    for (const step of asking) {
+      expect(
+        theShellOf(step),
+        `${step.name} reads a database-backed route without holding its status to 404`,
+      ).toMatch(/\[\s*"\$code"\s*!?=\s*"404"\s*\]/);
+    }
+  });
+});
+
 describe("the image's own labels", () => {
   /**
    * THE LABELS THE DOCKERFILE STATES, which nothing was holding.
