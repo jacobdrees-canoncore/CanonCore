@@ -32,6 +32,7 @@ import {
   reasonFor,
   searchProviders,
 } from "@canoncore/providers";
+import { A_NARROWING } from "@canoncore/schemas";
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
@@ -861,8 +862,16 @@ export const provider = {
          * A STRING RATHER THAN A `z.uuid()`, for the reason `listingInput`
          * gives for the same parameter: a Group that names nothing asks
          * nobody, and that is the answer rather than a BAD_REQUEST.
+         *
+         * AND BOUNDED AT `A_NARROWING`, because the sentence above is not a
+         * resemblance to `listingInput`'s parameter -- it IS that parameter
+         * (CNCORE-309, ADR-0182). `/import` reads it with the same `oneGroup`
+         * the three listings do, so a ceiling that stopped at the catalogue
+         * router would leave the same value unbounded at the seam one page
+         * over: the third seam, found by review of this pass rather than by
+         * the two tickets that named the other two.
          */
-        group: z.string().optional(),
+        group: z.string().max(A_NARROWING).optional(),
       }),
     )
     .output(

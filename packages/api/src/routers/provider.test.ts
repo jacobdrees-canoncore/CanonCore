@@ -4,6 +4,7 @@ import { type Database, items, sources, writeProviderSettings } from "@canoncore
 import { connect } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
+import { A_NARROWING } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -1169,6 +1170,37 @@ describe("provider.search", () => {
  * a Provider that was asked and failed would otherwise look the same.
  */
 describe("provider.search within a Group", () => {
+  /*
+   * THE GROUP IS BOUNDED HERE TOO (CNCORE-309, ADR-0182), and this is the THIRD
+   * seam rather than a repeat of the catalogue's two.
+   *
+   * `/import` READS IT WITH THE SAME `oneGroup` the three listings do, and the
+   * declaration above this one says so in its own words -- "for the reason
+   * `listingInput` gives for the same parameter". It is not a parameter that
+   * RESEMBLES that one; it is that one, arriving at a different router. A
+   * ceiling that stopped at `catalogue.ts` would have left the same value
+   * unbounded one page over, which is ADR-0160's stated cost -- "a caller
+   * reaching it directly does not inherit the bound" -- reappearing at the seam
+   * nobody had counted.
+   *
+   * FOUND BY REVIEW OF THIS PASS rather than by either ticket: CNCORE-284 named
+   * the read path and the links, CNCORE-309 named the parameter beside it, and
+   * neither counted the routers. The as-built block of ADR-0182 claimed both
+   * seams were closed while this one was open.
+   */
+  it("refuses a Group above the ceiling, and accepts one at it", async () => {
+    await expect(
+      call(appRouter.provider.search, { query: "tenth planet", group: "x".repeat(A_NARROWING + 1) }, { context }),
+    ).rejects.toThrow("Input validation failed");
+
+    // AT THE CEILING IT ASKS NOBODY, which is what a Group naming nothing does
+    // here: the answer rather than a BAD_REQUEST, exactly as the declaration
+    // says. A ceiling on the LENGTH does not change that.
+    await expect(
+      call(appRouter.provider.search, { query: "tenth planet", group: "x".repeat(A_NARROWING) }, { context }),
+    ).resolves.toBeDefined();
+  });
+
   it("asks only the Providers the Group asks, and none of the others this instance searches", async () => {
     const wikiAsked: string[] = [];
     const tmdbAsked: string[] = [];

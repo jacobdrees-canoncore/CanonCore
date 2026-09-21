@@ -1,9 +1,10 @@
-import { A_NARROWING } from "@canoncore/schemas";
+import { A_NARROWING } from "@canoncore/schemas/narrowing";
 import { describe, expect, inject, it } from "vitest";
 
 import {
   aGroupArrivesAt,
   documentAt,
+  hrefsIn,
   logInAt,
   mainOf,
   markedCurrentIn,
@@ -61,19 +62,6 @@ const ORDER = "Order this Listing";
 const KIND = "Narrow to a kind";
 /** The seeded Group whose Rows nobody writes to, as `scope.test.ts` uses it. */
 const GROUP = `group=${inject("workBrowsing").group.id}`;
-
-/**
- * Every address this document links, which is the sink a narrowing's ceiling
- * protects (CNCORE-284).
- *
- * READ AS BYTES RATHER THAN THROUGH `navIn`, deliberately: the copies under
- * test are spread into EVERY link `queryFor` writes -- two pickers, the walk
- * and the jump bar -- and asking one picker at a time would be asking whether
- * the value reached the links this test remembered to name.
- */
-function hrefsIn(text: string): string[] {
-  return [...text.matchAll(/href="([^"]*)"/g)].map(([, href]) => href ?? "");
-}
 
 /** The same page asked again, and asked by somebody with no session. */
 async function reloadedAndShared(address: string, owner: string) {
@@ -327,5 +315,33 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     // AND THE SAME PAGE, ASKED WITH A KIND INSIDE THE BOUND, CARRIES IT.
     const narrowed = await documentAt(`/?${GROUP}&kind=person`);
     expect(hrefsIn(narrowed.text).some((href) => href.includes("kind=person"))).toBe(true);
+  });
+
+  /*
+   * AND THE GROUP AT THIS SEAM TOO (CNCORE-309).
+   *
+   * ASKED RATHER THAN INFERRED FROM THE KIND, which is the whole lesson of the
+   * ticket this closes. `?group=` was unbounded on the line ABOVE the `?kind=`
+   * CNCORE-284 reported, and it stayed that way because every test asked about
+   * the parameter somebody had named. The two read through one `aNarrowing`
+   * now, and a test that leaned on that would be trusting the likeness that hid
+   * the gap the first time. Review of this pass found the page seam asking
+   * about `kind` alone -- the same omission, one layer up.
+   */
+  it("carries a Group past the ceiling into no link on the page", async () => {
+    const flood = "groupflood".repeat(Math.ceil((A_NARROWING + 1) / "groupflood".length));
+    expect(flood.length).toBeGreaterThan(A_NARROWING);
+
+    const { status, text } = await documentAt(`/?group=${encodeURIComponent(flood)}`);
+    expect(status).toBe(200);
+
+    const flooded = hrefsIn(text);
+    expect(flooded.length).toBeGreaterThan(10);
+    expect(flooded.filter((href) => href.includes("groupflood"))).toStrictEqual([]);
+
+    // THE LISTING IS UNNARROWED, said by the picker that offers the scope: a
+    // Group past the ceiling is no Group, so the page is the whole catalogue
+    // and "Everything" is what the address records.
+    expect(markedCurrentIn(text)).toStrictEqual(["Everything"]);
   });
 });

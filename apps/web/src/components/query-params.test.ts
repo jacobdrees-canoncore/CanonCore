@@ -1,4 +1,4 @@
-import { A_NARROWING } from "@canoncore/schemas";
+import { A_NARROWING } from "@canoncore/schemas/narrowing";
 import { describe, expect, it } from "vitest";
 
 import { oneGroup, oneKind, oneValue, theQueryQuoted } from "./query-params";

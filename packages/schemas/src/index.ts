@@ -10,64 +10,13 @@
  */
 import { z } from "zod";
 
+export { A_NARROWING } from "./narrowing";
+
 /** What `healthCheck` answers. Published in the OpenAPI document. */
 export const healthCheckResult = z.literal("OK");
 
 export type HealthCheckResult = z.infer<typeof healthCheckResult>;
 
-/**
- * HOW LONG A NARROWING MAY BE: the `kind` and the `group` a reader narrows a
- * Listing to (CNCORE-284, CNCORE-309, ADR-0182).
- *
- * NEITHER IS BOUNDED BY WHAT IT NAMES, and that is the whole gap. Both are
- * declared `z.string()` on purpose -- whether a value names a kind or a Group
- * is the DATABASE's answer rather than this repository's (ADR-0066) -- so
- * nothing about the SET puts a ceiling on the VALUE, and a stranger chose the
- * length of both.
- *
- * ONE NUMBER FOR BOTH PARAMETERS, because they are one rule on two lines of one
- * object: the pair that drifted would be a `kind` bounded while the `group`
- * beside it was not, which is exactly the state CNCORE-284 was filed over.
- *
- * AND IT LIVES HERE RATHER THAN BESIDE `A_PAGE`, which is a fact about who
- * READS it and not a second opinion about where ceilings go. `A_PAGE` is read
- * by six listings and all six are inside `@canoncore/api`, so it stays where
- * its own docblock argues it should. This ceiling is read at TWO seams in two
- * packages -- the router that refuses a direct caller, and `oneKind`/`oneGroup`
- * in `apps/web` that bound the reader -- and the web module holding those is
- * imported by `scope.tsx`, which is a CLIENT component. Reaching the number
- * through `@canoncore/api/routers` would pull the router, its database and its
- * oRPC server into the browser bundle to read an integer. So it sits in the
- * leaf both seams already depend on, which is what `@canoncore/schemas` is for:
- * the API contract and its consumers, sharing one declaration rather than two
- * that can drift.
- *
- * ### The number is 100, and it is taken for the SHAPE of the value
- *
- * A kind is a short lower-case slug. **Measured on the Owner's own install,
- * 2026-09-21**, which holds the real corpus: seven kinds, the shortest `work`
- * at 4 characters and the longest `organisation` at 12.
- *
- * ```sql
- * select count(*), min(length(kind)), max(length(kind)) from item_kinds;  -- 7|4|12
- * ```
- *
- * `item_kinds.kind` is `text` (migration 1), so no column decides this and the
- * number is a fact about what a kind IS. ADR-0005 closes the set at seven, so
- * the headroom is for a migration renaming one rather than for a set that grows.
- * A Group id is a uuid at 36. 100 is far above both and far below a flood.
- *
- * **IT IS `task.ts`'s `KEY_LENGTH` BY ITS NUMBER AND NOT BY ITS REASON, AND THE
- * DIFFERENCE MATTERS.** That ceiling bounds a key because the key is QUOTED BACK
- * in a refusal -- an ADR-0123 sentence bound, where an unbounded value is a
- * caller choosing the length of a sentence this app utters. A narrowing is
- * quoted in no sentence: CNCORE-281 took `?kind=` out of the front page's
- * heading and CNCORE-262 took it out of `/search`'s, and `bounded-parameters`
- * now reports a surface that puts it back. So the same number is taken for the
- * same SHAPE -- a short slug a caller names -- and a later reader must not infer
- * from the agreement that a narrowing gets printed anywhere.
- */
-export const A_NARROWING = 100;
 
 /**
  * What the read path emits for one item.

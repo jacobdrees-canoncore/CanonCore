@@ -863,6 +863,19 @@ export function markedCurrentInPicker(text: string, label: string): string[] {
 }
 
 /**
+ * Every address this document links, which is the sink a narrowing's ceiling
+ * protects (CNCORE-284).
+ *
+ * READ AS BYTES RATHER THAN THROUGH `navIn`, deliberately: the copies under
+ * test are spread into EVERY link `queryFor` writes -- two pickers, the walk
+ * and the jump bar -- and asking one picker at a time would be asking whether
+ * the value reached the links this test remembered to name.
+ */
+export function hrefsIn(text: string): string[] {
+  return [...text.matchAll(/href="([^"]*)"/g)].map(([, href]) => href ?? "");
+}
+
+/**
  * Where a stretch of a page links the words a reader follows, if it does.
  *
  * SHARED SINCE CNCORE-181, when the header came to be read for its links as the
