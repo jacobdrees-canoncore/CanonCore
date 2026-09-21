@@ -76,12 +76,11 @@ const QUERY_IN_A_SENTENCE = 80;
  * half-mechanism that record keeps finding: a bidirectional override re-orders
  * the sentence written AROUND the query at any length, which a ceiling never
  * touches.
+ *
+ * AND A CHECK NOW NAMES A SURFACE THAT OWES THIS AND DOES NOT CALL IT (ADR-0178).
+ * Both sites it exists for were found by a person reading a diff, so until
+ * CNCORE-298 the set was only as good as the last such reading.
  */
-// TODO(CNCORE-298): nothing in this tree reports a surface that prints a value
-// it did not write inside its own sentence without passing through here. Both
-// sites this function exists for were found by a person reading a diff --
-// `/search` by inspection, `/import` by the review of the ticket that fixed
-// `/search` -- so the list is only ever as good as the last such reading.
 /*
  * AND THE WORDS FOR A QUERY THE STRIP EMPTIED (ADR-0179). `boundedTo` removes
  * the controls and trims, so a query made of NOTHING ELSE comes back empty and

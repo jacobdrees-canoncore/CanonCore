@@ -15,7 +15,8 @@ status: accepted
 > both levers from `theQueryQuoted` in `apps/web/src/components/query-params.ts`. The claim was
 > about the CALLERS that existed, and the sites nobody had counted are exactly the ones it could
 > not see; **a count of `boundedTo`'s callers is not a count of the places that owe it**, and the
-> second site was found only by a reviewer reading the diff -- nothing in the tree reports one).
+> second site was found only by a reviewer reading the diff, and nothing in the tree reported one
+> until CNCORE-298 built the check ADR-0178 records).
 > `shortenTo` has exactly one
 > caller, `shortly`, whose values are parsed URLs and hosts rather than prose. No hand-written copy
 > of either lever survives in the tree, checked by grepping `0xd800`, `202a` and `feff`. The
