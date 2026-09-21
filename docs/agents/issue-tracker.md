@@ -264,10 +264,12 @@ If this team has GitHub PR automation configured, these transitions happen on th
 | Draft PR opened | In Progress |
 | PR opened (non-draft) | In Review |
 | Review requested or review activity | In Review |
-| PR merged | Done |
+| PR merged | Done; a ticket with THREE OR MORE PRs has stayed In Review, three times of three (ADR-0192) |
 
 Do not set these states by hand with `orca linear status set`. Open the PR and let the automation
-fire; setting it manually hides whether the linkage actually works.
+fire; setting it manually hides whether the linkage actually works. The one exception is the
+ticket with three or more PRs above: the dispatcher reads its state back after the last merge, and
+sets `Done` only if the automation did not.
 
 Link a PR to an issue by putting the identifier in the branch name (Orca does this when a
 worktree is created with `--linear-issue`) or by a magic word in the PR body:

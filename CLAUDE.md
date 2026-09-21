@@ -126,7 +126,9 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 
 ## Working substrate
 
-- Use `orca worktree create` for parallel work, binding each to its ticket with
+- **Every implementer runs in an Orca worktree**, never the Claude Code subagent tool's own
+  isolation, and a PROVIDER HALF in `~/orca/workspaces/<repo>/cncore-<n>`, which the dispatcher
+  creates beside yours: never in a repo's main checkout (ADR-0192). Each is bound with
   `--linear-issue CNCORE-<n>`; `create` and `set` both bind, whatever older notes say. **Confirm at
   `linkedLinearIssue`, never `linkedIssue`** (GitHub's field, null here) — and never with
   `--current`, which answers about the CALLER's worktree, not the one you stand in (ADR-0162).
@@ -151,8 +153,6 @@ holds a licence, or runs as a background service.
 Machine state is not repo state. A tool the build or the tests reach for belongs in the manifests CI
 and a fresh clone read, never only on this Mac: that gap is silent here and surfaces as a broken
 clone nobody is watching.
-
-**Every implementer runs in an Orca worktree**, never the Claude Code subagent tool's own isolation.
 
 ## Implementing
 

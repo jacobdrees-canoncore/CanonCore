@@ -4,7 +4,8 @@
 #   ROOM <n>                             n CanonCore slots free of the four
 #   IDLE <worktree>                      an agent has gone quiet: parked, done or dead
 #   GONE <worktree>                      a worktree with no agent at all
-#   UNBOUND <worktree>                   a worktree with no Linear binding to brief its agent
+#   PARKED <repo> <branch>               a main checkout off main: an agent worked in it
+#   UNBOUND <repo>/<worktree>            a worktree with no Linear binding to brief its agent
 #   UNBOUND-BLIND                        the worktree listing could not be trusted this pass
 #   READY <repo> #<n> <state> <branch>   a PR left draft and wants reading
 #   TICKET <id> <state> <title>          a ticket changed state
@@ -30,6 +31,19 @@ while true; do
     canoncore=$(ls -1d "$HOME"/orca/workspaces/CanonCore/*/ 2>/dev/null | grep -vc trash || true)
     room=$(( 4 - ${canoncore:-0} ))
     [ "$room" -gt 0 ] && echo "ROOM $room"
+
+    # A MAIN CHECKOUT IS NOBODY'S WORKTREE (ADR-0192). A cross-repo ticket's
+    # provider half gets a worktree of its own, so a main checkout off `main` is
+    # one an agent parked: CNCORE-261 left both providers' on its branch after
+    # merging, and CNCORE-262 found one there and stopped to ask. A checkout this
+    # cannot read is named too, because silence here has to mean "on main" -- and
+    # the ceiling is what makes a directory that is NOT a repository unreadable,
+    # since `git -C` otherwise walks up and answers for whatever encloses it.
+    for r in $REPOS; do
+      b=$(GIT_CEILING_DIRECTORIES="$HOME/orca/projects" \
+        git -C "$HOME/orca/projects/$r" branch --show-current 2>/dev/null) || b=unreadable
+      [ "$b" = main ] || echo "PARKED $r ${b:-detached}"
+    done
 
     # AN AGENT THAT HAS GONE QUIET IS PARKED, FINISHED OR DEAD, and a full slot
     # count cannot tell any of the three from working. A spinner keeps
@@ -93,8 +107,14 @@ for w in sorted(glob.glob(os.path.expanduser("~/orca/workspaces/CanonCore/*/")))
     # remove. `orca worktree list` is paged and says so in `truncated`, so a
     # short read emits UNBOUND-BLIND rather than silence, and silence keeps its
     # one meaning: every worktree was seen, and every one is bound.
-    orca worktree list --json 2>/dev/null | python3 -c '
-import json, sys
+    #
+    # EVERY REPO IN `REPOS`, NOT CANONCORE ALONE (ADR-0192). A cross-repo ticket's
+    # provider half has a worktree of its own, and the dispatcher created
+    # `cncore-264-tmdb` without `--linear-issue` on 2026-09-21 while this read one
+    # repo and could not say so. The repo is in the name because a provider
+    # worktree is named `cncore-<n>` exactly as its CanonCore twin is.
+    orca worktree list --json 2>/dev/null | REPOS="$REPOS" python3 -c '
+import json, os, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
@@ -108,15 +128,19 @@ if not isinstance(r, dict) or "worktrees" not in r:
     sys.exit()
 if r.get("truncated"):
     print("UNBOUND-BLIND")
+repos = os.environ["REPOS"].split()
 for w in r.get("worktrees") or []:
     path = (w.get("path") or "").rstrip("/")
-    if "/workspaces/CanonCore/" not in path or "trash" in path or w.get("isArchived"):
+    parts = path.split("/")
+    if len(parts) < 3 or parts[-3] != "workspaces" or parts[-2] not in repos:
+        continue
+    if "trash" in path or w.get("isArchived"):
         continue
     if not w.get("linkedLinearIssue"):
         # NAME SPLIT OFF THE PATH, and any newline in it dropped: this is a line
         # protocol read by `comm` and `grep -qx`, so a name carrying a newline
         # would inject whole lines the dispatcher reads as fact.
-        print("UNBOUND", path.split("/")[-1].replace("\n", " "))
+        print("UNBOUND", "/".join(parts[-2:]).replace("\n", " "))
 ' 2>/dev/null || true
 
     for r in $REPOS; do
