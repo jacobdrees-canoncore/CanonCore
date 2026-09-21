@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 /**
  * A test that reads a config file rather than a package export, for the same
@@ -17,6 +18,49 @@ import { describe, expect, it } from "vitest";
  */
 const composeFile = fileURLToPath(new URL("../docker-compose.yml", import.meta.url));
 const packageFile = fileURLToPath(new URL("../package.json", import.meta.url));
+const installComposeFile = fileURLToPath(new URL("../../../compose.yaml", import.meta.url));
+
+/**
+ * THE DOCUMENT RATHER THAN ITS TEXT, unlike every other reader in this file.
+ * The questions below are about the compose MODEL -- which project, which
+ * volume, pinned to what -- and a regex answering them goes blind on ordinary
+ * YAML rather than wrong: an inline comment, a deeper indent or a quoted key
+ * each made a hand-rolled version report "nothing unpinned" over a file that
+ * had an unpinned volume. A check that sees nothing and a check that passes
+ * are indistinguishable, which is the one failure a guard must not have.
+ *
+ * `yaml` is what `@canoncore/config` already reads `ci.yml` with, for the same
+ * reason. The regexes further down stay regexes on purpose: they ask about the
+ * TEXT -- how a port is written, what a `shm_size` string means -- and the
+ * document a parser returns has already thrown those questions away.
+ */
+type ComposeFile = {
+  readonly name?: string;
+  readonly volumes?: Record<string, { readonly name?: string } | null>;
+};
+
+/**
+ * The Compose project a file declares in its top-level `name:`, or `undefined`
+ * when it declares none and Compose resolves the project from the DIRECTORY
+ * instead (precedence: `-p`, `COMPOSE_PROJECT_NAME`, `name:`, the directory --
+ * docs.docker.com, read 2026-09-21).
+ */
+function declaredProjectName(compose: string): string | undefined {
+  return (parse(compose) as ComposeFile | null)?.name;
+}
+
+/**
+ * Every top-level named volume, against the name it pins itself to -- or
+ * `undefined` where it pins none and Compose therefore PREFIXES IT WITH THE
+ * PROJECT, so renaming the project points the service at a different, empty
+ * volume.
+ */
+function pinnedVolumeNames(compose: string): Record<string, string | undefined> {
+  const volumes = (parse(compose) as ComposeFile | null)?.volumes ?? {};
+  return Object.fromEntries(
+    Object.entries(volumes).map(([volume, declared]) => [volume, declared?.name]),
+  );
+}
 
 /**
  * The host side of every port this compose file publishes to the container's
@@ -92,16 +136,6 @@ function composeUpsThatCanRecreate(scripts: Record<string, string>): string[] {
     .map(([name]) => name);
 }
 
-/**
- * The scripts that tell Compose to remove orphans, by the flag or by the
- * variable Compose reads in its place.
- */
-function scriptsThatRemoveOrphans(scripts: Record<string, string>): string[] {
-  return Object.entries(scripts)
-    .filter(([, script]) => /--remove-orphans\b|\bCOMPOSE_REMOVE_ORPHANS\b/.test(script))
-    .map(([name]) => name);
-}
-
 describe("the development database container", () => {
   it("recognises every way 5432 can come back", () => {
     // Fixtures rather than the real file, so the CHECK is tested and not just
@@ -169,6 +203,88 @@ describe("the development database container", () => {
   });
 });
 
+describe("the development project and the Owner's install", () => {
+  it("reads the project name a compose file declares, and only the top-level one", () => {
+    // The three `name:`s in these files that are NOT the project's:
+    // `container_name:`, a volume's own `name:`, and one quoted in a comment.
+    // This file carries all three, and each of them defeated the regex this
+    // check was first written as.
+    expect(declaredProjectName("name: canoncore-dev\n")).toBe("canoncore-dev");
+    expect(declaredProjectName('name: "canoncore-dev"\n')).toBe("canoncore-dev");
+    expect(declaredProjectName("services:\n  postgres:\n    container_name: canoncore\n")).toBe(
+      undefined,
+    );
+    expect(declaredProjectName("volumes:\n  data:\n    name: canoncore_data\n")).toBe(undefined);
+    expect(declaredProjectName("# the route written above `name: canoncore`\n")).toBe(undefined);
+
+    // No `name:` at all is how the install resolves its project from the
+    // DIRECTORY, which is the whole reason it can collide with this one.
+    expect(declaredProjectName("services:\n  canoncore:\n    image: x\n")).toBe(undefined);
+  });
+
+  it("runs as a different Compose project from the install, so neither sees the other's containers", async () => {
+    // TWO UNRELATED STACKS RAN AS ONE PROJECT `canoncore` UNTIL CNCORE-250, so
+    // each one's ordinary `up` called the other's containers ORPHANS and
+    // recommended `--remove-orphans` for them -- the flag that stops and
+    // removes the Owner's running instance from here, and this container from
+    // there. Measured 2026-09-20: all three carried
+    // `com.docker.compose.project=canoncore` from two different directories.
+    //
+    // The install declares NO `name:` on purpose, so its project is its
+    // DIRECTORY, and the README tells a stranger to make one called
+    // `canoncore`. That is the name this file must therefore stay off.
+    const install = declaredProjectName(await readFile(installComposeFile, "utf8")) ?? "canoncore";
+    const development = declaredProjectName(await readFile(composeFile, "utf8"));
+
+    expect(development, "docker-compose.yml declares no project name").toBeDefined();
+    expect({ development, install }).not.toStrictEqual({ development: install, install });
+  });
+
+  it("reads what each named volume pins itself to, in the forms a compose file writes", () => {
+    // A volume with no `name:` of its own is PREFIXED WITH THE PROJECT, so
+    // renaming the project points the service at a different volume; one with
+    // `name:` "is used as is and is not scoped with the stack name"
+    // (docs.docker.com, compose-file/volumes.md, read 2026-09-21).
+    expect(pinnedVolumeNames("volumes:\n  data:\n")).toStrictEqual({ data: undefined });
+    expect(pinnedVolumeNames("volumes:\n  data:\n    name: pinned\n")).toStrictEqual({
+      data: "pinned",
+    });
+
+    // THE FOUR SHAPES A HAND-ROLLED REGEX MISSED, each of which returned "no
+    // unpinned volumes" over a file that had one. They are why this reads the
+    // document with a parser instead: a check that goes blind reports the same
+    // thing as a check that passes.
+    expect(pinnedVolumeNames("volumes:\n  data:  # the catalogue\n")).toStrictEqual({
+      data: undefined,
+    });
+    expect(pinnedVolumeNames("volumes:\n    data:\n")).toStrictEqual({ data: undefined });
+    expect(pinnedVolumeNames('volumes:\n  "data":\n')).toStrictEqual({ data: undefined });
+    expect(
+      pinnedVolumeNames("volumes:\n  unpinned:\n  other:\n    driver_opts:\n      name: x\n"),
+    ).toStrictEqual({ unpinned: undefined, other: undefined });
+
+    expect(pinnedVolumeNames("services:\n  db:\n    container_name: c\n")).toStrictEqual({});
+  });
+
+  it("pins its volume to the name the volume already has, so the rename moves no data", async () => {
+    // THE RENAME ABOVE WOULD HAVE DESTROYED EVERY WORKTREE'S DATABASE WITHOUT
+    // THIS. Measured 2026-09-21 with `docker compose config`, which resolves
+    // volume names the way Compose does: under project `canoncore` this volume
+    // read `canoncore_canoncore_postgres_data`, the one that exists and holds
+    // every worktree's database; forced to `canoncore-dev` and unpinned it read
+    // `canoncore-dev_canoncore_postgres_data`, which is a NEW and EMPTY volume.
+    //
+    // THE LITERAL RATHER THAN "SOMETHING IS PINNED", because a typo in the pin
+    // passes that weaker check and lands the exact outcome this guards: a
+    // silent, empty volume. The string is the name the volume ALREADY HAS,
+    // which is what makes the rename keep the databases rather than migrate
+    // them, so it is the pre-rename project's prefix and not this project's.
+    expect(pinnedVolumeNames(await readFile(composeFile, "utf8"))).toStrictEqual({
+      canoncore_postgres_data: "canoncore_canoncore_postgres_data",
+    });
+  });
+});
+
 describe("the scripts every worktree runs against it", () => {
   it("recognises every `up` that can recreate a container", () => {
     // Fixtures rather than the real file, so the check is tested and not just
@@ -184,7 +300,7 @@ describe("the scripts every worktree runs against it", () => {
         backgrounded: "docker compose up -d --no-recreate & docker compose up -d",
         hyphenated: "docker-compose up -d",
         guarded: "docker compose up -d --no-recreate",
-        prefixed: "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
+        prefixed: "CANONCORE_DB_PORT=55432 docker compose up -d --no-recreate",
         stop: "docker compose stop",
         test: "vitest run",
       }),
@@ -202,7 +318,7 @@ describe("the scripts every worktree runs against it", () => {
   it("starts the container without recreating the one every worktree is using", async () => {
     // A plain `up` recreates the container whenever this checkout's copy of the
     // file, or the image `postgres:18` names, differs from what created it
-    // (CNCORE-233). `name: canoncore` makes that ONE container for every
+    // (CNCORE-233). The shared project name makes that ONE container for every
     // worktree, so the last worktree to run `db:start` would win, and every
     // other worktree's run would die with it.
     const scripts = await packageScripts();
@@ -213,30 +329,5 @@ describe("the scripts every worktree runs against it", () => {
 
     expect(ups.length).toBeGreaterThan(0);
     expect(composeUpsThatCanRecreate(scripts)).toStrictEqual([]);
-  });
-
-  it("recognises both ways Compose is told to remove orphans", () => {
-    // The flag, and the variable Compose reads in its place. Silencing the
-    // warning is not removing anything, so COMPOSE_IGNORE_ORPHANS passes.
-    expect(
-      scriptsThatRemoveOrphans({
-        up: "docker compose up -d --no-recreate --remove-orphans",
-        down: "docker compose down --remove-orphans",
-        variable: "COMPOSE_REMOVE_ORPHANS=true docker compose up -d --no-recreate",
-        ignored: "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
-        stop: "docker compose stop",
-      }),
-    ).toStrictEqual(["up", "down", "variable"]);
-  });
-
-  it("never removes orphans, because here the orphans are the Owner's install", async () => {
-    // The Owner's install runs as Compose project `canoncore` too, so from this
-    // directory Compose calls its app and database orphans and recommends
-    // `--remove-orphans` for them. That would stop and remove the install's
-    // containers under the Owner (its catalogue is on a named volume the flag
-    // leaves alone, so it comes back with `docker compose up -d` there).
-    const scripts = await packageScripts();
-
-    expect(scriptsThatRemoveOrphans(scripts)).toStrictEqual([]);
   });
 });

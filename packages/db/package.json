@@ -24,7 +24,7 @@
     "db:drop-worktree": "node scripts/drop-worktree.ts",
     "db:check-ladder": "node scripts/check-ladder.ts",
     "db:seed": "node scripts/seed.ts",
-    "db:start": "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
+    "db:start": "docker compose up -d --no-recreate",
     "db:stop": "docker compose stop",
     "db:down": "docker compose down",
     "test": "vitest run",
@@ -45,6 +45,7 @@
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }

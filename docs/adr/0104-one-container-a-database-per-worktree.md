@@ -44,10 +44,20 @@ Compose's documented `${VAR:-default}` interpolation.
 
 ## Why one container, and why not one database
 
-`name: canoncore` in the compose file pins the Compose project, and Compose resolves a project by
+A top-level `name:` in the compose file pins the Compose project, and Compose resolves a project by
 name rather than by directory — precedence is `-p`, then `COMPOSE_PROJECT_NAME`, then the top-level
-`name:`, then the directory (docs.docker.com, read 2026-09-10). So every CanonCore worktree resolves
-the SAME project.
+`name:`, then the directory (docs.docker.com, read 2026-09-10 and again 2026-09-21). So every
+CanonCore worktree resolves the SAME project.
+
+**THE REQUIREMENT IS THAT IT BE ONE NAME, AND NEVER THAT IT BE A PARTICULAR ONE.** This record said
+`name: canoncore` where it means "one name", and stating the literal is what made the collision
+below read as a fixed cost rather than a free choice (CNCORE-250). Nothing reads the string: a grep
+of the whole tree for `COMPOSE_PROJECT_NAME`, `-p canoncore` or a container resolved by project
+returns nothing. The ticket's own grep named `packages/db/scripts/`, `packages/db/src/*.ts` and the
+ROOT `package.json`, which leaves out `packages/db/package.json` — the one file the rename had to
+edit — so the population was widened before the claim was relied on. The container is reached by
+`container_name`, which Compose does not prefix with the project. **The name
+is `canoncore-dev`** since CNCORE-250, so that this stack and the Owner's install are disjoint.
 
 Measured rather than reasoned, and TRUE ONLY WHILE THE TWO COPIES OF THE FILE AGREED: running
 compose from a second worktree answered `Container canoncore-postgres Running` and left the
@@ -558,8 +568,8 @@ name the worktree that ran it. The source is `src/backend/utils/mmgr/dsa.c`,
 
 ### A worktree starts the container and never recreates it
 
-**`db:start` IS `docker compose up -d --no-recreate`** (CNCORE-233). `name: canoncore` makes every
-worktree's `up` act on the ONE container, so a plain `up` let each worktree decide what that
+**`db:start` IS `docker compose up -d --no-recreate`** (CNCORE-233). The shared project name makes
+every worktree's `up` act on the ONE container, so a plain `up` let each worktree decide what that
 container is, and the last one to run it won. `max_connections=300` and `shm_size` each set off that
 race when they landed, and so would any later change to the service.
 
@@ -600,13 +610,47 @@ three things to this container, measured below:
 2. The change lands on `main`.
 3. From the main checkout, while no suite is running, the Owner runs `docker compose up -d
    --dry-run` in `packages/db`. `Recreate` means the running container differs, and the dry run
-   does not act on it. Then a plain `docker compose up -d` applies it. Both commands take
-   `COMPOSE_IGNORE_ORPHANS=true`, for the reason given below.
+   does not act on it. Then a plain `docker compose up -d` applies it.
 
 A recreate keeps the named volume, and with it every worktree's database. The one on 2026-09-19
 kept 1,162 of them. What it cuts is the connections.
 
-The route is written down in `docker-compose.yml`, above `name: canoncore`, because that is what the
+**A PROJECT RENAME IS THE ONE CHANGE THAT ROUTE CANNOT APPLY**, because a container's project is a
+LABEL fixed when it was created: the running `canoncore-postgres` is labelled `canoncore`, and the
+renamed project does not own it. So the rename is applied once, from the main checkout with no suite
+running, by removing the container by name and letting the new project create it — `docker compose
+config --format json` first, whose volume must read `canoncore_canoncore_postgres_data`, then
+`docker stop -t 60 canoncore-postgres && docker rm canoncore-postgres`, then `docker compose up -d`.
+The container is named rather than reached through Compose on purpose: `docker compose -p canoncore
+down` from `packages/db` would be aimed at the project the Owner's install is also in.
+
+**AND THE VOLUME HAD TO BE PINNED IN THE SAME CHANGE, OR THE RENAME WOULD HAVE DESTROYED EVERY
+WORKTREE'S DATABASE.** A top-level volume with no `name:` of its own is PREFIXED WITH THE PROJECT —
+"the name is used as is and is not scoped with the stack name" is what `name:` buys
+(docs.docker.com, `compose-file/volumes.md`, read 2026-09-21). Measured the same day with `docker
+compose config`, which resolves volume names the way Compose does: under `canoncore` the volume read
+`canoncore_canoncore_postgres_data`, the one that exists; forced to `canoncore-dev` and unpinned it
+read `canoncore-dev_canoncore_postgres_data`, a new and empty one, with every worktree's database
+left on the old. `docker-compose.yml` now pins the name the volume ALREADY HAS, so the rename keeps
+the databases rather than migrating them, and the project name carries no data at all.
+`src/docker-compose.test.ts` asserts the LITERAL pinned name rather than that something is pinned,
+because a typo in the pin passes the weaker check and lands the exact outcome this guards against.
+
+**AND COMPOSE THEREFORE WARNS ON EVERY `up`, PERMANENTLY.** The volume keeps the
+`com.docker.compose.project=canoncore` label of the project that created it — a label on an existing
+volume is not rewritten — so every `db:start` from now on prints `volume
+"canoncore_canoncore_postgres_data" already exists but was created for project "canoncore" (expected
+"canoncore-dev")`. It is not a fault and it does not clear. ADR-0137 measured this same warning when
+the install's directory was renamed over its own pinned volume, and refused Compose's suggested
+remedy there for the reason that applies here too: `external: true` would make a FIRST `db:start` in
+a fresh clone fail on a volume that does not exist yet. Reasoned from the label, which
+`docker volume inspect` reads, rather than measured: measuring it needs the `up` only the Owner runs.
+
+**THIS IS THE SECOND COLLISION OF THE SHAPE, AND `compose.yaml` ALREADY HELD THE FIRST.** The
+install pins `canoncore_data` explicitly so its catalogue survives its directory being renamed. The
+same sentence, one file over, is what the development side needed and did not have.
+
+The route is written down in `docker-compose.yml`, above the `name:` key, because that is what the
 next person to change the file reads. It is not a script. A script would be one more command every
 worktree could run, and running it from a branch based before the change is the defect this section
 removes.
@@ -624,22 +668,31 @@ container just as `db:start` did. Compose's reference says that interrupting an 
 its containers, so its Ctrl-C also stopped the container for everyone. `docker logs -f
 canoncore-postgres` shows the same log and touches nothing.
 
-**`--remove-orphans` IS NEVER PASSED FROM `packages/db`, BECAUSE HERE THE ORPHANS ARE THE OWNER'S
-INSTALL.** The install runs as Compose project `canoncore` as well, so from this directory Compose
-calls its app and database orphans, and it suggests the flag on every `up`. `compose.yaml`'s header
-records the collision from both sides. From the install's side the flag would take this container.
-From this side it takes the Owner's running install: Compose stops each orphan and then removes it.
-**It does not delete the catalogue**, which was feared when this was found and does not survive
-reading the source. Compose 5.5.1 removes an orphan with `ContainerRemove` and `Force` alone, never
-`RemoveVolumes` (`pkg/compose/reconcile.go`, `reconcileOrphans`; `executor_ops.go`,
-`execRemoveContainer`). The install keeps its database on the named volume `canoncore_data`, and its
-app container mounts nothing. So `docker compose up -d` in the install's directory would bring it
-back with its 8,052 Items. What the flag costs is the Owner's instance going down unannounced.
-`db:start` sets `COMPOSE_IGNORE_ORPHANS=true`, which Compose documents as not detecting orphans at
-all, so the suggestion is never printed. `src/docker-compose.test.ts` refuses a script that runs an
-`up` without `--no-recreate`, or with `--force-recreate`. It also refuses one that passes
-`--remove-orphans` or sets `COMPOSE_REMOVE_ORPHANS`, which Compose reads in place of the flag.
-**What the test cannot see is a shell that exports that variable itself.**
+**THE ORPHANS WERE THE OWNER'S INSTALL UNTIL CNCORE-250, AND THE REMEDY WAS A SECOND NAME RATHER
+THAN A WARNING.** The install ran as Compose project `canoncore` as well, so from this directory
+Compose called its app and database orphans and suggested `--remove-orphans` on every `up`. From the
+install's side the flag would have taken this container. From this side it takes the Owner's running
+install: Compose stops each orphan and then removes it. **It does not delete the catalogue**, which
+was feared when this was found and does not survive reading the source. Compose 5.5.1 removes an
+orphan with `ContainerRemove` and `Force` alone, never `RemoveVolumes` (`pkg/compose/reconcile.go`,
+`reconcileOrphans`; `executor_ops.go`, `execRemoveContainer`). The install keeps its database on the
+named volume `canoncore_data`, and its app container mounts nothing. So `docker compose up -d` in
+the install's directory would bring it back with its 8,052 Items. What the flag cost is the Owner's
+instance going down unannounced.
+
+**WHAT REMOVED IT WAS RENAMING THIS PROJECT TO `canoncore-dev`.** Compose only ever considers
+containers carrying its own `com.docker.compose.project`, so once the two stacks are two projects
+neither can see the other's containers at all, and there is nothing left for the flag to take. The
+mitigations that stood in for that are therefore GONE rather than kept beside a hazard that is not
+there: `db:start` no longer sets `COMPOSE_IGNORE_ORPHANS=true`, which also gives back a real orphan
+warning this project might one day deserve, and the test that refused `--remove-orphans` and
+`COMPOSE_REMOVE_ORPHANS` in a script is deleted with the reason it existed for. Its caveat — that it
+could not see a shell exporting the variable itself — went with it, and is worth recording as the
+shape of the thing: a guard that can be walked around is weaker than a cause that is removed.
+`src/docker-compose.test.ts` instead fails if the two compose files are ever brought back onto one
+project name, which is the cause rather than one of its symptoms. It still refuses a script that
+runs an `up` without `--no-recreate`, or with `--force-recreate`, which is CNCORE-233 above and
+unrelated to the name.
 
 **Evidence**, 2026-09-19, Docker Compose 5.5.1 on Engine 29.5.2. The three cases above, the image
 case, the port case and the orphans warning were run against throwaway projects (`cncore233-probe`

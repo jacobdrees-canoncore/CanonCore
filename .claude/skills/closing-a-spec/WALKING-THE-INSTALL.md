@@ -106,9 +106,12 @@ docker compose -p canoncore-gate config --format json   # volumes MUST resolve t
 Tear it down with `down -v`, then read `docker volume ls` back: `canoncore_data` is still there, or
 something was wrong with the file.
 
-**AND THE DEFAULT PROJECT NAME IS ALREADY TAKEN TWICE.** `canoncore-canoncore-1` and
-`canoncore-database-1` (the live install, working dir `~/canoncore`) and `canoncore-postgres` (this
-repo's `packages/db`) all carry `com.docker.compose.project=canoncore`. Two projects, one name, two
-directories -- which is why the orphans ARE the live install, and why Compose helpfully prints
-`--remove-orphans` as the suggested remedy. Check `docker ps` before any compose command in
-`packages/db`, and never `db:down` or `--remove-orphans` while the install is up.
+**AND THE DEFAULT PROJECT NAME IS TAKEN BY THE LIVE INSTALL.** `canoncore-canoncore-1` and
+`canoncore-database-1` (working dir `~/canoncore`) carry `com.docker.compose.project=canoncore`, so
+a throwaway given no `-p` of its own joins the Owner's instance. Name the project.
+
+`canoncore-postgres` carried that same label until CNCORE-250 and now carries `canoncore-dev`, which
+is what a throwaway must also stay clear of. Two projects on one name was why the orphans were the
+live install and why Compose printed `--remove-orphans` as the remedy; that pair is disjoint now.
+Still check `docker ps` before any compose command in `packages/db`, and still never `db:down` while
+other worktrees are testing -- it stops the container every one of them is using.
