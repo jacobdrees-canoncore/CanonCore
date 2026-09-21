@@ -27,8 +27,9 @@ import { oneValue } from "@/components/query-params";
  * -- `/login/page.tsx` already states that rule of its own parameter, and
  * ADR-0123 makes whose words a reader is shown the question this app answers at
  * every seam. A closed set cannot say anything this page did not write, and the
- * page owns every sentence below. There are FOUR of them: the three the Owner's
- * own text can raise, and the catch-all for a refusal that was not about it.
+ * page owns every sentence below. There are FIVE of them: the three the Owner's
+ * own text can raise, the stored setting that would not parse, and the
+ * catch-all for a refusal this page cannot name at all.
  */
 export const REFUSED = {
   /** The box held nothing, or nothing but whitespace. */
@@ -59,6 +60,34 @@ export const REFUSED = {
    * now, and `settings-page.test.ts` reaches it.
    */
   unreadable: "setting-unreadable",
+  /**
+   * A REFUSAL THIS PAGE CANNOT NAME, which is the only thing a true catch-all
+   * may say (CNCORE-326).
+   *
+   * THE WORD ABOVE LOOKED LIKE THIS ONE AND IS NOT. `setting-unreadable` names
+   * a CAUSE -- the stored Providers setting failing to parse -- and the page
+   * writes a specific, actionable sentence for it. Taken as the fall-through it
+   * asserted that cause of every refusal the procedure can raise, and
+   * `ownerProcedure` raises one that is nothing of the kind:
+   * `ORPCError("UNAUTHORIZED")`, status 401, which `answer.ts` reads as a
+   * refusal like any other under 500. An Owner whose session expired between
+   * the GET and the POST would have been told their stored Providers cannot be
+   * read, which is false and hides the remedy.
+   *
+   * SO THE TWO ARE SEPARATED: the code that means the setting gets the sentence
+   * about the setting, and everything else gets this, which says only that the
+   * entry was not named and that this instance did not say why. ADR-0156 asks
+   * for "a branch for a refusal this page cannot name"; a branch that names one
+   * is not that branch, and the page owes an Owner no sentence it cannot stand
+   * behind (ADR-0123).
+   *
+   * IT RENDERS NOWHERE FOR THE UNAUTHORIZED CASE, AND IS STILL THE RIGHT WORD.
+   * `SettingsPage` answers a caller with no session with `NotLoggedIn` before
+   * it reads `?because=` at all, so that Owner sees the login they need rather
+   * than either sentence. The address is what was wrong, and an address is what
+   * a reload, a Back or a bookmark keeps.
+   */
+  unexplained: "unexplained",
 } as const;
 
 /**

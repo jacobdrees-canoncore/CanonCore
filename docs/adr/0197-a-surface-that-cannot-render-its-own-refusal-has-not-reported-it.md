@@ -7,8 +7,9 @@ status: proposed
 > **PROPOSED 2026-09-21, HALF BUILT, for CanonCore.** The Providers half is whole: `/settings`'
 > action carries a fall-through to `REFUSED.unreadable`, `settings.read` answers an unreadable
 > Providers setting instead of throwing it, the page renders that state as a third thing rather than
-> as an empty list, and `apps/web/e2e/settings-page.test.ts` reaches the action's half through the
-> instance's own database. **The ALLOWLIST half is not built.** `parseAllowlist` still throws out of
+> as an empty list, the closed set grew a fifth word for a refusal this page cannot name, and
+> `apps/web/e2e/settings-page.test.ts` reaches the action's half through the instance's own
+> database. **The ALLOWLIST half is not built.** `parseAllowlist` still throws out of
 > the same `read`, so a stored allowlist that does not parse costs the Owner the same page for the
 > same reason, and CNCORE-329 holds it. This record's number was assigned by the dispatcher.
 
@@ -123,6 +124,40 @@ reads the Providers this instance names.
 and the fixture must write the state directly.** Where that is declined, what is left is copy nobody
 can reach and a branch nobody has run.
 
+## A catch-all that names a cause is not a catch-all
+
+The first pass of this ticket redirected EVERY unmatched refusal to `?because=setting-unreadable`,
+and that is wrong in a way worth recording, because it reads as the fix.
+
+`setting-unreadable` names a CAUSE. The page writes a specific, actionable sentence for it: *this
+instance cannot read the Providers it already has.* Used as the fall-through, that sentence is
+asserted of every refusal the procedure can raise — and `ownerProcedure` raises one that is nothing
+of the kind. `ORPCError("UNAUTHORIZED")` carries **status 401** (measured), and `answer.ts` reads
+anything under 500 as a refusal, so a session that expired between the GET and the POST arrived at
+the fall-through exactly as an unreadable row does. The Owner would be told their stored Providers
+could not be read: false, and it hides the remedy, which is to log in.
+
+**This is CNCORE-262's own defect, rebuilt inside the branch that was added to close it.** That
+ticket exists because one sentence covered three mistakes with three different remedies; a catch-all
+carrying a specific sentence covers unboundedly many.
+
+So the two are separated. The code that means the setting gets the sentence about the setting, and a
+fifth word — `unexplained` — carries the residue and says only that the entry was not named and that
+this instance did not say why. ADR-0156 asks for "a branch for a refusal this page cannot name", and
+the test of such a branch is that it names none.
+
+**It was invisible, which is the point.** `SettingsPage` answers a caller with no session with
+`NotLoggedIn` before it reads `?because=` at all, so the false sentence rendered nowhere and every
+assertion about the page's TEXT passed either way. The witness for it asserts the ADDRESS, and the
+address is what a reload, a Back or a bookmark keeps. Found by review on this ticket's own first
+pass — the same way CNCORE-262's missing fall-through was found, and one record later.
+
+**And the `?:` chain that rendered the clause was the same hazard.** It ended in an `else` holding
+"it is not a URL", so a word added to the closed set with no branch did not fail to compile: it
+rendered as whatever the last arm happened to be, telling an Owner to add a scheme to an entry that
+had one. It is a `switch` with a `never` default now, checked by deleting a case — `Type
+'"not-a-url"' is not assignable to type 'never'`.
+
 ## The assertion is on the ADDRESS, not only on the sentence
 
 The witness holds `Submitted.url` — where the response landed after the redirect — as well as the
@@ -145,7 +180,8 @@ on passing. A sentence-only witness would have been green over the defect it was
 `settings.read`'s output is a shape an API caller reads, and this changes it. That is accepted: "the
 Providers setting does not parse" is a real answer to "which Providers does this instance reach", and
 the OpenAPI document a caller reads should be able to say it rather than the caller discovering it as
-a 500. Four call sites moved, all in this repository, all named by the typechecker.
+a 500. Every reader moved and the typechecker named each one: four assertions in `settings.test.ts` and
+the page itself.
 
 **What it does not do is give the Owner a way out.** `nameProvider` and `removeProvider` both parse
 the stored string first, so both refuse while the row is bad, and the page can now say so without

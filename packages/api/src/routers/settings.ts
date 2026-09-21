@@ -297,10 +297,14 @@ export const settings = {
                   baseUrls: named,
                   // TODO(CNCORE-329): `parseAllowlist` still throws out of this
                   // handler, so an unreadable ALLOWLIST row costs the Owner the
-                  // page exactly as an unreadable Providers row did. Left here
-                  // deliberately: it is the half ADR-0197 records as NOT built,
-                  // and it needs a sentence of its own, since ADR-0121 makes
-                  // saying WHICH of the two settings refuses the surface's job.
+                  // page the way an unreadable Providers row did. It is REACHED
+                  // only where the Providers row reads, since the other arm
+                  // returns before this expression -- so an instance with both
+                  // rows bad now renders, and one with only the allowlist bad
+                  // does not. Left deliberately: it is the half ADR-0197
+                  // records as NOT built, and it needs a sentence of its own,
+                  // since ADR-0121 makes saying WHICH of the two settings
+                  // refuses the surface's job.
                   allowlist: parseAllowlist(configured.providerAllowlist),
                 }),
               },

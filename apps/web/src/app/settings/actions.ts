@@ -122,31 +122,40 @@ export async function nameProvider(form: FormData): Promise<void> {
   if (refused.code === "NOT_A_URL")
     redirect(`/settings?refused=${entry}&because=${REFUSED.notAUrl}`);
   /*
-   * AND EVERY OTHER REFUSAL THE PROCEDURE CAN ANSWER (CNCORE-326).
+   * THE FOURTH THE PROCEDURE RAISES, WHICH IS ABOUT THE SETTING AND NOT THE
+   * ENTRY (CNCORE-326). `nameProvider` parses the stored string before it
+   * parses what was typed, so a row that no longer reads refuses an entry that
+   * was fine; `NOT_A_SETTING` declares that as `BAD_REQUEST` and the page
+   * writes a sentence naming the setting rather than the entry.
    *
-   * A FALL-THROUGH AND NOT A FOURTH `if`, which is the whole difference. The
-   * procedure answers a fourth refusal today -- the stored setting failing to
-   * parse, `BAD_REQUEST` -- and matching that CODE would leave the next one
-   * exactly where this one was: three branches taken, none matching, the action
-   * returning, and the page rendering unchanged with nothing said. That is the
-   * silence this file's own docstring forbids, and it was reintroduced here by
-   * the change that fixed it (`git show 80b976d`).
-   *
-   * ADR-0156 ASKS FOR THIS BRANCH BEFORE ANY OTHER: "a closed set needs a
-   * catch-all, or it reintroduces the silence ... a surface adopting this rule
-   * owes a branch for 'a refusal this page cannot name' before it owes anything
-   * else." `REFUSED.unreadable` is that word, and `refusal.ts` says of it that
-   * `WhyNotNamed` does not carry it because `@canoncore/providers` never raises
-   * it: it is the SURFACE's word for a refusal that was not about what the
-   * Owner typed.
-   *
-   * THE ENTRY STILL TRAVELS, THOUGH THIS REFUSAL IS NOT ABOUT IT. The sentence
-   * the page writes names what the Owner typed and then says the fault was
-   * elsewhere -- "<entry> was not named, because this instance cannot read the
-   * Providers it already has" -- which is the one shape that does not leave
-   * them checking an entry that was fine.
+   * THE ENTRY STILL TRAVELS, THOUGH THIS REFUSAL IS NOT ABOUT IT. The page
+   * names what the Owner typed and then says the fault was elsewhere --
+   * "<entry> was not named, because this instance cannot read the Providers it
+   * already has" -- which is the one shape that does not leave them checking an
+   * entry that was fine.
    */
-  redirect(`/settings?refused=${entry}&because=${REFUSED.unreadable}`);
+  if (refused.code === "BAD_REQUEST") {
+    redirect(`/settings?refused=${entry}&because=${REFUSED.unreadable}`);
+  }
+  /*
+   * AND EVERY OTHER REFUSAL, NAMED AS ONE THIS PAGE CANNOT NAME (CNCORE-326).
+   *
+   * A FALL-THROUGH AND NOT A FIFTH `if`, which is the whole difference. Four
+   * branches with no fall-through is what this action shipped with, and a
+   * refusal matching none of them simply returned: the page re-rendered
+   * unchanged with nothing said, which is the silence this file's own docstring
+   * forbids. ADR-0156 asks for this branch before it asks for anything else.
+   *
+   * AND IT MUST NOT BORROW THE SENTENCE ABOVE, which is the correction review
+   * caught on this ticket's own first pass. This redirect carried
+   * `REFUSED.unreadable` unconditionally, and `ownerProcedure` raises
+   * `ORPCError("UNAUTHORIZED")` -- status 401, which `answer.ts` reads as a
+   * refusal like any under 500 -- so an Owner whose session expired between the
+   * GET and the POST was sent to an address asserting that this instance cannot
+   * read its Providers. False, and it hides the remedy. A catch-all that names
+   * a cause is not a catch-all; `REFUSED.unexplained` names none.
+   */
+  redirect(`/settings?refused=${entry}&because=${REFUSED.unexplained}`);
 }
 
 /**

@@ -372,9 +372,14 @@ describe("what the settings surface reads", () => {
    *
    * AND THE ALLOWLIST IS STILL ANSWERED, which is the half that makes this
    * worth answering rather than refusing. They are two settings and neither is
-   * derivable from the other (ADR-0121): the allowlist parses fine, its
-   * textarea is the one control on the page that still works, and a read that
-   * refused wholesale would take it away over a fault in the setting beside it.
+   * derivable from the other (ADR-0121), and a read that refused wholesale
+   * would take the allowlist's textarea -- the one control on that page still
+   * worth using -- away over a fault in the setting beside it.
+   *
+   * WHAT IS ASSERTED IS THAT THE STORED STRING COMES BACK, NOT THAT IT PARSES.
+   * On this path `parseAllowlist` is never called: it sits in the other arm,
+   * behind the Providers that did not read. So this pins the echo, which is
+   * what the textarea renders, and the allowlist's own parse is CNCORE-329's.
    */
   it("answers that the stored Providers setting cannot be read, and still reads the allowlist", async () => {
     await writeProviderSettings(db, {

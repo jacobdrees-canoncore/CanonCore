@@ -111,7 +111,8 @@ Two properties came out of writing it that the record above would not have predi
   type holds that rather than a comment.
 
 - **The closed set holds the REASON and nothing holds the VALUE, unless something is made to.**
-  `?because=` is admitted from three words; `?refused=` is the Owner's own text and cannot be, since
+  `?because=` is admitted from a closed set of words (three when this was written, five since
+  CNCORE-326); `?refused=` is the Owner's own text and cannot be, since
   the whole point is to echo it. So the second parameter needs the other half of ADR-0123 — a
   CEILING — and it needs it at the READ rather than at the redirect, because an address somebody
   typed by hand never passes through the Server Action that builds one. `TheirWords` does not
