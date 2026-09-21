@@ -1,9 +1,7 @@
-import type { AppRouterClient } from "@canoncore/api/routers";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
 import {
+  clientAt,
   documentAt,
   documentFrom,
   logInAt,
@@ -36,21 +34,16 @@ const ownerPassword = inject("ownerPassword");
 const freshBaseUrl = inject("freshBaseUrl");
 
 /**
- * The RPC surface as one logged-in device sees it.
+ * WHICH SESSION A COOKIE IS, asked of the RPC surface as that one device.
  *
- * USED ONLY TO ASK WHICH SESSION A COOKIE IS, which is a question the PAGE
- * deliberately does not answer: a device reads its own row as "This device" and
- * never as an id. The alternative is ending whichever form happens to be first,
- * and the instance under test is shared with every other file in this suite --
- * so a test that ended a session it had not minted would log another file out
- * halfway through its own run.
+ * ASKED OF THE ROUTER BECAUSE THE PAGE deliberately does not answer it: a
+ * device reads its own row as "This device" and never as an id. The alternative
+ * is ending whichever form happens to be first, and the instance under test is
+ * shared with every other file in this suite -- so a test that ended a session
+ * it had not minted would log another file out halfway through its own run.
  */
-function as(cookie: string): AppRouterClient {
-  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
-}
-
 async function theSessionBehind(cookie: string): Promise<string> {
-  const mine = (await as(cookie).session.list()).find(({ current }) => current);
+  const mine = (await clientAt(baseUrl, cookie).session.list()).find(({ current }) => current);
   if (mine === undefined) throw new Error("a logged-in device is not on its own device list");
   return mine.id;
 }

@@ -1,9 +1,7 @@
-import type { AppRouterClient } from "@canoncore/api/routers";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
 import {
+  clientAt,
   documentFrom,
   logInAt,
   navigatingFormsIn,
@@ -48,9 +46,7 @@ const owner = await logInAt(baseUrl, inject("ownerPassword"));
  * to. `catalogue.list` beside it is an open read and does not need the cookie;
  * one client for the file beats two that differ in a way no assertion is about.
  */
-const client: AppRouterClient = createORPCClient(
-  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
-);
+const client = clientAt(baseUrl, owner);
 
 /** A provider named for purging, as the page's own form puts it in the URL. */
 function purging(provider: string): string {

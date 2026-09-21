@@ -1,11 +1,8 @@
-import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, retitleItemByHand } from "@canoncore/db";
 import { statementsWhile } from "@canoncore/db/testing/statements";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, headingOf } from "./document";
+import { clientAt, documentFrom, headingOf } from "./document";
 import { theBuildServing } from "./instance";
 
 /**
@@ -118,8 +115,7 @@ describe("what /items/<id> costs", () => {
        * neither reads a session and the two are comparable.
        */
       const perRead = await costOf(async (baseUrl) => {
-        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-        await rpc.item.get({ id: item });
+        await clientAt(baseUrl).item.get({ id: item });
       });
       const perPage = await costOf(async (baseUrl) => {
         const { status } = await documentFrom(baseUrl, `/items/${item}`);
@@ -150,8 +146,7 @@ describe("what /items/<id> costs", () => {
        */
       const asked = { id: item, placed: "owner", after: holdsAt, placedAfter: appearsAt };
       const perRead = await costOf(async (baseUrl) => {
-        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-        await rpc.item.get(asked);
+        await clientAt(baseUrl).item.get(asked);
       });
       const perPage = await costOf(async (baseUrl) => {
         const { status } = await documentFrom(
@@ -260,10 +255,8 @@ describe("what a Listing costs", () => {
        * all stories -- there would be no second read to make even if the code
        * took one -- which is a green that means nothing.
        */
-      const listing = (baseUrl: string, limit: number) => {
-        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-        return rpc.catalogue.list({ limit });
-      };
+      const listing = (baseUrl: string, limit: number) =>
+        clientAt(baseUrl).catalogue.list({ limit });
 
       let narrow = 0;
       let wide = 0;

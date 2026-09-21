@@ -1968,3 +1968,29 @@ and reloads the module graph, because `@canoncore/env` takes its copy of the env
 load (ADR-0173). With the guard deleted, the test fails on `Input validation failed` instead of the
 message, measured 2026-09-21. The token half needs no test of its own: every suite importing the
 helper drives an `ownerProcedure` with its token, so a token that opened nothing would fail them.
+
+## The fourth seam's client is one function too -- under CNCORE-322 and CNCORE-323
+
+**CNCORE-111's RULE AT THE FOURTH SEAM.** An RPC client at an instance the e2e harness stood up is
+`clientAt` in `apps/web/e2e/document.ts`: a base URL, plus the cookie `logInAt` handed back when the
+caller has one. Before it, each file in `e2e/` and `live/` that asked the router wrote the
+constructor out. `import-page.test.ts` wrote it twice for its one Owner (CNCORE-322), and
+`devices-page.test.ts` had wrapped it in a local `as`.
+
+**IT DOES NOT TAKE `aTokenForTheOwner`, AND THE SECTION ABOVE DOES NOT REACH THIS FAR.** That helper
+logs in inside the calling process, and the e2e worker is not any instance's server. The harness
+hands each server it spawns its own `DATABASE_URL` and `OWNER_PASSWORD`, and the worker gets the
+password only through `inject`, so called there the helper refuses on its guard. It also returns a
+token where this seam needs the cookie a browser holds, and `logInAt` declines to spell a cookie's
+name out. `@canoncore/api` does not export it either. So the third seam logs in in-process and the
+fourth over HTTP, and each has one function for it.
+
+**THREE CONSTRUCTORS STAY OUT.** `packages/api/corpus/corpus-stands.test.ts` and
+`packages/api/scripts/import-list.ts` build a client at the Owner's own install, and `apps/web`
+depends on `packages/api`, so neither can import from `apps/web/e2e` without reversing that.
+`apps/web/src/app/api/rpc/[[...rest]]/route.test.ts` builds one with a `fetch` straight into the
+route handler, which is not an instance at all.
+
+**NO TEST OF ITS OWN**, for the reason the token half above has none. Every e2e suite drives the
+router through it, and an `ownerProcedure` asked through a client that dropped the cookie answers
+`Unauthorized`.

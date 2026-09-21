@@ -21,11 +21,9 @@ import {
   someStories,
   theOwner,
 } from "@canoncore/db/testing/catalogue";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import type { TestProject } from "vitest/node";
 
-import { logInAt } from "./document";
+import { clientAt, logInAt } from "./document";
 /*
  * THE INSTANCE HELPERS NOW LIVE BESIDE THIS FILE RATHER THAN IN IT (CNCORE-73),
  * because the browser suite is a second Vitest PROJECT that needs the same
@@ -51,8 +49,7 @@ import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixtu
  * these catalogues through a door the app never opened.
  */
 async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
-  const cookie = await logInAt(baseUrl, OWNER_PASSWORD);
-  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
+  return clientAt(baseUrl, await logInAt(baseUrl, OWNER_PASSWORD));
 }
 
 /**

@@ -1,11 +1,10 @@
-import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb } from "@canoncore/db";
 import { itemsCarrying } from "@canoncore/db/testing/catalogue";
 import { REASON_MAX_LENGTH } from "@canoncore/providers";
-import { createORPCClient, isDefinedError, safe } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
+import { isDefinedError, safe } from "@orpc/client";
 import { afterAll, describe, expect, inject, it } from "vitest";
 import {
+  clientAt,
   documentAt,
   documentFrom,
   followed,
@@ -52,7 +51,7 @@ const freshBaseUrl = inject("freshBaseUrl");
  * names in two files is a thing two readers cannot tell is one thing.
  */
 const allowlistedBaseUrl = inject("allowlistedBaseUrl");
-const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+const client = clientAt(baseUrl);
 
 /**
  * THE OWNER, LOGGED IN, as a cookie this file sends back.
@@ -87,13 +86,8 @@ const owner = await logInAt(baseUrl, inject("ownerPassword"));
  * ONE OWNER CLIENT, ON `owner`'S COOKIE, because there is one Owner: the pages
  * this file reads with `owner` and the procedures it asks here are one caller
  * with one session.
- *
- * TODO(CNCORE-323): building a client at a test instance is written out across
- * `e2e/` and `live/` rather than being one function.
  */
-const asTheOwner: AppRouterClient = createORPCClient(
-  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
-);
+const asTheOwner = clientAt(baseUrl, owner);
 
 /** The same owner on the empty instance, for the one read that needs one. */
 const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
