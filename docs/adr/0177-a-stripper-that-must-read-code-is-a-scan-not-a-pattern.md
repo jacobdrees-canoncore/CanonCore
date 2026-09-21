@@ -133,10 +133,15 @@ that is wrong rather than on a file that is.
 **A `/` IS RESOLVED FROM THE SAFE SIDE, not parsed.** Telling a regex literal from division needs the
 parse this deliberately does not do, so the preceding token decides: after `(`, `,`, `=`, `:`, `[`,
 an operator or a keyword like `return`, a `/` opens a regex; after anything else -- an identifier,
-`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **A WRONG GUESS COSTS AT MOST ONE LINE**,
-because a regex literal cannot span one and a run that reaches a newline without closing is
-abandoned. The scan never DELETES on a wrong guess; it only declines to strip, and the sweep row
-asserts that it does not.
+`)`, `]`, a quote, and notably `<` in `</div>` -- it divides. **TAKING DIVISION FOR A REGEX COSTS AT
+MOST ONE LINE**, because a regex literal cannot span one and a run that reaches a newline without
+closing is abandoned. That guess never DELETES; it only declines to strip, and the sweep row asserts
+that it does not. **THE OPPOSITE GUESS IS NOT BOUNDED**, and this paragraph said "a wrong guess"
+without a direction until CNCORE-321's review. A regex taken for division is read as code, so a `/*`
+inside it opens a comment that runs to the next `*/`. `>` is not in the list, so a regex straight
+after `=>` is such a guess. Measured 2026-09-21 with `>` added: nothing moves over this tree or
+`provider-wiki`, and in `provider-tmdb` one regex after `=>` stops having its tail taken for a line
+comment. CNCORE-324 carries the fix.
 
 **JSX TEXT IS READ AS CODE, and this changes what two callers see.** A mid-line `//` in rendered text
 is now taken for a comment, where the two line-start copies kept it -- the claim that this is

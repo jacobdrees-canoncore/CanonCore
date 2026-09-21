@@ -63,10 +63,13 @@
  * decides: after `(`, `,`, `=`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, an
  * operator, or a keyword like `return`, a `/` begins a regex; after anything
  * else -- an identifier, `)`, `]`, a quote, and notably `<` in `</div>` -- it is
- * division and is copied as one character. GUESSING WRONG COSTS AT MOST ONE
- * LINE: a regex literal cannot span one, so a run that reaches a newline without
- * closing is abandoned and the `/` is copied. The scan never DELETES on a wrong
- * guess, it only declines to strip.
+ * division and is copied as one character. TAKING DIVISION FOR A REGEX COSTS AT
+ * MOST ONE LINE: a regex literal cannot span one, so a run that reaches a
+ * newline without closing is abandoned and the `/` is copied. That guess never
+ * DELETES, it only declines to strip. THE OPPOSITE GUESS IS NOT BOUNDED: a regex
+ * taken for division is read as code, so a `/*` inside it opens a comment that
+ * runs to the next `*\/`. `>` is not in the list, so a regex straight after `=>`
+ * is one such guess. None in this tree changes what the scan reads (CNCORE-324).
  *
  * AND IT REFUSES RATHER THAN ANSWERING WHEN IT LOSES ITS PLACE. A source that
  * ends inside a template literal means the scan took a backtick for an opener
@@ -250,6 +253,10 @@ const BEFORE_A_REGEX = new Set([
  * can start, so everything not listed -- an identifier, `)`, `]`, a quote, and
  * `<` in a closing JSX tag -- is division and the `/` is copied unchanged. The
  * opposite default would take the `/` in `</div>` for a regex opener.
+ *
+ * TODO(CNCORE-324): `>` is not listed, so the `/` opening a regex after `=>`
+ * divides here, and a `/*` inside that regex opens a comment. The three copies
+ * of this scan change together.
  */
 function regexCanStartAfter(significant: string, precedingWord: string): boolean {
   if (significant === "") return true;
