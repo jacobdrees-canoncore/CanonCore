@@ -53,14 +53,17 @@ status, quoted; and a cascade skip is always accompanied on the same commit by t
 caused it, which `gate.sh` tests *before* it reaches the skipped logic. Section 7 has the argument
 and the measurement.
 
-**But the gate has a different defect, and it is real.** A job killed by its own `timeout-minutes`
-concludes **`cancelled`**, not `timed_out` — measured — and `gate.sh` tolerates `cancelled` by name.
-So a job that hung until ADR-0141's ceiling killed it reports the commit as `PASSED`. §10.1.
+**But the gate may have a different defect, and it is worth measuring before anything else here.** A
+job killed by its own `timeout-minutes` appears to conclude **`cancelled`** rather than `timed_out`,
+which `gate.sh` tolerates by name — so a job that hung until ADR-0141's ceiling killed it would
+report the commit as `PASSED`. **This is NOT established**: GitHub documents that the ceiling
+"cancels" the job but never states the conclusion, its own limits page says "fails" elsewhere, and
+the probe that measured it has been deleted. §10.1 carries what would settle it.
 
 **And the speed CNCORE-341 wants is not in the job graph at all.** One test file,
 `item-page-cost.test.ts`, is 136.6s of the 189s critical-path job, and it runs **twice** per run
 because `provider` runs the same suite. That is 274 seconds a run, half of it duplication, and
-removing the duplicate takes the slowest job from 231s to about 94s **without skipping anything**.
+removing the duplicate takes the slowest job from 231s to about 105s **without skipping anything**.
 §6A — this is the recommendation to act on.
 
 ---
@@ -281,7 +284,7 @@ report is unambiguous:
 e2e/item-page-cost.test.ts   (4 tests)   136599ms
 ```
 
-**One file, four tests, 136.6 seconds.** The other twenty-three files sum to roughly 45 seconds
+**One file, four tests, 136.6 seconds.** The other twenty-three files sum to **44.1 seconds**
 between them. And `provider` runs the same suite, where the same file took **137.1 seconds**.
 
 **274 seconds of every CI run is spent counting SQL statements, and half of it is duplicated.**
@@ -309,7 +312,9 @@ Both are ordinary changes to which suite runs where. Neither skips a check, neit
 `gate.sh`, and both speed up **100% of runs** rather than the 7.5% a path filter could reach.
 
 **A figure worth stating precisely: removing the duplicate alone takes the pipeline's slowest job
-from 231s to roughly 94s.** That is a larger latency win than every path-filtering proposal in this
+from 231s to roughly 105s.** Derived: the suite step is 194s, of which 56.9s is overhead (build,
+server starts, seeding) and 137.1s is this file as the long pole; the longest remaining file is
+`instance.test.ts` at 11.4s, so the suite lands near 68s and the job near 105s. That is a larger latency win than every path-filtering proposal in this
 document combined, and it costs no coverage at all.
 
 **This note does not propose the change**, because sequencing suites across jobs is not what
@@ -707,12 +712,12 @@ asks for unless the note justifies otherwise, and for path filtering the note do
 |---|---|---|
 | **Stop running `item-page-cost.test.ts` in the `provider` job** | ~137s off the slowest job, on **every** run | Nothing. It counts database statements and never touches a provider (§6A) |
 | **Give the cost measurement its own job** | The remaining e2e suite drops to ~53s of work | A job, which is free here (§4) |
-| **Fix `gate.sh`'s treatment of a timed-out job** | A hang stops reporting `PASSED` | A ticket, and care not to break the force-push case (§10.1) |
+| **Measure what a `timeout-minutes` expiry concludes, then fix `gate.sh` if it is `cancelled`** | A hang would stop reporting `PASSED` | One probe run. The claim is NOT established yet (§10.1) |
 | Path filters, in any form | ~8.5 min per ten days | A new mechanism in the merge path, and §8.1's trap |
 
 **The first two are worth more than the fourth by a wide margin, and neither skips a check.** That
 is the answer to "as good as possible, and as fast as possible": the speed is in the suite, not in
-the job graph, and the quality question is the timeout, not the skip.
+the job graph, and the quality question to settle next is the timeout, not the skip.
 
 ### 9.1 `turbo run --affected` deserves its own paragraph, because it fails for a repo-specific reason
 
@@ -760,20 +765,39 @@ CNCORE-341 is titled "the merge gate already counts a skipped one as passed". **
 defect is that it counts a TIMED-OUT one as passed**, and unlike the skip question this one is not
 benign.
 
-**Measured on a purpose-built probe.** A job that exceeds its own `timeout-minutes` concludes
-**`cancelled`** — at the job level and at the check-run level alike. Not `timed_out`. No job in the
-probe run reported `timed_out` at all.
+**STATUS: PLAUSIBLE, NOT ESTABLISHED. Do not rest a record on this section until it is
+re-measured.** A probe run reported a job that exceeded its own `timeout-minutes` concluding
+`cancelled` at both the job and check-run level, with no job in that run reporting `timed_out` — but
+**the probe repository was deleted, so that measurement is not reproducible**, and this repository
+offers no corroboration: no CanonCore job has ever concluded `timed_out`, and its only `cancelled`
+jobs are seven from a single force-push.
+
+**GitHub documents the neighbourhood and not the mechanism**, which is why this cannot be settled
+from the docs. Its workflow-syntax reference does say `timeout-minutes` is "The maximum number of
+minutes to let a job run before GitHub automatically **cancels** it", which points the right way.
+But **no GitHub page states the resulting `conclusion` value**, at either level.
+
+**And GitHub contradicts itself nearby, which is the reason to be careful rather than merely
+cautious.** Its limits page says "the expected behavior when a limit is reached is that the
+workflow/job will get cancelled", while the same page's six-hour row says a job reaching that limit
+"is terminated and **fails**". A record citing GitHub for "cancelled" would be citing prose GitHub
+has not kept consistent.
+
+**What would settle it**, and what belongs in the record as measurement rather than citation: a job
+with `timeout-minutes: 1` running `sleep 300`, then
+`gh api repos/{owner}/{repo}/actions/runs/{id}/jobs --jq '.jobs[].conclusion'` beside the check-run
+conclusion.
 
 `gate.sh` tolerates `cancelled` by name, for a good and documented reason (§7.5): `cancel-in-progress`
 leaves a trail of cancelled runs on every force-push, and reading those as failures produced a false
 breakage claim on 2026-09-20.
 
-**So the two cases are indistinguishable at the gate, and one of them is a hang.** ADR-0141 gave
-every job a ceiling derived from its slowest measured run precisely so that a hung job would be
-killed rather than hold a PR for six hours. That mechanism works — the job does get killed — and
-then the merge gate reports the commit as `PASSED`.
+**If the probe's reading is right, the two cases are indistinguishable at the gate and one of them
+is a hang.** ADR-0141 gave every job a ceiling derived from its slowest measured run precisely so
+that a hung job would be killed rather than hold a PR for six hours. That mechanism works — the job
+does get killed — and the merge gate would then report the commit as `PASSED`.
 
-Two aggravating details, both measured:
+Two aggravating details, from the same unreproducible probe and carrying the same status:
 
 - **A *step*-level `timeout-minutes` expiry reports `failure`, not `cancelled`.** So step-level and
   job-level timeouts are not interchangeable, and only the step-level one blocks. `ci.yml` uses
@@ -783,8 +807,8 @@ Two aggravating details, both measured:
 
 **One refinement to §7.5 that this measurement forces.** The scope of a cancellation decides what
 dependents report: a run-wide cancel marks them `cancelled`, while a single job dying — by failure
-*or* by its own timeout — marks them `skipped`. Both measured. So a timed-out job's dependents are
-`skipped`, which the gate also passes.
+*or* by its own timeout — marks them `skipped`. Same probe, same status. So a timed-out job's
+dependents would also be `skipped`, which the gate passes.
 
 **The remedy is not to stop tolerating `cancelled`**, which would block every force-push. It is that
 the gate should key off something that distinguishes a killed run from a superseded one. The probe
