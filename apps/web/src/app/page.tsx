@@ -223,7 +223,13 @@ export default async function CataloguePage({
         links up would be a row of twenty-six controls that each do nothing.
       */}
       {!empty && filedByLetter(chosen) && (
-        <JumpToALetter path="/" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
+        <JumpToALetter
+          path="/"
+          narrowed={scope.narrowed}
+          chosen={chosen}
+          jumpedTo={at.letter}
+          beforeTheAlphabet={catalogue.beforeTheAlphabet}
+        />
       )}
       {/*
         WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The

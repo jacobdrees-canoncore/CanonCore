@@ -8,6 +8,7 @@ import {
   itemsListedOn,
   letterLinked,
   lettersMarkedCurrentIn,
+  lettersOfferedIn,
   logInAt,
   markedCurrentIn,
   scopeLinked,
@@ -15,6 +16,16 @@ import {
   textOf,
   walkLinked,
 } from "./document";
+
+/**
+ * THE TWENTY-SIX, WRITTEN OUT HERE (CNCORE-242): the oracle for what the jump
+ * bar offers, spelled independently of the component that renders it.
+ *
+ * A SECOND COPY ON PURPOSE. Importing the app's own list would make the
+ * assertion recompute the answer the way the page does, and it would then
+ * agree with a page that had lost half the alphabet.
+ */
+const THE_ALPHABET = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -493,6 +504,75 @@ describe("/ on a catalogue larger than one page", () => {
     expect(lettersMarkedCurrentIn(jumped.text)).toStrictEqual(["S"]);
     // ITEMS ARE FILED BEFORE S, so the page it lands on offers a step back.
     expect(walkLinked(jumped.text, "Previous")).toBeDefined();
+  });
+
+  it("offers the Rows sorting before A as the bar's first entry, and lands on them", async () => {
+    // CNCORE-242. A TO Z CANNOT REACH THE START OF THIS LISTING: the sort key
+    // files `42 (a TV story filed before A)` ahead of every letter, so before
+    // this entry the only way to it was Previous from A or never leaving page
+    // one -- and nothing on the page said it was there.
+    //
+    // THE WHOLE BAR IS THE ORACLE rather than a lookup of the entry. Read as a
+    // list, this fails if the entry is dropped, if it is appended instead of
+    // led with, and if the alphabet behind it is disturbed -- which are three
+    // different regressions and one assertion.
+    //
+    // `#` IS PLEX'S LABEL AND JELLYFIN'S ALIKE, from their own API reference
+    // and their own source (CNCORE-242's verify pass). `CONTEXT.md` has no
+    // word of its own for this and bars none, so the attested one stands.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const front = await documentFrom(pagedBaseUrl, "/");
+
+    expect(lettersOfferedIn(front.text)).toStrictEqual(["#", ...THE_ALPHABET]);
+
+    // FOLLOWED FROM SOMEWHERE ELSE IN THE LISTING, which is what makes the
+    // landing worth asserting. Followed from `/`, the page the entry answers
+    // is the page the link was read off, so arriving at the right Row would
+    // say nothing about the entry -- a reload asserts as much. Jumped to S
+    // first, the reader is 4,000 Rows away, and only an entry that really
+    // carries them to the foot of the order lands here.
+    const atS = await documentFrom(pagedBaseUrl, followed(letterLinked(front.text, "S"), "S"));
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(atS.text, "#"), "#"));
+
+    expect(jumped.status).toBe(200);
+    // IT LANDS ON THE ROW ITSELF, which is the start of a Listing filed by
+    // name: everything sorting before A sorts before everything else too, so
+    // the seek to the foot of the order and the start of the Listing are one
+    // page rather than two spellings to keep in step.
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedBeforeTheAlphabet"));
+    // AND NOTHING LIES BEHIND IT, so the page offers no step back to itself --
+    // where the page it was followed FROM had one.
+    expect(walkLinked(atS.text, "Previous")).toBeDefined();
+    expect(walkLinked(jumped.text, "Previous")).toBeUndefined();
+    // AND THE READER CAN STILL JUMP TO ANY LETTER FROM IT, which is the half
+    // of the criterion an entry rendered instead of the alphabet would fail.
+    expect(lettersOfferedIn(jumped.text)).toStrictEqual(["#", ...THE_ALPHABET]);
+  });
+
+  it("offers no such entry where the Listing the reader narrowed to holds none", async () => {
+    // PLEX'S BEHAVIOUR RATHER THAN JELLYFIN'S, which is a decision rather than
+    // an omission: Plex builds the index server side and returns only the
+    // characters that HAVE items, while Jellyfin renders a fixed `#` A-Z and
+    // shows `#` over nothing. ADR-0180 records which is copied and why.
+    //
+    // NARROWED RATHER THAN A SECOND INSTANCE. This Group holds the
+    // catalogue's own stories, every one of them filed under S, and the one
+    // Row before A is outside it -- so the same server answers both halves and
+    // the difference between them is the narrowing and nothing else. An
+    // implementation that asked the question of the whole catalogue rather
+    // than of the Listing in front of the reader offers the entry here.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const { id } = inject("pagedGroup");
+
+    const narrowed = await documentFrom(pagedBaseUrl, `/?group=${id}`);
+
+    expect(lettersOfferedIn(narrowed.text)).toStrictEqual(THE_ALPHABET);
+    // AND THE ROW THAT WOULD JUSTIFY ONE IS NOT IN THIS LISTING, said
+    // directly rather than by naming whichever Row happens to sort first:
+    // which Item that is, is the catalogue fixture's business and not this
+    // assertion's, and `pagedCatalogue` is a SET oracle by its own docblock.
+    expect(itemsListedOn(narrowed.text)).not.toContain(inject("pagedBeforeTheAlphabet"));
+    expect(itemsListedOn(narrowed.text)).toHaveLength(100);
   });
 
   it("says the catalogue ends here, where a link outlived the items after it", async () => {

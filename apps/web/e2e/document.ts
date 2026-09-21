@@ -925,18 +925,45 @@ export function walkLinked(text: string, words: string): string | undefined {
   return walk === undefined ? undefined : linkedIn(walk, words);
 }
 
+/**
+ * THE JUMP BAR, BY THE LABEL IT CARRIES (CNCORE-174).
+ *
+ * ONE SPELLING FOR THREE READERS (CNCORE-242). Each of the three below wrote
+ * the same `<nav aria-label="Jump to a letter">` match out by hand, and
+ * `navIn` beside them had been the shared reader of a picker since CNCORE-181
+ * the whole time. Three copies agreed only because each was copied, which is
+ * the argument `queries.ts` already makes about a predicate.
+ */
+const THE_JUMP_BAR = "Jump to a letter";
+
 /** Where the letters above a listing link one of them, if they do (CNCORE-174). */
 export function letterLinked(text: string, letter: string): string | undefined {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1];
-  return letters === undefined ? undefined : linkedIn(letters, letter);
+  // ABSENT IS `undefined` RATHER THAN A THROW, because a Listing in the
+  // recently-added order offers no bar at all and that is a state a caller
+  // asks about. `navIn` throws, so the question is asked before it is read.
+  return hasNav(text, THE_JUMP_BAR) ? linkedIn(navIn(text, THE_JUMP_BAR), letter) : undefined;
+}
+
+/**
+ * EVERY ENTRY THE JUMP BAR OFFERS, in the order it offers them (CNCORE-242).
+ *
+ * THE WHOLE LIST RATHER THAN A LOOKUP, which `letterLinked` above already
+ * answers: what a test needs of the entry for the Rows before A is that it is
+ * THERE, that it is FIRST, and that the alphabet still follows it whole. A
+ * `toContain` would pass with it appended, and an assertion that only looked
+ * it up would pass with A to Z gone.
+ */
+export function lettersOfferedIn(text: string): string[] {
+  return [...navIn(text, THE_JUMP_BAR).matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(([, words]) =>
+    textOf(words ?? ""),
+  );
 }
 
 /** The letters the page marks as the one it was jumped to. */
 export function lettersMarkedCurrentIn(text: string): string[] {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
-  return [...letters.matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
-    textOf(words ?? ""),
-  );
+  return [
+    ...navIn(text, THE_JUMP_BAR).matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g),
+  ].map(([, words]) => textOf(words ?? ""));
 }
 
 /** A link the page was expected to offer, or a failure naming the one it did not. */

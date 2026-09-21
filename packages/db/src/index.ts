@@ -67,6 +67,7 @@ export {
 export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purge";
 export {
   type AttributionOwed,
+  type BrowsedListing,
   type Catalogue,
   type CatalogueRow,
   CHOSEN_ORDERS,

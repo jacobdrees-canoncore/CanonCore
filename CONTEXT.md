@@ -139,6 +139,17 @@ and below that seam the word keeps its ordinary SQL sense, which is why the walk
 sides `Stored` and `Row`.
 _Avoid_: entry
 
+**Before the alphabet**:
+The Rows of a Listing filed by name that sort ahead of its first letter, and the one entry a jump
+bar offers for them, labelled `#`. It is a RANGE on the sort key under the catalogue's collation —
+"sorts before A" — and never a test of the first character, which files a title opening in
+punctuation under the letter inside it and a non-Latin one past Z. The two disagree on the Owner's
+own catalogue by nine Items (ADR-0180). A Listing holding none offers no entry, so it is a fact
+about the Listing in front of the reader rather than about the catalogue. Nothing sorts before the
+alphabet in an Order that has none: the recently-added Order files nothing under a letter, and the
+whole bar is hidden there. The tail PAST Z is not this and has no word yet.
+_Avoid_: bucket
+
 **Alias**:
 The retained id of a merged-away item, resolving to the item that survived the merge. It is an
 identity, never an alternative name.

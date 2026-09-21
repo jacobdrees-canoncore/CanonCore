@@ -915,6 +915,92 @@ describe("readCatalogue, jumped to a letter", () => {
 });
 
 /**
+ * WHETHER ANYTHING SORTS BEFORE THE ALPHABET (CNCORE-242): the Rows a jump to
+ * A leaves behind, which A to Z cannot reach because nothing files them under
+ * a letter.
+ *
+ * IN A GROUP OF ITS OWN, for `jumped to a letter`'s reason above: the shared
+ * catalogue holds whatever every other file put in it, and this question is a
+ * YES OR NO about a whole Listing, so it can only be exact where the Listing
+ * is this test's own.
+ */
+describe("readCatalogue, and what sorts before the alphabet", () => {
+  it("says so where a Row sorts before A, and says how a reader reaches it", async () => {
+    // THE RANGE, WHICH IS WHAT THE READER'S JUMP TO A ALREADY MEASURES: the
+    // Rows behind that Cut are exactly the Rows no letter reaches, so the
+    // question is the one predicate asked from the other side. `rowsBefore` on
+    // the jump to A is the same count, and asserting both here is what holds
+    // the two readings of one Cut together.
+    const group = await createGroupByHand(db, { name: "Something files before A" });
+    for (const title of ["42 (TV story)", "Aliens of London", "Nyssa's story"]) {
+      await putItemInGroupByHand(db, { groupId: group, itemId: await anItemTitled(db, title) });
+    }
+
+    const start = await readCatalogue(db, { limit: 10, group });
+
+    expect(start.beforeTheAlphabet).toBe(true);
+    // AND THE ENTRY GOES TO THE START, because the Rows before A ARE the start
+    // of a Listing filed by name: a seek to the bottom of the order lands on
+    // the first Row of it, which is the page this read already answered.
+    expect(start.rows).toHaveLength(3);
+    expect((await readCatalogue(db, { limit: 10, group, letter: "A" })).rowsBefore).toBe(1);
+  });
+
+  it("says a Listing opening in a mark has nothing before A, where a character test would not", async () => {
+    // THE RANGE AND A DIGIT-OR-SYMBOL TEST DISAGREE HERE, and this is the
+    // Listing they disagree on. The collation ignores punctuation at the first
+    // level, so `!bang` files under B and `-dash first` under D: both open
+    // with a mark and NEITHER sorts before A. A character test would offer the
+    // entry over a Listing A to Z already reaches whole.
+    //
+    // AND THIS IS NOT A HYPOTHETICAL SHAPE. The Owner's catalogue holds nine
+    // such Items today -- 46 against the range's 37, measured 2026-09-21 --
+    // and one of them is `"Death to the Daleks!"`, which the jump test above
+    // already names as filing under D. ADR-0180 lists all nine.
+    const group = await createGroupByHand(db, { name: "Nothing files before A" });
+    for (const title of ["!bang", "-dash first", "Aliens of London"]) {
+      await putItemInGroupByHand(db, { groupId: group, itemId: await anItemTitled(db, title) });
+    }
+
+    const start = await readCatalogue(db, { limit: 10, group });
+
+    expect(start.beforeTheAlphabet).toBe(false);
+    // AND A JUMP TO A REACHES ALL THREE, which is the same fact said from the
+    // reader's end: nothing is left behind for an entry to be offered for.
+    expect((await readCatalogue(db, { limit: 10, group, letter: "A" })).rowsBefore).toBe(0);
+  });
+
+  it("files a non-Latin sort name past Z rather than before A, where a jump to Z reaches it", async () => {
+    // THE ONE SHAPE NEITHER END OF THE BAR IS NAMED FOR (CNCORE-242,
+    // ADR-0180), measured rather than assumed. Under this catalogue's
+    // collation a Cyrillic title sorts PAST Z, so it is not BEFORE THE
+    // ALPHABET (`CONTEXT.md`) -- and that entry must not claim it, which a
+    // first-character test would.
+    //
+    // AND IT IS REACHED, WHICH IS WHERE THIS PRODUCT PARTS FROM JELLYFIN. A
+    // letter here is a SEEK rather than a filter, so a jump to Z lands at or
+    // before it and the walk carries on into it; under Jellyfin's filtering
+    // `#` A-Z it belongs to no button at all. What it does NOT have is a
+    // button of its own that says so, which is the standing request on
+    // Jellyfin's feature site and is left open deliberately.
+    const group = await createGroupByHand(db, { name: "A name no letter is filed for" });
+    const ids: string[] = [];
+    for (const title of ["Zoe and the far end", "Дневник"]) {
+      const id = await anItemTitled(db, title);
+      await putItemInGroupByHand(db, { groupId: group, itemId: id });
+      ids.push(id);
+    }
+
+    const start = await readCatalogue(db, { limit: 10, group });
+    const jumped = await readCatalogue(db, { limit: 10, group, letter: "Z" });
+
+    expect(start.beforeTheAlphabet).toBe(false);
+    // IT SORTS LAST, so the jump to Z answers both Rows in that order.
+    expect(jumped.rows.map((row) => row.id)).toStrictEqual(ids);
+  });
+});
+
+/**
  * THE CATALOGUE NARROWED TO ONE GROUP (CNCORE-179, ADR-0010): one universe at
  * a time, rather than every one on a single front page.
  *
@@ -1039,15 +1125,16 @@ describe("readCatalogue, narrowed to a Group", () => {
 
     await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, scope));
 
-    for (const listing of await narrowed()) {
-      expect(listing).toStrictEqual({
-        rows: [],
-        total: 0,
-        rowsBefore: 0,
-        continuesAfter: null,
-        continuesBefore: null,
-      });
+    // EXHAUSTIVELY, WHICH IS WHAT SPLITS THE THREE (CNCORE-242). The two
+    // BROWSED Listings answer one fact Catalogue search does not -- whether
+    // anything sorts before A -- because a ranking files nothing under a
+    // letter. Asserted whole here rather than loosened, since a shape that
+    // gained a field silently is the thing a `toStrictEqual` is for.
+    const [catalogue, works, found] = await narrowed();
+    for (const listing of [catalogue, works]) {
+      expect(listing).toStrictEqual({ ...NOTHING_NARROWED, beforeTheAlphabet: false });
     }
+    expect(found).toStrictEqual(NOTHING_NARROWED);
   });
 
   it("narrows to nothing where the Group names nothing, whatever shape the id is", async () => {
@@ -1061,16 +1148,26 @@ describe("readCatalogue, narrowed to a Group", () => {
     // reading as "this server is broken" (ADR-0066 under CNCORE-14).
     for (const group of [crypto.randomUUID(), "doctor-who"]) {
       const narrowed = await readCatalogue(db, { limit: 1000, group });
-      expect(narrowed).toStrictEqual({
-        rows: [],
-        total: 0,
-        rowsBefore: 0,
-        continuesAfter: null,
-        continuesBefore: null,
-      });
+      expect(narrowed).toStrictEqual({ ...NOTHING_NARROWED, beforeTheAlphabet: false });
     }
   });
 });
+
+/**
+ * A LISTING NARROWED TO NOTHING, as every Listing answers one: no Rows, no
+ * size, no place and no way on in either direction.
+ *
+ * WHAT THE TWO BROWSED LISTINGS ADD is `beforeTheAlphabet`, which is theirs
+ * alone and is spelled at the assertions rather than here, so this stays the
+ * shape all three share.
+ */
+const NOTHING_NARROWED = {
+  rows: [],
+  total: 0,
+  rowsBefore: 0,
+  continuesAfter: null,
+  continuesBefore: null,
+};
 
 /**
  * The largest id this catalogue can hold, for the one rule that compares them.

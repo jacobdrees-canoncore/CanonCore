@@ -830,16 +830,64 @@ export function Walk({
  * `aria-current` MARKS THE LETTER THIS PAGE WAS JUMPED TO, for as long as the
  * address says so: a `Next` from it names a Row rather than a letter, so the
  * mark does not follow the reader on.
+ *
+ * AND ONE ENTRY AHEAD OF A FOR THE ROWS NO LETTER REACHES (CNCORE-242,
+ * ADR-0180). The sort key files a title opening in a digit ahead of A, and on
+ * the Owner's own catalogue that is 37 Items of 8,052 that this bar could not
+ * reach: `/?letter=A` answers "Showing items 38 to 137" and nothing on the
+ * page said what the first 37 were. It goes FIRST because that is where they
+ * sort.
+ *
+ * IT IS THE START OF THIS LISTING, AND THAT IS THE WHOLE ADDRESS. Everything
+ * sorting before A sorts before everything else too, so the seek a letter
+ * makes and the start of the Listing are one page here -- and writing the jump
+ * as anything else would be a second spelling of an address this file already
+ * has (ADR-0066). `queryFor(walking, undefined)` is what "Back to the start"
+ * links, which keeps the Group, the kind and the order the reader chose.
+ *
+ * SO NOTHING MARKS IT CURRENT, which is honest rather than an omission: the
+ * address records no jump, and a page that marked it would mark it on every
+ * unjumped first page too.
+ *
+ * OFFERED ONLY WHERE SUCH ROWS EXIST, which is PLEX'S BEHAVIOUR and a decision
+ * rather than an accident. Plex builds the index server side and returns only
+ * the characters that have items; JELLYFIN DOES THE OPPOSITE, rendering `#`
+ * beside a fixed A-Z whether or not anything is filed there. ADR-0180 carries
+ * which is copied and why, and `beforeTheAlphabet` is the read path's answer
+ * asked of the Listing IN FRONT OF THE READER -- narrowed to their Group and
+ * their kind, so a bar over a Group holding nothing before A offers none.
  */
 export function JumpToALetter({
   jumpedTo,
+  beforeTheAlphabet,
   ...walking
-}: Extract<Walking, { path: "/" | "/works" }> & { jumpedTo?: string }) {
+}: Extract<Walking, { path: "/" | "/works" }> & {
+  jumpedTo?: string;
+  /** Whether this Listing holds a Row that A to Z cannot reach (ADR-0180). */
+  beforeTheAlphabet: boolean;
+}) {
   return (
     <nav
       aria-label="Jump to a letter"
       className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-muted-foreground text-sm"
     >
+      {beforeTheAlphabet && (
+        <Link
+          href={{ pathname: walking.path, query: queryFor(walking, undefined) }}
+          /*
+           * THE ONE ENTRY HERE WHOSE WORDS ARE NOT ITS OWN NAME. A letter read
+           * aloud is the letter; `#` is read as "number sign", which says
+           * nothing about what following it does. The label LEADS WITH THE
+           * VISIBLE CHARACTER, so the accessible name still contains the words
+           * on screen -- a name that replaced them would be the mismatch
+           * WCAG's Label in Name is about.
+           */
+          aria-label={`${BEFORE_THE_ALPHABET}, filed before A`}
+          className={PICKED}
+        >
+          {BEFORE_THE_ALPHABET}
+        </Link>
+      )}
       {THE_ALPHABET.map((letter) => (
         <Link
           key={letter}
@@ -855,11 +903,34 @@ export function JumpToALetter({
 }
 
 /**
- * The letters a Listing filed by name offers, A to Z. The sort key files a
- * title opening in a digit or a mark ahead of A, which is where the start of
- * the Listing already is.
+ * The letters a Listing filed by name offers, A to Z. What sorts ahead of them
+ * is `BEFORE_THE_ALPHABET` below, which this bar offers alongside.
+ *
+ * THIS DOCBLOCK SAID THOSE ROWS NEEDED NO ENTRY, in these words: "the sort key
+ * files a title opening in a digit or a mark ahead of A, which is where the
+ * start of the Listing already is". Both halves were wrong. Being where the
+ * start is made them reachable, not ADDRESSED -- a reader who jumps to A and
+ * does not press Previous never learns they exist (CNCORE-242). And "a digit
+ * OR A MARK" is not what the collation does: it ignores punctuation at the
+ * first level, so `!bang` files under B.
  */
 const THE_ALPHABET = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
+
+/**
+ * WHAT THE ROWS SORTING BEFORE A ARE LABELLED (CNCORE-242, ADR-0180).
+ *
+ * `#` IS ATTESTED RATHER THAN CHOSEN. Plex's own API reference returns
+ * `{"size":2,"key":"%23","title":"#"}` at the head of `firstCharacters`, and
+ * Jellyfin hard-codes `letters = ['#']` before its A-Z. It is not universal --
+ * Unicode's ICU calls the same bucket the UNDERFLOW and labels it `...`,
+ * Android's `AlphabetIndexer` uses a leading space, and Kodi has no synthetic
+ * bucket at all -- so the two products this one is built beside decide it.
+ *
+ * `CONTEXT.md` HAS NO WORD OF ITS OWN FOR THIS and bars none: `canon`,
+ * `record`, `edge` and `duplicate` are the banned names and none of them is
+ * near it. So the attested label stands rather than a coined one.
+ */
+const BEFORE_THE_ALPHABET = "#";
 
 /**
  * A LINK THAT OUTLIVED THE ITEMS AFTER IT.

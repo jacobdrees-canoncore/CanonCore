@@ -975,6 +975,53 @@ export interface Catalogue {
 }
 
 /**
+ * ONE OF THE TWO BROWSED LISTINGS: a Listing, and the one thing that is true
+ * of these two and of no other -- that its Rows are FILED UNDER LETTERS, so it
+ * can be asked what lies before the first of them.
+ *
+ * A SHAPE OF ITS OWN RATHER THAN A FIELD ON `Catalogue`, which mirrors
+ * `browsedInput` one package over and is that input's own argument turned
+ * round: Catalogue search leads on how close a title is to what a reader typed
+ * (ADR-0120), so nothing in it is filed under a letter and there is no
+ * alphabet for anything to sort before. A field there would be one every
+ * caller could read and one caller could only ever answer falsely.
+ */
+export interface BrowsedListing extends Catalogue {
+  /**
+   * WHETHER ANY ROW OF THIS LISTING SORTS BEFORE A (CNCORE-242), which is
+   * whether the jump bar has an entry to offer for them.
+   *
+   * THE RANGE, NEVER A DIGIT-OR-SYMBOL TEST, and the two are not the same
+   * question. Measured on this repository's engine 2026-09-21 under
+   * `en_US.utf8`: `42 (TV story)` and `1001 Nights (audio story)` sort before
+   * `a`, and so does `£436 (short story)` -- but `!bang` and `-dash first` do
+   * NOT, because the collation ignores punctuation at the first level and
+   * files them under B and D. A character test would put those two here and
+   * file a Cyrillic title here as well, where the collation sorts it past Z.
+   * Jellyfin's `#` is the same range: `nameLessThan: 'A'` compared against
+   * SortName, never a character class.
+   *
+   * AND THE TWO ALREADY DISAGREE ON THE OWNER'S CATALOGUE rather than only in
+   * principle: 37 against 46 on a 2026-09-20 dump, measured 2026-09-21. The
+   * nine a character test would wrongly take include `"Death to the Daleks!"`,
+   * which `catalogue.test.ts` already names as filing under D. ADR-0180 lists
+   * them, and corrects CNCORE-242's own sentence saying they agree.
+   *
+   * ASKED AS THE COMPLEMENT OF THE JUMP TO A, so it is one predicate read from
+   * both ends rather than a second spelling of it. The Rows behind
+   * that Cut are exactly the Rows the jump to A leaves behind, which is the
+   * count that Listing already reports as `rowsBefore` -- 37 of the Owner's
+   * 8,052 Items, measured 2026-09-20 under CNCORE-242.
+   *
+   * FALSE IN THE RECENTLY-ADDED ORDER, where it is a question about nothing:
+   * that order leads on a timestamp and nothing is filed under a letter in it,
+   * which is the same sentence `readListing` below already writes about
+   * declining `?letter=`. The surfaces hide the whole bar there.
+   */
+  beforeTheAlphabet: boolean;
+}
+
+/**
  * WHAT IS IN THIS CATALOGUE -- every item, of every kind.
  *
  * ADR-0077 phrases the rule around THE QUESTION A SURFACE ASKS rather than
@@ -996,7 +1043,7 @@ export async function readCatalogue(
     letter?: string;
     order?: ChosenOrder;
   } & WhereAPageIs,
-): Promise<Catalogue> {
+): Promise<BrowsedListing> {
   return readListing(db, {
     ...at,
     within: narrowedToTheKind(kind, withinTheGroup(db, group, IN_THE_CATALOGUE)),
@@ -1030,7 +1077,7 @@ export async function readWorks(
     letter?: string;
     order?: ChosenOrder;
   } & WhereAPageIs,
-): Promise<Catalogue> {
+): Promise<BrowsedListing> {
   return readListing(db, {
     ...at,
     within: narrowedToTheKind(kind, withinTheGroup(db, group, WORK_BROWSING)),
@@ -1074,7 +1121,7 @@ async function readListing(
     order = "name",
     ...at
   }: { limit: number; within: SQL; letter?: string; order?: ChosenOrder } & WhereAPageIs,
-): Promise<Catalogue> {
+): Promise<BrowsedListing> {
   /*
    * THE ORDER AND THE ANCHOR READ IN IT ARE PICKED TOGETHER, in one branch,
    * which is what keeps them a pair. `theCutAt` is typed `ACutIn<O>` against
@@ -1090,12 +1137,18 @@ async function readListing(
    * leaves a page (ADR-0066).
    */
   if (order === "added") {
-    return walkListing(db, {
+    const page = await walkListing(db, {
       within,
       order: RECENTLY_ADDED,
       cut: await theCutAt(at, (id) => findInTheAddedOrder(db, id)),
       limit,
     });
+    // AND NOTHING SORTS BEFORE AN ALPHABET THIS ORDER DOES NOT HAVE
+    // (CNCORE-242). It is the sentence above said once more: a Listing led by
+    // a timestamp files nothing under a letter, so there is no first letter
+    // for a Row to sort ahead of, and the surfaces hide the whole bar here
+    // rather than showing one entry of it.
+    return { ...page, beforeTheAlphabet: false };
   }
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
@@ -1109,8 +1162,67 @@ async function readListing(
       : letter === undefined
         ? undefined
         : { atOrPast: letter.toLowerCase() };
-  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, cut, limit });
+  // TOGETHER, BECAUSE NEITHER WAITS ON THE OTHER: the page is read from the
+  // Cut a reader named, and this is a question about the Listing's own far
+  // end. The anchor read above is the one that had to come first.
+  const [page, beforeTheAlphabet] = await Promise.all([
+    walkListing(db, { within, order: THE_CATALOGUES_ORDER, cut, limit }),
+    anythingSortsBeforeTheAlphabet(db, within),
+  ]);
+  return { ...page, beforeTheAlphabet };
 }
+
+/**
+ * WHETHER THIS LISTING HOLDS A ROW THAT A TO Z CANNOT REACH (CNCORE-242): the
+ * Rows BEHIND the Cut a jump to A makes, which is the complement of the Rows
+ * ahead of it and therefore the same predicate read from the other side.
+ *
+ * NOT A SECOND SPELLING OF THE BUCKET, which is the whole reason it is written
+ * this way. An implementation testing the first character for a digit or a
+ * mark disagrees with this ON THE CATALOGUE THAT EXISTS -- 46 Items against
+ * 37, measured 2026-09-21 -- because the collation files a title opening in
+ * punctuation under the letter inside it and a non-Latin one past Z.
+ * `theCut` renders the comparison the jump itself uses, so the entry the bar
+ * offers and the page it lands on cannot come to mean different things.
+ *
+ * IT ASKS WHETHER, NOT HOW MANY, because nothing shows a figure for it: a
+ * count would be a number no surface prints, and the row this stops at is the
+ * cheapest answer to the question actually asked. `size.behind` is the shape
+ * for the figure if one is ever wanted, and it rides on the Rows.
+ *
+ * IT DOES NOT GO THROUGH `theSize`, AND THAT SEAM'S OWN REASON IS WHY. That
+ * function exists so a Listing's count cannot be drawn from a different
+ * relation or a different `WHERE` than its Rows: the caller supplies the FROM
+ * and the JOINs and has nowhere to put a predicate. Neither half can bite
+ * here. This COUNTS NOTHING and JOINS NOTHING -- it stops at the first Row it
+ * finds -- and the predicate it asks is not one it wrote: `theRowsBehind` is
+ * the shared complement, over the Listing's own `within` in the same call.
+ * Routing it through `TheSize` would mean a method on a shared interface for
+ * one caller, or a second `TheSize` built beside the one `walkListing` makes.
+ *
+ * A SECOND STATEMENT, AND THE SNAPSHOT IT CANNOT SHARE IS NOT ONE ANYTHING
+ * READS TOGETHER. A `total` that disagreed with the Rows beside it would
+ * report a library that is not there (ADR-0133); this decides whether a
+ * NAVIGATION ENTRY is offered, and an entry offered a moment after the last
+ * such Row was deleted lands its reader at the start of the Listing, which is
+ * where it always pointed.
+ */
+async function anythingSortsBeforeTheAlphabet(db: Database, within: SQL): Promise<boolean> {
+  const { ahead } = theCut(THE_CATALOGUES_ORDER, { atOrPast: THE_ALPHABET_BEGINS });
+  const behind = await db
+    .select({ id: items.id })
+    .from(items)
+    .where(theRowsBehind(within, ahead))
+    .limit(1);
+  return behind.length > 0;
+}
+
+/**
+ * WHERE THE ALPHABET BEGINS, in the spelling a seek uses: lower case, as
+ * `readListing` hands a reader's letter over, and the collation files `a` and
+ * `A` together anyway (`catalogue.test.ts` measures that).
+ */
+const THE_ALPHABET_BEGINS = "a";
 
 /**
  * ONE PAGE OF ONE LISTING, WALKED -- whatever question the listing asks, and
