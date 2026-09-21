@@ -200,7 +200,10 @@ export function unshowable(thing: string): string {
  * unshowable with the sentence for one that said nothing. ADR-0176 gave it and
  * the two `boundedProse` fallbacks a second sentence each, reaching
  * `holdsUnshowable` below for the same question this function asks. The line
- * now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`.
+ * now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`, behind the guard
+ * ADR-0183 put in front of it: a throw that carried no string at all -- `throw
+ * undefined` -- asks none of these three questions, and takes a third fallback
+ * sentence of its own. `wordsThrown` below is that guard.
  */
 export function quotedTo(text: string, max: number, thing: string): string {
   const quoted = boundedTo(text, max);
@@ -251,4 +254,42 @@ export function quotedTo(text: string, max: number, thing: string): string {
  */
 export function holdsUnshowable(text: string): boolean {
   return text.replace(CONTROLS, "") !== text;
+}
+
+/**
+ * THE WORDS A THROWN THING ACTUALLY HAS, or nothing when it has none
+ * (ADR-0183).
+ *
+ * `thrown instanceof Error ? thrown.message : String(thrown)` STOOD AT TWO
+ * `reasonFor`s -- `@canoncore/providers`' and `@canoncore/tasks`' -- and
+ * `String` was answering for two inputs that are not the same input. A thrown
+ * STRING is words somebody wrote, and `String` is right for it. A thrown value
+ * that is neither an `Error` nor a string has no sentence of its own, and
+ * `String` SUPPLIED one: measured on node v24.19.0, `undefined` became
+ * `"undefined"`, `null` became `"null"`, `{}` became `"[object Object]"` and
+ * `[]` became `""`, which reached each caller's sentence for a silence.
+ *
+ * THE QUESTION IS SHARED AND THE SENTENCES ARE NOT, which is this file's own
+ * split kept rather than a new one. `holdsUnshowable` above publishes a
+ * QUESTION while every caller keeps its own words for the answer, for the
+ * reason `UNSHOWABLE`'s docblock gives: the noun belongs to whoever knows what
+ * the value is. The two callers here need different words -- one reports a
+ * Provider under ADR-0123's `wrote`, the other is the sentence a run leaves in
+ * its history -- and they carry different nouns, ceilings and punctuation.
+ *
+ * IT LIVES IN THE LEAF BECAUSE THE OTHER PLACE WAS ALREADY REFUSED. The
+ * alternative is `@canoncore/tasks` reaching `@canoncore/providers` for a
+ * string function, taking an HTTP client, two undici dispatchers and ADR-0034's
+ * boundaries with it -- which is the import ADR-0163 turned down, and the
+ * reason this package exists.
+ *
+ * `undefined` RATHER THAN THE EMPTY STRING, because the empty string is a real
+ * answer for BOTH callers and each already has a sentence waiting for it. A
+ * thrown `""` and an `Error` carrying no message are SILENT, which is a
+ * different fact about a different input from a throw that was never a message
+ * at all.
+ */
+export function wordsThrown(thrown: unknown): string | undefined {
+  if (thrown instanceof Error) return thrown.message;
+  return typeof thrown === "string" ? thrown : undefined;
 }

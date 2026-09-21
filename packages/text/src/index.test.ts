@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundedTo, holdsUnshowable, quotedTo, shortenTo } from "./index";
+import { boundedTo, holdsUnshowable, quotedTo, shortenTo, wordsThrown } from "./index";
 
 /**
  * ADR-0163. The levers live here so every package that puts a stranger's text
@@ -156,5 +156,36 @@ describe("holdsUnshowable", () => {
   it("is false for ordinary whitespace, which is showable", () => {
     expect(holdsUnshowable("   ")).toBe(false);
     expect(holdsUnshowable("")).toBe(false);
+  });
+});
+
+/**
+ * THE QUESTION TWO `reasonFor`s ASK, WITH NEITHER OWNING IT (ADR-0183).
+ *
+ * `@canoncore/providers` and `@canoncore/tasks` each spelled
+ * `thrown instanceof Error ? thrown.message : String(thrown)` and each got the
+ * same input wrong. The SENTENCES stayed with them, for the reason `UNSHOWABLE`
+ * above gives about its noun; what is here is the question alone.
+ */
+describe("wordsThrown", () => {
+  it("gives an Error its message and a thrown string itself", () => {
+    expect(wordsThrown(new Error("rate limited"))).toBe("rate limited");
+    expect(wordsThrown("rate limited")).toBe("rate limited");
+  });
+
+  /**
+   * AND THE EMPTY STRING IS NOT THE ABSENT ANSWER, which is the whole reason
+   * this returns `string | undefined`. A silent `Error` and a thrown `""` SAID
+   * nothing, which each caller already has a sentence for; answering them with
+   * the sentence for a value that was never a message would be ADR-0176's
+   * conflation in a third spelling.
+   */
+  it("keeps a silence distinct from a value that was never a message", () => {
+    expect(wordsThrown(new Error())).toBe("");
+    expect(wordsThrown("")).toBe("");
+
+    for (const wordless of [undefined, null, {}, 42, [], Symbol("thrown")]) {
+      expect(wordsThrown(wordless)).toBeUndefined();
+    }
   });
 });

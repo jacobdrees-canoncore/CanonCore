@@ -9,7 +9,7 @@ import {
   type TaskOutcome,
   type TaskRun,
 } from "@canoncore/db";
-import { quotedTo, unshowable } from "@canoncore/text";
+import { quotedTo, unshowable, wordsThrown } from "@canoncore/text";
 
 export type { TaskOutcome, TaskRun } from "@canoncore/db";
 
@@ -281,9 +281,9 @@ async function endingOf(
     const detail = bounded(await task.run(context));
     return context.signal.aborted ? stopped() : { outcome: "completed", detail };
   } catch (thrown) {
-    return context.signal.aborted
-      ? stopped()
-      : { outcome: "failed", detail: bounded(reasonFor(thrown)) };
+    if (context.signal.aborted) return stopped();
+    const said = wordsThrown(thrown);
+    return { outcome: "failed", detail: said === undefined ? NOT_A_MESSAGE : bounded(said) };
   }
 }
 
@@ -297,11 +297,6 @@ const STOPPED = "Stopped before it finished.";
 
 /** What a run the server died under leaves in the history. */
 const LEFT_OPEN = "The server stopped while this was running.";
-
-/** What a thrown value says, for a reader who cannot see the stack. */
-function reasonFor(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
 
 /**
  * The sentence a run leaves behind, CAPPED.
@@ -375,5 +370,26 @@ function bounded(detail: string): string {
  * is the shared one either way, which is the part that has to be one voice.
  */
 const UNSHOWABLE_DETAIL = unshowable("A detail");
+
+/**
+ * WHAT A RUN LEAVES BEHIND WHEN WHAT IT THREW WAS NEVER A MESSAGE (CNCORE-310,
+ * ADR-0183).
+ *
+ * THIS FILE'S OWN `reasonFor` READ A NON-`Error` THROW AS `String(thrown)`, so a
+ * task that threw `undefined` left the WORD `undefined` in the history and the
+ * page printed it as the sentence the run left behind. It was the same line as
+ * `@canoncore/providers`' and it is now the same QUESTION: `wordsThrown` in the
+ * leaf, which both callers ask and neither owns.
+ *
+ * THE SENTENCE IS THIS FILE'S, WHICH IS THE HALF THAT DID NOT MOVE. A reason on
+ * the settings page reports a PROVIDER under ADR-0123's `wrote`; this is the
+ * sentence a run leaves in its own history, so it takes the voice the page
+ * beside it uses -- "It said nothing." -- rather than that one's.
+ *
+ * IT DOES NOT GO THROUGH `bounded`, for the reason `STOPPED` and `LEFT_OPEN`
+ * above do not: these are this file's fixed words, not a stranger's text with a
+ * length somebody else chose.
+ */
+const NOT_A_MESSAGE = "It failed with something that is not a message.";
 
 export const BOUNDED_DETAIL = 300;

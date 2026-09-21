@@ -36,7 +36,23 @@ export interface FailedProvider {
    * act on "a provider you configured is down".
    */
   baseUrl: string;
-  reason: Error;
+  /**
+   * AS IT WAS THROWN, WHICH IS WHY THIS IS `unknown` (ADR-0183).
+   *
+   * It was `Error`, and an `asError` here wrapped anything else in
+   * `new Error(String(thrown))` BEFORE `reasonFor` saw it -- so a wordless
+   * throw arrived at `packages/api` already spelled, as an `Error` whose
+   * message was the word `undefined`, and the branch ADR-0183 added could
+   * never fire on this surface. The wrap's own argument was that `reasonFor`
+   * needed an `Error` to read a message off; it does not, and takes `unknown`.
+   *
+   * THE ERROR STILL TRAVELS WHOLE, which is what this field was always for: a
+   * caller tells an `OutboundRefused` from a provider that answered badly, and
+   * `packages/api` maps the first onto a declared error rather than a 500
+   * (ADR-0034). Widening the type takes nothing away from that -- it stops one
+   * value being narrowed by being rewritten.
+   */
+  reason: unknown;
 }
 
 /**
@@ -100,7 +116,7 @@ export async function searchProviders(
       try {
         return { answer: await askOneProvider(baseUrl, allowlist, query) };
       } catch (error) {
-        return { failure: { baseUrl, reason: asError(error) } };
+        return { failure: { baseUrl, reason: error } };
       }
     }),
   );
@@ -115,17 +131,6 @@ export async function searchProviders(
     else failed.push(outcome.failure);
   }
   return { answered, failed };
-}
-
-/**
- * What was thrown, as an `Error`.
- *
- * A `catch` catches whatever was thrown and that is not necessarily an `Error`
- * at all. Wrapping rather than asserting keeps `reason.message` a sentence a
- * caller can show, whatever a provider's client library decided to throw.
- */
-function asError(thrown: unknown): Error {
-  return thrown instanceof Error ? thrown : new Error(String(thrown));
 }
 
 /**

@@ -292,7 +292,7 @@ describe("reasonFor", () => {
   });
 
   /**
-   * NEITHER FALLBACK IS BOUNDED BY ANYTHING BUT THIS ASSERTION (ADR-0176).
+   * NO FALLBACK IS BOUNDED BY ANYTHING BUT THIS ASSERTION (ADR-0176, ADR-0183).
    *
    * `bounded` caps a PROVIDER'S text; a fallback is this app's own sentence and
    * never passes through it. So the contract's `max(REASON_MAX_LENGTH)` is the
@@ -305,25 +305,70 @@ describe("reasonFor", () => {
    * written into a test is a second copy of a ceiling, and `failureReason` is
    * the schema every reason surface is actually held to.
    */
-  it("hands both fallbacks to the contract that has to accept them", () => {
-    for (const thrown of [new Error(), new Error("\u200b\u200b\u200b")]) {
+  it("hands every fallback to the contract that has to accept them", () => {
+    // THE POPULATION IS ONE PER FALLBACK, and it grew with them: a third
+    // sentence added without a third throw here would be a sentence this
+    // assertion never reads (ADR-0183).
+    for (const thrown of [new Error(), new Error("\u200b\u200b\u200b"), undefined]) {
       expect(() => failureReason.parse(reasonFor(thrown))).not.toThrow();
     }
   });
 
   /**
-   * A THROWN `undefined` IS NOT SILENT AND IS NOT THIS TICKET'S DEFECT
-   * (CNCORE-307).
+   * A THROWN STRING IS THE PROVIDER'S OWN WORDS, AND STAYS VERBATIM (ADR-0183).
    *
-   * This assertion was `text.length > 0` over a population that held
-   * `undefined`, and it went red the moment CNCORE-305 asked it for the
-   * sentence instead: `String(undefined)` is `"undefined"`, which is non-empty,
-   * so no fallback is ever reached and the Owner reads CanonCore's spelling of a
-   * value in a Provider's voice. Pinned rather than fixed, because it is a
-   * different defect -- nothing was STRIPPED here -- and CNCORE-307 carries it.
+   * `String(spoke)` answered for two inputs and was RIGHT about this one:
+   * `throw "rate limited"` is a sentence the Provider wrote, and quoting it is
+   * what this function is for. CNCORE-307 takes the other input away from it, so
+   * this is the half that must not go with it -- a repair that sent every
+   * non-`Error` to the new sentence would compile, pass every other assertion
+   * here, and quietly stop quoting a Provider that spoke.
+   *
+   * BOUNDED LIKE ANY OTHER STRANGER'S TEXT, because who threw it changes nothing
+   * about ADR-0123's levers: a string is a length a stranger chose.
    */
-  it("reports a thrown `undefined` as the word, which is CNCORE-307 and not silence", () => {
-    expect(reasonFor(undefined)).toStrictEqual({ wrote: "provider", text: "undefined" });
+  it("quotes a thrown string verbatim, and bounds it like any other stranger's text", () => {
+    const said = reasonFor("rate limited, retry in 30s");
+
+    expect(said).toStrictEqual({ wrote: "provider", text: "rate limited, retry in 30s" });
+
+    const { text } = reasonFor("!".repeat(REASON_MAX_LENGTH * 10));
+
+    expect(text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    expect(text.endsWith("…")).toBe(true);
+  });
+
+  /**
+   * A THROWN THING WITH NO WORDS OF ITS OWN IS NOT A PROVIDER SAYING
+   * `undefined` (ADR-0183).
+   *
+   * `String(spoke)` gave CANONCORE'S SPELLING of a value a Provider's voice.
+   * Measured on node 24.19.0: `undefined` read `undefined`, `null` read `null`,
+   * `{}` read `[object Object]` and `42` read `42` -- and `[]` read `""`, which
+   * reached the sentence for a Provider that said nothing. Three of those are
+   * words no Provider wrote, and CNCORE-96 binds this surface to the opposite,
+   * so a page rendering `undefined` in a Provider's voice says the Provider
+   * used that word.
+   *
+   * REACHABLE RATHER THAN HYPOTHETICAL. `throw undefined` is legal and
+   * `Promise.reject()` with no argument rejects with `undefined`; the input is
+   * typed `unknown` because this is a `catch` clause, so nothing upstream
+   * narrows it.
+   *
+   * THE SYMBOL IS IN THE POPULATION FOR THE REPAIR RATHER THAN FOR THE DEFECT.
+   * A fix that named the value instead of refusing to -- `${spoke}` anywhere on
+   * this path -- THROWS on a symbol, which is a `TypeError` raised inside the
+   * function whose whole job is to turn a throw into a sentence. `String()` is
+   * the one spelling that does not, so the hazard arrives with the obvious
+   * improvement and not with what is here.
+   */
+  it("says a thrown thing that is not a message is not one, rather than spelling it", () => {
+    for (const wordless of [undefined, null, {}, 42, [], Symbol("thrown")]) {
+      const { wrote, text } = reasonFor(wordless);
+
+      expect(text).toBe("the provider failed with something that is not a message.");
+      expect(wrote).toBe("provider");
+    }
   });
 });
 
