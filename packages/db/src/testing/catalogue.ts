@@ -286,6 +286,30 @@ export async function aStatement(
  * "Failed query: ..." and says nothing about which rule bit. Asserting on the
  * wrapper would pass for any failure at all, including a typo in the test's own
  * SQL -- so this walks down to the PostgreSQL error underneath.
+ *
+ * AND IT ANSWERS FOR AN INTEGRITY VIOLATION AND NOTHING ELSE (CNCORE-280). It
+ * used to answer with the `message` of whatever error carried a SQLSTATE at all,
+ * which reads as a refusal and is not one: a server that could not RUN the
+ * statement carries a SQLSTATE too. Measured here on 2026-09-21, a statement
+ * cancelled by `statement_timeout` came back from this function as
+ * `canceling statement due to statement timeout` -- in the position where a
+ * caller reads the name of the rule that bit, so the assertion printed
+ * `expected 'canceling statement ...' to be 'items_kind_item_kinds_kind_fk'`
+ * and blamed the schema for a condition of the server.
+ *
+ * THAT IS WHAT MADE THE FLAKE UNREADABLE. One worktree's suites share a server
+ * with every other worktree's (ADR-0104), so a refusal's answer moved with what
+ * the rest of the machine was doing -- and the line it printed named a
+ * constraint, which is the one thing it had not measured. Running the suite
+ * alone cannot disagree, because alone is the condition in which the server
+ * always serves.
+ *
+ * CLASS 23 IS THE WHOLE POPULATION HERE, and is measured rather than assumed:
+ * all 43 calls to this were instrumented on 2026-09-21 and every one answered
+ * 23503, 23505 or 23514, because every `RAISE EXCEPTION` in `migrations/`
+ * carries `USING ERRCODE = 'check_violation'`. A trigger raised WITHOUT one
+ * would be P0001 and would land in the throw below -- loudly, at the change
+ * that added it, rather than as a wrong constraint name months later.
  */
 export async function refusal(write: Promise<unknown>): Promise<string> {
   try {
@@ -298,16 +322,41 @@ export async function refusal(write: Promise<unknown>): Promise<string> {
 
 function describeRefusal(error: unknown): string {
   let current: unknown = error;
+  let reported: { code: string; message: string } | undefined;
   while (current instanceof Error) {
-    const constraint = (current as { constraint?: unknown }).constraint;
-    if (typeof constraint === "string") return constraint;
-    // A trigger's RAISE EXCEPTION carries no constraint name, only a message.
     const code = (current as { code?: unknown }).code;
-    if (typeof code === "string" && code !== "") return current.message;
+    if (typeof code === "string" && code !== "") {
+      if (code.startsWith(INTEGRITY_VIOLATION)) {
+        const constraint = (current as { constraint?: unknown }).constraint;
+        // A trigger's RAISE EXCEPTION carries no constraint name, only a message.
+        return typeof constraint === "string" ? constraint : current.message;
+      }
+      reported ??= { code, message: current.message };
+    }
     current = current.cause;
   }
-  throw new Error(`not a PostgreSQL refusal: ${String(error)}`);
+  throw new Error(
+    reported === undefined
+      ? `not a PostgreSQL refusal: ${String(error)}`
+      : `the database did not refuse this write, it failed to serve it: ` +
+          `SQLSTATE ${reported.code}, ${reported.message}. That is a condition of the ` +
+          `server rather than a rule of the schema, so it says nothing about the ` +
+          `constraint this test names.`,
+    { cause: error },
+  );
 }
+
+/**
+ * THE SQLSTATE CLASS THAT MEANS THE DATABASE REFUSED A WRITE: 23, integrity
+ * constraint violation -- `23503` foreign key, `23505` unique, `23514` check,
+ * and the rest of the family.
+ *
+ * A CLASS RATHER THAN A LIST OF CODES, because the rules here already refuse
+ * through three of its members and the next one is a new kind of RULE rather
+ * than a new kind of answer. Every other class PostgreSQL has is the server
+ * saying something about itself.
+ */
+const INTEGRITY_VIOLATION = "23";
 
 /**
  * A CATALOGUE LARGER THAN ONE PAGE, answering with every id it wrote.

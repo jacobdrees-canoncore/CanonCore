@@ -49,6 +49,19 @@ import {
  * EVERY TEST NAMES THE CONSTRAINT IT EXPECTS, because `refusal` answers with the
  * name PostgreSQL gave. A write that trips a neighbouring rule then fails here
  * rather than passing as though it had proved the rule in its title.
+ *
+ * RUNNING THIS FILE ALONE PROVES NOTHING ABOUT A FLAKE IN IT (CNCORE-280). One
+ * of these failed once under a concurrent `pnpm test` and passed three times
+ * after it -- alone, as a whole suite, and in a second full run. That is not
+ * evidence the rule holds: every worktree's suites share one server (ADR-0104),
+ * so what a write here MEETS is settled by the machine rather than by this file,
+ * and alone is the condition in which the server always serves. Reach for
+ * `refusal`'s own record of it rather than re-deriving this.
+ *
+ * WHICH IS WHY NOTHING BELOW CAN REPORT A SERVER'S CONDITION AS A RULE. `refusal`
+ * answers only for SQLSTATE class 23 and throws for everything else, so a repeat
+ * of that flake names the SQLSTATE that caused it instead of a constraint that
+ * did not. `testing/refusal.test.ts` is where that distinction is asserted.
  */
 let db: Database;
 let ownerId: string;
