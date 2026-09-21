@@ -73,6 +73,11 @@ export type FailureReason = z.infer<typeof failureReason>;
  * bounded at all, and exempting one branch would mean the bound held only while
  * every caller agreed about which branch it was on.
  */
+// TODO(CNCORE-305): `bounded(message) || SILENT` fires on the empty string, so
+// a provider whose message was only stripped characters is reported as one that
+// said nothing. ADR-0179 settled that a value nobody can show is not a value
+// nobody sent, and `quotedTo`'s `strippedToNothing` makes the distinction.
+// `cmpp.ts`'s two `boundedProse` fallbacks have the same shape.
 export function reasonFor(thrown: unknown): FailureReason {
   const spoke = unwrapped(thrown);
   const message = spoke instanceof Error ? spoke.message : String(spoke);

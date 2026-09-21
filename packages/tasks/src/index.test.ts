@@ -194,6 +194,60 @@ describe("what a break wrote", () => {
     const [latest] = await registry.history(db, key);
     expect(latest?.detail).toBe("beforeafter");
   });
+
+  /**
+   * THE STRIP TAKING THE WHOLE DETAIL (ADR-0179). The witnesses above prove the
+   * controls come out of a detail with glyphs either side of them. A detail
+   * made of NOTHING BUT them bounds to the empty string, and `tasks/page.tsx`
+   * renders it as `{said} Ran {when}.` -- a run whose history opens with a bare
+   * space and says nothing about what happened.
+   *
+   * `?? "It said nothing."` DOES NOT CATCH IT, which is the reason this needs
+   * words rather than a null. That fallback tests for NULL, and this detail is
+   * a non-null empty string; it would also be the wrong sentence, because a
+   * task that threw a message of zero-width spaces did not say nothing, it
+   * said something nobody can show. CNCORE-92's rule is that the two do not
+   * merge.
+   *
+   * A WHOLE SENTENCE, NOT A QUOTED NOUN, which is what separates this caller
+   * from the four that reach `quotedTo`. A detail IS the sentence the page
+   * prints, so it takes a capital and a full stop -- `unshowable` exists for
+   * exactly this, and the PHRASE is still the shared one.
+   */
+  /**
+   * A TASK THAT SAID NOTHING SAID NOTHING (ADR-0179). `task.run` answers a
+   * string and "" is one a working task may return, so answering it with "A
+   * detail made only of characters that cannot be shown." would state that
+   * something was stripped when nothing was -- the conflation this record
+   * refuses, committed by its own remedy. `tasks/page.tsx`'s "It said nothing."
+   * is the sentence for this, and it is reached by the column staying empty.
+   */
+  it("leaves a task that said nothing saying nothing, rather than claiming a strip", async () => {
+    const key = "said_nothing_at_all";
+    const registry = createRegistry([aTask({ key, run: async () => "" })]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("");
+  });
+
+  it("says a detail was made only of unshowable characters, rather than storing nothing", async () => {
+    const key = "rewriting_only_controls";
+    const registry = createRegistry([
+      aTask({
+        key,
+        run: async () => {
+          throw new Error("\u200b\u200b\u200b");
+        },
+      }),
+    ]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("A detail made only of characters that cannot be shown.");
+  });
 });
 
 /** A task that reports when it has started and then waits to be stopped. */

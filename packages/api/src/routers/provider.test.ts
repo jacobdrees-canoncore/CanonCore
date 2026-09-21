@@ -2316,6 +2316,37 @@ describe("provider.beginImportRun", () => {
   });
 
   /**
+   * THE SAME STRIP, TAKING EVERY CHARACTER THERE WAS (ADR-0179). The test above
+   * proves the controls come out of an id with glyphs either side of them. An
+   * id made of NOTHING BUT them bounds to the empty string, and this sentence
+   * then opens with nothing -- " is 256 characters, at position 1, and a
+   * Container id is at most 255", which names no id for the Owner to find.
+   *
+   * IT REACHES THIS SENTENCE RATHER THAN THE REPEAT'S, and that is why the
+   * words cannot live at one site. 256 zero-width spaces are refused HERE for
+   * their length, before `beginImportRun` ever sees the list (ADR-0160), so the
+   * fix landing only in `@canoncore/db` would leave this half standing.
+   *
+   * THE WHOLE SENTENCE IS ASSERTED, as the two beside it are: what the fallback
+   * protects is the SUBJECT of the clause, and a test checking only that the
+   * message was non-empty would pass on a refusal that had lost it.
+   */
+  it("says the id was made only of characters that cannot be shown, rather than quoting nothing", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const unshowable = "\u200b".repeat(256);
+
+    const { error } = await safe(
+      call(appRouter.provider.beginImportRun, { baseUrl, containerIds: [unshowable] }, { context }),
+    );
+
+    expect(unshowable).toHaveLength(256);
+    expect(error?.message).toBe(
+      "an id made only of characters that cannot be shown is 256 characters, " +
+        "at position 1, and a Container id is at most 255",
+    );
+  });
+
+  /**
    * THE BOUND ITSELF, AND THE SIDE OF IT A LEGAL ID SITS ON. 255 is the longest
    * a Container id may be, not the first length refused, and a bound asserted
    * only from above passes just as well when it is written one character tight
@@ -2456,6 +2487,40 @@ describe("provider.importNextContainer", () => {
     const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
 
     expect(stepped).toMatchObject({ answer: "refused", reason: { wrote: "canoncore" } });
+  });
+
+  /**
+   * AND THAT SENTENCE NAMES THE ID, OR SAYS WHY IT CANNOT (ADR-0179). This is
+   * the THIRD refusal quoting a Container id, and the one a grep for
+   * `boundedTo` does not find: it reaches the levers through `bounded`, the
+   * wrapper `@canoncore/providers` publishes, so the sweep that fixed the other
+   * two walked straight past it.
+   *
+   * IT IS REACHABLE ON THE OWNER'S OWN LIST. `containerId` is bounded by
+   * `z.string().min(1)`, which three zero-width spaces satisfy, and the id
+   * travels from `beginImportRun`'s list -- where 3 characters clears ADR-0160's
+   * 255 ceiling -- to this sentence. The Provider holds nothing at it, which is
+   * ADR-0066's ANSWER rather than a failure, and unpatched the Owner reads
+   * "That Provider holds no Container at ." with a bare full stop where their
+   * id should be.
+   */
+  it("names an unshowable id in the sentence saying nothing is held at it", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["\u200b\u200b\u200b"] },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({
+      answer: "refused",
+      reason: {
+        wrote: "canoncore",
+        text: "That Provider holds no Container at an id made only of characters that cannot be shown.",
+      },
+    });
   });
 
   /**

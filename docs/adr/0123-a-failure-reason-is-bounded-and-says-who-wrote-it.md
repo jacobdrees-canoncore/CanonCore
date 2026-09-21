@@ -252,9 +252,12 @@ cutting the same way, for what a task THREW. Publishing this one did not absorb 
 **That cost was real and refusing it was right. What this paragraph missed is that the levers did
 not have to live in `@canoncore/providers` at all.** ADR-0163 moves them to `@canoncore/text`, a
 package depending on nothing, which costs a caller the lines themselves and none of the stack
-refused above. `registry.ts` calls `boundedTo` now, and so does `packages/db/src/import-runs.ts`,
-which is the site this record's hand-copy rule left unbounded on BOTH levers until CNCORE-282. The
-number is still the shared thing this record shares, and each caller still names its own.
+refused above. `registry.ts` and `packages/db/src/import-runs.ts` both reach the levers from there
+now -- the second being the site this record's hand-copy rule left unbounded on BOTH levers until
+CNCORE-282 -- though since [[0179-a-bound-that-empties-a-value-says-so]] they reach them through
+`quotedTo`, which adds the words for a value the strip empties. The number is still the shared thing
+this record shares, and each caller still names its own, except the Container id's: that one folded
+into `theContainerIdQuoted` with the words.
 
 **AND THE COST OF THAT SEPARATION WAS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-272).**
 Keeping the copy out of reach meant every property the cut has had to be applied there BY HAND, and
@@ -1178,7 +1181,9 @@ rule" was true of the cut and an overclaim about the strip. `registry.ts` then c
 `CONTROLS` beside its own marker, stripping before it collapses and collapsing before it cuts, in
 the order `reason.ts` uses. **"Both levers, written twice, kept in step by hand" was the price this
 record named, and naming it twice in two tickets is what showed it was not being paid.** Both levers
-are written ONCE now, in `@canoncore/text`, and every caller reaches them through `boundedTo`. The
+are written ONCE now, in `@canoncore/text`. Every caller reaches them through `boundedTo` or through
+`quotedTo`, which wraps it with the words for a value the levers empty
+([[0179-a-bound-that-empties-a-value-says-so]]). The
 ORDER above survives the move and is load-bearing: a cut applied first can leave a bidirectional
 override as the last character it kept, re-ordering the marker and everything written after it.
 

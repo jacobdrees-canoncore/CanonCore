@@ -1,5 +1,5 @@
 import type { WhyNotNamed } from "@canoncore/providers";
-import { boundedTo } from "@canoncore/text";
+import { quotedTo, unshowable } from "@canoncore/text";
 
 import { oneValue } from "@/components/query-params";
 
@@ -125,8 +125,33 @@ const ENTRY_MAX = 80;
  * it. The docblock claimed this file "holds both rules, one per parameter"
  * while it held one and a half. `boundedTo` applies the strip and the cut
  * together, which is why ADR-0163 publishes the pair rather than the cut.
+ *
+ * AND THE WORDS FOR AN ENTRY THAT STRIP EMPTIES (ADR-0179). An entry made of
+ * nothing but stripped characters bounds to "", and `WhichEntry` then renders
+ * an empty subject into "<nothing> was not named, because ...". It is
+ * reachable here for the same reason the levers are: the address is forgeable,
+ * and `trim()` does not remove U+200B, so `oneValue` does not read it as
+ * blank.
+ *
+ * ABSENT AND UNSHOWABLE STAY TWO ANSWERS. `undefined` still travels as
+ * `undefined`, because `WhichEntry` says "That entry" for a refusal that named
+ * nothing -- a different fact from an entry nobody can print, and CNCORE-92's
+ * rule is that the two do not merge into one sentence.
  */
 export function theEntryRefused(parameter: string | string[] | undefined): string | undefined {
   const entry = oneValue(parameter);
-  return entry === undefined ? undefined : boundedTo(entry, ENTRY_MAX);
+  return entry === undefined ? undefined : quotedTo(entry, ENTRY_MAX, "an entry");
 }
+
+/**
+ * WHAT `theEntryRefused` ANSWERS WHEN THE ENTRY CANNOT BE SHOWN, published so
+ * the page can tell CanonCore's words from the Owner's (ADR-0179).
+ *
+ * `WhichEntry` renders a real entry inside `TheirWords` and `font-medium`,
+ * which is how that page marks a value as QUOTED. The sentence above is not a
+ * quote, it is this app describing the entry, so it must render plainly --
+ * ADR-0123's `wrote` distinction, which a page loses at the last inch if it
+ * cannot tell the two apart. Compared against rather than re-spelled, so the
+ * phrase still lives in exactly one place.
+ */
+export const UNSHOWABLE_ENTRY = unshowable("an entry");

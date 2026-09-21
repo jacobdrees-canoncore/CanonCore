@@ -125,6 +125,35 @@ describe("beginImportRun", () => {
     expect((refusal as Error).message).toBe("249643 is listed twice, at positions 1 and 3");
   });
   /**
+   * THE STRIP TAKING THE WHOLE VALUE, WHICH IS THE CASE A BOUND DOES NOT COVER.
+   * The test above proves the controls come out of an id that has glyphs either
+   * side of them. An id that is NOTHING BUT those characters bounds to the empty
+   * string, and this sentence then opens with nothing -- " is listed twice, at
+   * positions 1 and 3", a refusal naming no id at all.
+   *
+   * IT IS REACHABLE RATHER THAN EXOTIC. `theContainerIdsIn` drops blank lines
+   * and `#` comments, and `trim()` does not remove U+200B, so a line of three
+   * zero-width spaces is a non-blank line that becomes a Container id and
+   * passes ADR-0160's 255-character ceiling at the router.
+   *
+   * NOT THE DANGEROUS CASE, THE UNACTIONABLE ONE. Nothing is re-ordered,
+   * because the controls are gone; what is lost is the subject of the sentence,
+   * which is what ADR-0123 says a refusal must never lose.
+   */
+  it("says the id was made only of characters that cannot be shown, rather than quoting nothing", async () => {
+    const listingAnUnshowableIdTwice = ["​​​", "105893", "​​​"];
+
+    const refusal = await beginImportRun(db, {
+      providerIdentity: aProvider(),
+      containerIds: listingAnUnshowableIdTwice,
+    }).catch((cause: unknown) => cause);
+
+    expect(refusal).toBeInstanceOf(ImportRunRefused);
+    expect((refusal as Error).message).toBe(
+      "an id made only of characters that cannot be shown is listed twice, at positions 1 and 3",
+    );
+  });
+  /**
    * THE OTHER LEVER, AND IT IS REACHABLE RATHER THAN THEORETICAL. ADR-0160
    * bounds a Container id at 255 characters at the router, so an id of 120 is
    * one the Owner's own list can carry all the way to this sentence -- where

@@ -81,7 +81,16 @@ the same function.
 fact about a reason and about a task's detail, and each stays beside the sentences it bounds. That
 is ADR-0123's split kept exactly as it was: a caller names its own number and reaches for the shared
 pair. `REASON_MAX_LENGTH`, `ID_IN_A_SENTENCE` in two files and `BOUNDED_DETAIL` all stay where they
-were.
+were — **except `ID_IN_A_SENTENCE`, whose two copies
+[[0179-a-bound-that-empties-a-value-says-so]] folded into one function on 2026-09-21.
+That record needed a THIRD thing shared between the same two sites, the words for a value this
+strip empties, and two copies of three things is the shape this record spent its evidence on. The
+argument against it here was that a caller names its own number; what that missed is that these two
+callers are not two callers, they are ADR-0160's ONE complaint a constraint apart, and the docblock
+in each file said so by telling the next reader the number was "TAKEN RATHER THAN CHOSEN AGAIN" — a
+copy kept in step by a comment asking for it to be kept in step, which is the instrument this record
+proved does not work. `REASON_MAX_LENGTH` and `BOUNDED_DETAIL` are untouched and `@canoncore/text`
+still holds no ceiling, so the rule above holds everywhere it was actually load-bearing.**
 
 **`shortenTo` stays published beside `boundedTo` rather than hidden behind it**, for one caller.
 `shortly` in `packages/providers/src/boundary.ts` quotes a URL, a host or an address that has

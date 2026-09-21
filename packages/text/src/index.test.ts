@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundedTo, shortenTo } from "./index";
+import { boundedTo, quotedTo, shortenTo } from "./index";
 
 /**
  * ADR-0163. The levers live here so every package that puts a stranger's text
@@ -57,5 +57,79 @@ describe("shortenTo", () => {
 
     expect(shortened.isWellFormed()).toBe(true);
     expect(shortened.length).toBeLessThanOrEqual(80);
+  });
+});
+
+/**
+ * ADR-0179. A bound that empties a value is not a bound: the sentence built
+ * around it loses its subject, and the reader is told nothing about which of
+ * their lines is at fault. The words live here so ONE concept ships in ONE
+ * voice across five callers -- a second agent choosing its own phrasing is the
+ * two-readings defect, not a style question.
+ */
+describe("quotedTo", () => {
+  /**
+   * THE CASE THE LEVERS CREATE. `boundedTo` strips the controls, collapses
+   * whitespace and trims, so a value made of NOTHING ELSE bounds to the empty
+   * string -- which is reachable rather than exotic, because `trim()` does not
+   * remove U+200B and nothing upstream does either.
+   */
+  it("says what could not be shown when the strip took every character there was", () => {
+    expect(quotedTo("​​​", 80, "an id")).toBe("an id made only of characters that cannot be shown");
+  });
+
+  /**
+   * "MADE ONLY OF" IS LOAD-BEARING. A value that is PARTLY unshowable is
+   * quoted, by the strip alone, so this phrase is reached only when the WHOLE
+   * value went. Shortening it to "an id of characters that cannot be shown"
+   * would name a class holding both and misdirect the reader about which line
+   * is theirs. This witness is what makes that shortening go red.
+   */
+  it("quotes a value the strip only partly took, rather than reaching for the words", () => {
+    expect(quotedTo("249‮643", 80, "an id")).toBe("249643");
+  });
+
+  /**
+   * NOTHING THERE IS NOT SOMETHING UNSHOWABLE, and conflating them is the
+   * defect this whole record exists to refuse, committed by its own remedy.
+   * `/search` passes "" deliberately -- "the empty string is this page's answer
+   * to 'nothing asked'" -- and a task may legitimately return one. Answering
+   * either with "made only of characters that cannot be shown" states that
+   * something was stripped when nothing was.
+   *
+   * THE CALLER'S OWN ABSENT-HANDLING IS LEFT TO IT, which is the same split as
+   * `theEntryRefused` keeping `undefined` for an absent parameter so
+   * `WhichEntry` can say "That entry".
+   */
+  it("leaves an already-empty value empty rather than claiming it was stripped", () => {
+    expect(quotedTo("", 80, "a query")).toBe("");
+  });
+
+  /**
+   * ORDINARY WHITESPACE IS SHOWABLE, so a value of spaces said nothing rather
+   * than said something nobody can show. The strip is not why it is empty and
+   * the words would be a second false sentence.
+   */
+  it("leaves a value of ordinary whitespace empty, because spaces are not unshowable", () => {
+    expect(quotedTo("   ", 80, "a detail")).toBe("");
+  });
+
+  /**
+   * U+FEFF IS THE ONE THAT PROVES THE TEST IS THE STRIP AND NOT `trim()`. It is
+   * whitespace to `String.prototype.trim` AND a member of the zero-width
+   * family, so a guard written as `text.trim() === ""` would answer "nothing
+   * there" for a value that is exactly what these words exist to name.
+   */
+  it("names a value of U+FEFF, which trim() would wrongly call absent", () => {
+    expect(quotedTo("\ufeff", 80, "an id")).toBe(
+      "an id made only of characters that cannot be shown",
+    );
+  });
+
+  /** The caller names the noun, because only it knows what the value IS. */
+  it("names whatever the caller called it", () => {
+    expect(quotedTo("﻿", 80, "a query")).toBe(
+      "a query made only of characters that cannot be shown",
+    );
   });
 });

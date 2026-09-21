@@ -137,3 +137,93 @@ export function shortenTo(text: string, max: number): string {
 export function boundedTo(text: string, max: number): string {
   return shortenTo(oneLine(text), max);
 }
+
+/**
+ * THE WORDS FOR A VALUE THIS FILE'S OWN LEVERS EMPTIED (ADR-0179).
+ *
+ * `boundedTo` strips the controls, collapses whitespace and trims, so a value
+ * made of nothing else comes back as the EMPTY STRING. A sentence interpolating
+ * that opens with nothing -- " is listed twice, at positions 1 and 3" -- and a
+ * bound that empties a value is not a bound, it is a second defect wearing the
+ * first one's fix. It is the UNACTIONABLE case rather than the dangerous one:
+ * nothing is re-ordered, because the controls are gone; what is lost is the
+ * subject.
+ *
+ * "MADE ONLY OF" IS LOAD-BEARING AND MUST NOT BE SHORTENED. A value that is
+ * PARTLY unshowable -- `249‮643` -- is QUOTED, as `249643`, by the strip
+ * alone. These words are reached ONLY when the whole value went, so "an id of
+ * characters that cannot be shown" would name a class holding both and tell the
+ * reader the wrong thing about which of their lines is at fault. Ten characters
+ * against ceilings whose longest sentence measures 120 is the cheap side of the
+ * trade. A witness in `index.test.ts` goes red if it is shortened back.
+ *
+ * ONE PHRASE FOR EVERY CALLER, WHICH IS WHY IT IS HERE RATHER THAN AT EACH.
+ * Six sites owe these words and they sit in four packages; each composing its
+ * own `boundedTo(...) || "..."` would ship ONE concept in six voices, which is
+ * the two-readings defect rather than a matter of taste. The NOUN is the
+ * caller's because only it knows what the value is, and the FRAME is the
+ * caller's too -- `boundedProse`'s argument that no house sentence fits every
+ * field, kept.
+ */
+const UNSHOWABLE = "made only of characters that cannot be shown";
+
+/**
+ * The words naming a value that could not be shown at all, for a caller placing
+ * them in a sentence of its own (ADR-0179).
+ *
+ * PUBLISHED BESIDE `quotedTo` FOR ONE CALLER, on the same argument that
+ * publishes `shortenTo` beside `boundedTo`. `@canoncore/tasks` bounds a
+ * `detail` that IS the sentence a reader reads rather than a noun quoted inside
+ * one, so it needs these words with a capital and a full stop. A caller
+ * quoting a value INSIDE its own sentence wants `quotedTo`, which applies the
+ * levers and the fallback in one call.
+ */
+export function unshowable(thing: string): string {
+  return `${thing} ${UNSHOWABLE}`;
+}
+
+/**
+ * A stranger's value AS A SENTENCE QUOTES IT: on both of ADR-0123's levers at a
+ * ceiling the caller names, or the words saying why there was nothing left to
+ * quote (ADR-0179).
+ *
+ * ONE CALL BECAUSE THEY ARE ONE MECHANISM, which is the argument `boundedTo`
+ * already makes about its two levers, at the lever this one adds. A caller
+ * reaching for `boundedTo` alone takes a bound that can empty its own sentence
+ * and looks finished -- the same shape ADR-0163 watched drift twice.
+ *
+ * `reasonFor` IN `@canoncore/providers` IS THE PRECEDENT: `bounded(message) ||
+ * SILENT`, where SILENT reports the silence rather than dressing it up.
+ * CNCORE-92's rule is that a refusal reworded is not a refusal reported, and a
+ * value nobody can show is not a value nobody sent.
+ */
+export function quotedTo(text: string, max: number, thing: string): string {
+  const quoted = boundedTo(text, max);
+  if (quoted !== "") return quoted;
+  return strippedToNothing(text) ? unshowable(thing) : "";
+}
+
+/**
+ * Whether the STRIP is why this value has nothing left to show.
+ *
+ * NOTHING THERE IS NOT SOMETHING UNSHOWABLE, and answering the first with the
+ * second is the defect this file's own words would otherwise commit.
+ * `/search` passes "" deliberately -- "the empty string is this page's answer
+ * to 'nothing asked'" -- and a task may return one from a run that worked. Both
+ * would read as "made only of characters that cannot be shown", stating that
+ * something was stripped when nothing was.
+ *
+ * `trim()` IS THE WRONG TEST AND U+FEFF IS WHY. It is whitespace to
+ * `String.prototype.trim` AND a member of the zero-width family, so a guard
+ * spelled `text.trim() === ""` would answer "nothing there" for exactly the
+ * value these words exist to name. This asks whether `CONTROLS` removed
+ * anything, which is the question actually being asked.
+ *
+ * ORDINARY WHITESPACE IS SHOWABLE, so a value of spaces answers `false` and
+ * falls to its caller's own handling of an absent value -- the split
+ * `theEntryRefused` keeps by returning `undefined` so `WhichEntry` can say
+ * "That entry".
+ */
+function strippedToNothing(text: string): boolean {
+  return text.replace(CONTROLS, "") !== text;
+}
