@@ -1733,22 +1733,6 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
 }
 
 /**
- * PUTTING AN ITEM IN THIS CONTAINER, and offering back the one just taken out.
- *
- * ON THE CONTAINER'S PAGE, because a Container IS an Item (ADR-0004) and its
- * page is the Item page -- so the place a reader meets an ordering is the place
- * its owner curates it. ADR-0061 is why it belongs here rather than on the
- * item's end: every container owns its membership outright, so this list is
- * this container's to change and nothing else's.
- *
- * THE ITEMS COME FROM THE CATALOGUE LISTING THAT ALREADY EXISTS, capped by
- * ADR-0119 like every other listing -- rather than a new read that would be a
- * second answer to "what is in this catalogue". The cap is named to the owner
- * rather than left silent, which is that record's rule: a picker that quietly
- * showed the first hundred of a thousand would be the listing lying about its
- * own extent.
- */
-/**
  * WHAT EACH REFUSAL SAYS TO A READER, in the reader's words rather than the
  * catalogue's. ADR-0009 licences a Repeat at DIFFERENT positions, so the first
  * of these is about the POSITION rather than about placing the item twice --
@@ -1771,6 +1755,22 @@ const WHAT_WAS_REFUSED: Record<PlacementRefusalCause, string> = {
     "Nothing was placed. That move named a placement this container does not hold.",
 };
 
+/**
+ * PUTTING AN ITEM IN THIS CONTAINER, and offering back the one just taken out.
+ *
+ * ON THE CONTAINER'S PAGE, because a Container IS an Item (ADR-0004) and its
+ * page is the Item page -- so the place a reader meets an ordering is the place
+ * its owner curates it. ADR-0061 is why it belongs here rather than on the
+ * item's end: every container owns its membership outright, so this list is
+ * this container's to change and nothing else's.
+ *
+ * THE ITEMS COME FROM THE CATALOGUE LISTING THAT ALREADY EXISTS, capped by
+ * ADR-0119 like every other listing -- rather than a new read that would be a
+ * second answer to "what is in this catalogue". The cap is named to the owner
+ * rather than left silent, which is that record's rule: a picker that quietly
+ * showed the first hundred of a thousand would be the listing lying about its
+ * own extent.
+ */
 async function PlaceAnItem({
   containerId,
   undone,

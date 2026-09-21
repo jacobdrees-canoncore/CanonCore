@@ -214,6 +214,23 @@ describe("what a break wrote", () => {
    * prints, so it takes a capital and a full stop -- `unshowable` exists for
    * exactly this, and the PHRASE is still the shared one.
    */
+  it("says a detail was made only of unshowable characters, rather than storing nothing", async () => {
+    const key = "rewriting_only_controls";
+    const registry = createRegistry([
+      aTask({
+        key,
+        run: async () => {
+          throw new Error("\u200b\u200b\u200b");
+        },
+      }),
+    ]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("A detail made only of characters that cannot be shown.");
+  });
+
   /**
    * A TASK THAT SAID NOTHING SAID NOTHING (ADR-0179). `task.run` answers a
    * string and "" is one a working task may return, so answering it with "A
@@ -230,23 +247,6 @@ describe("what a break wrote", () => {
 
     const [latest] = await registry.history(db, key);
     expect(latest?.detail).toBe("");
-  });
-
-  it("says a detail was made only of unshowable characters, rather than storing nothing", async () => {
-    const key = "rewriting_only_controls";
-    const registry = createRegistry([
-      aTask({
-        key,
-        run: async () => {
-          throw new Error("\u200b\u200b\u200b");
-        },
-      }),
-    ]);
-
-    await registry.run(db, key);
-
-    const [latest] = await registry.history(db, key);
-    expect(latest?.detail).toBe("A detail made only of characters that cannot be shown.");
   });
 
   /**

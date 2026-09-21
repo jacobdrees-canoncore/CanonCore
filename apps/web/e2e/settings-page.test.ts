@@ -544,7 +544,6 @@ function removeFormFor(text: string, provider: string): RenderedForm {
   return form;
 }
 
-/** One rendered Provider row, by the Provider it is about. */
 /** Every CIDR a refusal quotes back, as the Owner would copy them. */
 function cidrsIn(text: string): string[] {
   return [...text.matchAll(/`([^`]+)`/g)]
@@ -552,6 +551,7 @@ function cidrsIn(text: string): string[] {
     .filter((entry) => /\/\d+$/.test(entry));
 }
 
+/** One rendered Provider row, by the Provider it is about. */
 function rowFor(text: string, provider: string): string {
   const row = sectionIn(text, "providers")
     .split(/<li\b/)

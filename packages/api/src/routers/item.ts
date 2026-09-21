@@ -302,21 +302,9 @@ export const item = {
       z.object({
         id: z.string(),
         /*
-         * THE MEMBERS LISTING'S CURSOR (ADR-0119, CNCORE-89), and the one input
-         * on this procedure that is not about which item is being asked for.
-         *
-         * IT SITS ON `item.get` RATHER THAN ON A LISTING PROCEDURE OF ITS OWN,
-         * because a Container IS an Item (ADR-0004) and its page is the Item
-         * page: a `container.members` would be one thing at two addresses, which
-         * is the case ADR-0066's canonical link relation exists to collapse.
-         * The three listings that ARE their surface have the whole query for a
-         * cursor; this one and "Also appears in" both ride beside the item they
-         * are a listing OF.
-         */
-        /*
          * WHICH ORIGIN "ALSO APPEARS IN" IS NARROWED TO (ADR-0066, CNCORE-129),
-         * and it sits ahead of the two cursors because that is the order the
-         * address is spelled in -- `via`, `placed`, `after`, `placedAfter`.
+         * and it sits ahead of the cursors because that is the order the
+         * address is spelled in: `via` and `placed` come before every cursor.
          *
          * IT IS THE QUESTION RATHER THAN A FILTER OVER THE ANSWER, which is the
          * whole of this ticket. `?placed=` reached the surface and ran over the
@@ -332,6 +320,18 @@ export const item = {
          * not declare, so a stale link would read as a broken server.
          */
         placed: z.string().optional(),
+        /*
+         * THE MEMBERS LISTING'S CURSOR (ADR-0119, CNCORE-89), which says where in
+         * the listing to start rather than which item is being asked for.
+         *
+         * IT SITS ON `item.get` RATHER THAN ON A LISTING PROCEDURE OF ITS OWN,
+         * because a Container IS an Item (ADR-0004) and its page is the Item
+         * page: a `container.members` would be one thing at two addresses, which
+         * is the case ADR-0066's canonical link relation exists to collapse.
+         * The three listings that ARE their surface have the whole query for a
+         * cursor; this one and "Also appears in" both ride beside the item they
+         * are a listing OF.
+         */
         after: aCursor,
         /*
          * THE MEMBERS LISTING'S STEP BACK (CNCORE-174): the first member of the
@@ -339,9 +339,9 @@ export const item = {
          */
         before: aCursor,
         /*
-         * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and the second
-         * one on this procedure because there are two independent listings on
-         * one item page: `after` walks what a container HOLDS, and this walks
+         * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and a cursor of
+         * its own because there are two independent listings on one item
+         * page: `after` walks what a container HOLDS, and this walks
          * every ordering the item SITS IN.
          *
          * NAMED FOR THE LISTING RATHER THAN BEING A SECOND `after`, because one

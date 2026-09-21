@@ -545,11 +545,6 @@ describe("property definitions", () => {
   });
 
   /**
-   * AN EMPTY LIST OF ADMITTED SOURCES IS A PROPERTY NOTHING MAY ASSERT, which
-   * is a typo rather than a decision: a field no source can write is a field
-   * with no way in. A property open to everything says so by declaring nothing.
-   */
-  /**
    * THE ARM THE MIGRATION SINGLES OUT AS ITS OWN REASON, and it was asserted
    * nowhere until review said so. `jsonb` takes the STRING `"false"` as happily
    * as the boolean, and a string reads as truthy wherever it is cast -- so a
@@ -569,6 +564,11 @@ describe("property definitions", () => {
     ).toMatch(/properties_capabilities_are_an_object/);
   });
 
+  /**
+   * AN EMPTY LIST OF ADMITTED SOURCES IS A PROPERTY NOTHING MAY ASSERT, which
+   * is a typo rather than a decision: a field no source can write is a field
+   * with no way in. A property open to everything says so by declaring nothing.
+   */
   it("refuses an empty list of admitted sources", async () => {
     const note = await propertyNamed(db, "note");
 
@@ -739,10 +739,24 @@ describe("the Owner note", () => {
 
   /**
    * THE OTHER HALF, and it is what makes the rule a declaration rather than a
-   * lock on the table. Twelve of the thirteen properties declare no
-   * `assertableBy` and are open to every source -- so a trigger that refused a
-   * provider's claim outright would break the import that exists today.
+   * lock on the table. `title` declares no `assertableBy`, so it is open to every
+   * source, and the import writes one for every record it takes -- so a trigger
+   * that refused a provider's claim outright would break the import that exists
+   * today.
    */
+  it("leaves a property that declares nothing open to a provider", async () => {
+    const story = await anItem(db);
+
+    const title = await aStatement(db, {
+      subjectItemId: story,
+      property: "title",
+      valueLiteral: "What the provider calls it",
+      sourceId: await aProvider(db, "provider-that-may-still-title"),
+    });
+
+    expect(title).toBeTruthy();
+  });
+
   /**
    * THE OTHER HALF OF `UPDATE OF "source_id", "property_id"`, and without it the
    * test below would pass just as well against a trigger that had stopped
@@ -815,19 +829,6 @@ describe("the Owner note", () => {
     }
 
     expect((await readItem(db, story))?.deletedAt).not.toBeNull();
-  });
-
-  it("leaves a property that declares nothing open to a provider", async () => {
-    const story = await anItem(db);
-
-    const title = await aStatement(db, {
-      subjectItemId: story,
-      property: "title",
-      valueLiteral: "What the provider calls it",
-      sourceId: await aProvider(db, "provider-that-may-still-title"),
-    });
-
-    expect(title).toBeTruthy();
   });
 });
 

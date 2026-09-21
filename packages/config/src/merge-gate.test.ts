@@ -50,7 +50,7 @@ const realGit =
 /**
  * The fields of a pull request this gate reads, and no others -- a spread of a
  * `Record<string, unknown>` loses every known key, which is what put
- * `headRefOid` out of reach of the default above.
+ * `headRefOid` out of reach of the default `inAWorldOf` spreads it over.
  */
 type PullRequestFields = {
   readonly headRefOid?: string;

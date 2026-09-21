@@ -191,20 +191,6 @@ export async function annotateItem(form: FormData): Promise<void> {
 }
 
 /**
- * What the place form carries: which container, which item, and where.
- *
- * `position` IS A STRING THAT MAY BE EMPTY, and that is the form expressing an
- * absence rather than failing to parse one. A member with no position is still a
- * member (migration 2, CONTEXT.md's Unplaced), and an empty number field submits
- * `""` -- so the empty string is how an owner says "in here, I am not saying
- * where", and the procedure is handed `null` for it.
- *
- * ANYTHING ELSE UNPARSEABLE IS ALSO `null` RATHER THAN A THROW, for the reason
- * `newItem` above gives about its radio group: this is `FormData` from anywhere,
- * and `z.coerce.number()` on a non-numeric string yields `NaN`, which is not a
- * position either.
- */
-/**
  * A POSITION, AS A FIELD: a number, or an absence.
  *
  * SHARED BY PLACING AND BY REORDERING, because it is one field with one
@@ -326,6 +312,8 @@ function theContainerAt(containerId: string, query: LinkQuery): MembersPath {
 }
 
 /**
+ * What the place form carries: which container, which item, and where.
+ *
  * AND THE OFFER STANDING OVER IT, WHICH ONLY THIS FORM CARRIES (CNCORE-290).
  *
  * `undo` IS NOT IN `theAddressItCameFrom` ABOVE, because the other two forms

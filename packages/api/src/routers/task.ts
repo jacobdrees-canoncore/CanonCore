@@ -123,15 +123,6 @@ export const task = {
     }),
 
   /**
-   * Stops a task that is running, and answers whether there was one.
-   *
-   * NOTHING RUNNING IS ANSWERED, NOT REFUSED. The list a page renders is a
-   * moment old, so pressing Cancel on a task that finished in between is an
-   * ordinary race rather than a fault -- and the answer the owner wants is the
-   * same either way, which is a list without it running on. `session.end` takes
-   * the same posture towards a session that had already lapsed.
-   */
-  /**
    * One task's runs, newest first -- the RUN HISTORY rather than the last of
    * them (ADR-0049).
    *
@@ -149,6 +140,15 @@ export const task = {
       (await taskRegistry().history(context.db, input.key)).map(reported),
     ),
 
+  /**
+   * Stops a task that is running, and answers whether there was one.
+   *
+   * NOTHING RUNNING IS ANSWERED, NOT REFUSED. The list a page renders is a
+   * moment old, so pressing Cancel on a task that finished in between is an
+   * ordinary race rather than a fault -- and the answer the owner wants is the
+   * same either way, which is a list without it running on. `session.end` takes
+   * the same posture towards a session that had already lapsed.
+   */
   cancel: ownerProcedure
     .input(z.object({ key: z.string().max(KEY_LENGTH) }))
     .output(z.object({ cancelled: z.boolean() }))

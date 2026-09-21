@@ -172,6 +172,12 @@ describe("steadyMainOf", () => {
    * that agree about everything still on them. A reading that shrugged at a
    * missing picker would pass that, and the regression would be invisible.
    */
+  it("refuses a page whose picker is gone rather than comparing what is left", () => {
+    const noPicker = "<main><h1>Catalogue</h1><ul><li>a Row</li></ul></main>";
+
+    expect(() => steadyMainOf(noPicker)).toThrow(/Narrow to a Group/);
+  });
+
   /**
    * AND A PAGE WITH TWO PICKERS IS REFUSED FOR THE MIRROR REASON. Cutting the
    * first of two leaves the SECOND inside the compared region -- catalogue-wide
@@ -187,11 +193,5 @@ describe("steadyMainOf", () => {
     );
 
     expect(() => steadyMainOf(twice)).toThrow(/more than one/);
-  });
-
-  it("refuses a page whose picker is gone rather than comparing what is left", () => {
-    const noPicker = "<main><h1>Catalogue</h1><ul><li>a Row</li></ul></main>";
-
-    expect(() => steadyMainOf(noPicker)).toThrow(/Narrow to a Group/);
   });
 });

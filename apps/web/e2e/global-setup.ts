@@ -43,6 +43,19 @@ import { aProviderThatFloodsItsName, FLOOD, onLoopback, searchOver, searchStatus
 import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
+ * An RPC client that has logged in, for the fixtures this harness fills through
+ * the app.
+ *
+ * IT LOGS IN THROUGH THE PAGE and sends back the cookie it was given, which is
+ * what a browser does. A token minted straight into the database would fill
+ * these catalogues through a door the app never opened.
+ */
+async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
+  const cookie = await logInAt(baseUrl, OWNER_PASSWORD);
+  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
+}
+
+/**
  * Builds a database, seeds ONE item into TWO orderings, then builds and starts
  * the real Next server so the suite can make a real HTTP request at it.
  *
@@ -63,20 +76,6 @@ import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixtu
  * ships, and the build turned out to cost about three seconds -- which is
  * cheaper than the class of bug it rules out.
  */
-
-/**
- * An RPC client that has logged in, for the fixtures this harness fills through
- * the app.
- *
- * IT LOGS IN THROUGH THE PAGE and sends back the cookie it was given, which is
- * what a browser does. A token minted straight into the database would fill
- * these catalogues through a door the app never opened.
- */
-async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
-  const cookie = await logInAt(baseUrl, OWNER_PASSWORD);
-  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
-}
-
 /*
  * EVERYTHING THIS STARTS IS OWNED FROM THE MOMENT IT STARTS (CNCORE-229), and
  * the teardown is that ownership handed on. `settingUp` says why a setup that

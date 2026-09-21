@@ -2,9 +2,9 @@
  * A source with its comments taken out, SCANNED rather than matched, so a `/*`
  * inside a string is text and not the start of a comment.
  *
- * FOUR SUITES READ SOURCE AS TEXT and every one of them has to do this first,
- * because a comment is prose ABOUT code and each of those suites counts a token
- * that its own prose says out loud. `prefetch-condition.test.ts` explains the
+ * A SUITE THAT READS SOURCE AS TEXT has to do this first, because a comment is
+ * prose ABOUT code and a suite counting a token would count its own prose saying
+ * it out loud. `prefetch-condition.test.ts` explains the
  * rule using the word `prefetch`; `tree-figures.ts` quotes `redirect()` in the
  * paragraph above the call it is counting; `turbo-cache-inputs.test.ts` writes
  * `../../../` into a note about climbs and measured that sentence alone
@@ -81,7 +81,19 @@
  * be reading one.
  */
 export function withoutComments(source: string): string {
+  return scan(source).code;
+}
+
+/** Every comment in a source, where it opens and what it says, from the same scan. */
+export function commentsIn(source: string): Comment[] {
+  return scan(source).comments;
+}
+
+export type Comment = { readonly at: number; readonly text: string };
+
+function scan(source: string): { code: string; comments: Comment[] } {
   let out = "";
+  const comments: Comment[] = [];
   let at = 0;
 
   // The brace depth at which each enclosing template literal was suspended by a
@@ -128,6 +140,7 @@ export function withoutComments(source: string): string {
     if (pair === "/*") {
       const closed = source.indexOf("*/", at + 2);
       const stop = closed === -1 ? source.length : closed + 2;
+      comments.push({ at, text: source.slice(at, stop) });
       out += blanked(source.slice(at, stop));
       at = stop;
       continue;
@@ -136,6 +149,7 @@ export function withoutComments(source: string): string {
     if (pair === "//") {
       const newline = source.indexOf("\n", at);
       const stop = newline === -1 ? source.length : newline;
+      comments.push({ at, text: source.slice(at, stop) });
       out += blanked(source.slice(at, stop));
       at = stop;
       continue;
@@ -200,7 +214,7 @@ export function withoutComments(source: string): string {
     );
   }
 
-  return out;
+  return { code: out, comments };
 }
 
 /** The keywords a `/` may follow and still open a regex rather than divide. */

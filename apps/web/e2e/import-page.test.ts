@@ -89,12 +89,7 @@ const asOwner: AppRouterClient = createORPCClient(
 const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
 
 /**
- * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
- * fact no surface above them can state. `multi-placement.test.ts` opens the same
- * seam in this suite for the same shape of reason.
- */
-/**
- * THE SAME RPC SURFACE, ASKED AS THE OWNER, which the client above deliberately
+ * THE SAME RPC SURFACE, ASKED AS THE OWNER, which `client` above deliberately
  * is not: the reads in this file are a visitor's, and `provider.import` is an
  * `ownerProcedure` since CNCORE-109 -- so asking it without a session answers
  * `Unauthorized` rather than what the provider said. `purge-page.test.ts` builds
@@ -104,6 +99,11 @@ const asTheOwner: AppRouterClient = createORPCClient(
   new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
 );
 
+/**
+ * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
+ * fact no surface above them can state. `multi-placement.test.ts` opens the same
+ * seam in this suite for the same shape of reason.
+ */
 const db = createDb(inject("databaseUrl"), { maxConnections: HARNESS_CONNECTIONS });
 
 afterAll(async () => {
@@ -881,16 +881,6 @@ function whereItSubmits(within: string): string {
 }
 
 /**
- * ONE ADDRESS, READ AS A DESTINATION RATHER THAN AS A STRING: its path and what
- * it carries, each parameter once.
- *
- * BECAUSE A SPACE HAS TWO LAWFUL SPELLINGS HERE and they mean one address. A
- * browser submitting a GET form writes `application/x-www-form-urlencoded`, so
- * a space arrives as `+`, while a link this suite navigates directly writes
- * `%20` through `encodeURIComponent`. Comparing the two as text asserts which
- * road the address came down, which is not what any of these tests are about.
- */
-/**
  * THIS PAGE'S OWN SEARCH BOX, found by the label its input carries.
  *
  * NOT BY ITS FIELDS AND NOT BY ITS POSITION, both of which find the wrong form
@@ -909,6 +899,16 @@ function theSearchBox(text: string): RenderedForm {
   return form;
 }
 
+/**
+ * ONE ADDRESS, READ AS A DESTINATION RATHER THAN AS A STRING: its path and what
+ * it carries, each parameter once.
+ *
+ * BECAUSE A SPACE HAS TWO LAWFUL SPELLINGS HERE and they mean one address. A
+ * browser submitting a GET form writes `application/x-www-form-urlencoded`, so
+ * a space arrives as `+`, while a link this suite navigates directly writes
+ * `%20` through `encodeURIComponent`. Comparing the two as text asserts which
+ * road the address came down, which is not what any of these tests are about.
+ */
 function asADestination(address: string): { path: string; carrying: [string, string][] } {
   const at = new URL(address, "http://import.test");
   return { path: at.pathname, carrying: [...at.searchParams].sort() };

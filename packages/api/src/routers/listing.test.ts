@@ -79,39 +79,6 @@ const WHAT_A_READER_TYPED = "Walked by the Listing contract";
 const A_RUN_OF_THEM = 5;
 
 /**
- * EVERY LISTING PROCEDURE, AND ADDING A LISTING IS ADDING A LINE HERE. An entry
- * says which procedure it is, how to ask it for a page, and what to put in it;
- * everything else about a Listing is the block below and is not an entry's to
- * decide.
- *
- * THE THREE THAT ARE THEIR OWN SURFACE, each walked twice -- as it is, and
- * narrowed to a Group -- and the two that are not are absent for a reason
- * rather than by oversight. A Container's members and "Also appears in"
- * are Listings by ADR-0119's first sentence, but they ride on `item.get` --
- * because a Container IS an Item (ADR-0004) and its page is the Item page, so a
- * `container.members` would be one thing at two addresses (ADR-0066). They
- * therefore take NO `limit`: the handler serves `A_PAGE` and a caller cannot ask
- * for anything else. The cap is a question they cannot be asked at all, and the
- * walk and the size would each cost a fixture of more than a hundred Placements,
- * because there is no smaller page to ask for.
- *
- * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
- * `placedAfter` are plain optional strings on `item.get`, so asking those two
- * what a cursor naming nothing does would cost nothing here. They stay out
- * anyway, because a member that can answer one question of EIGHT is not a
- * member of ONE BLOCK -- so `item.test.ts` asks the two of them beside it, and at
- * the package export both are asked all FIVE (CNCORE-198, which added this one to
- * "Also appears in"). It was one of six until CNCORE-174 added the step back and
- * the jump: the step back needs a page smaller than the cap to walk, which these
- * two cannot be asked for, so `item.test.ts` steps each back over a fixture
- * larger than one page instead, and neither is filed under a letter.
- *
- * THE COUNTS MOVED WITH CNCORE-172, which added the sixth question below and
- * the package-export assertion a Container's members was missing. "Also appears
- * in" needed neither: it is the Listing that already had the size's second
- * position asserted, which is how that gap was found.
- */
-/**
  * THE THREE QUESTIONS THEMSELVES, before each is also asked narrowed to a Group.
  *
  * NAMED BECAUSE ONE BLOCK BELOW CANNOT USE THE NARROWED ENTRIES (CNCORE-309).
@@ -153,6 +120,39 @@ const EVERY_QUESTION: AListing[] = [
   },
 ];
 
+/**
+ * EVERY LISTING PROCEDURE, AND ADDING A LISTING IS ADDING A LINE TO
+ * `EVERY_QUESTION` ABOVE. An entry says which procedure it is, how to ask it for
+ * a page, and what to put in it; everything else about a Listing is the block
+ * below and is not an entry's to decide.
+ *
+ * THE THREE THAT ARE THEIR OWN SURFACE, each walked twice -- as it is, and
+ * narrowed to a Group -- and the two that are not are absent for a reason
+ * rather than by oversight. A Container's members and "Also appears in"
+ * are Listings by ADR-0119's first sentence, but they ride on `item.get` --
+ * because a Container IS an Item (ADR-0004) and its page is the Item page, so a
+ * `container.members` would be one thing at two addresses (ADR-0066). They
+ * therefore take NO `limit`: the handler serves `A_PAGE` and a caller cannot ask
+ * for anything else. The cap is a question they cannot be asked at all, and the
+ * walk and the size would each cost a fixture of more than a hundred Placements,
+ * because there is no smaller page to ask for.
+ *
+ * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
+ * `placedAfter` are plain optional strings on `item.get`, so asking those two
+ * what a cursor naming nothing does would cost nothing here. They stay out
+ * anyway, because a member that can answer one question of EIGHT is not a
+ * member of ONE BLOCK -- so `item.test.ts` asks the two of them beside it, and at
+ * the package export both are asked all FIVE (CNCORE-198, which added this one to
+ * "Also appears in"). It was one of six until CNCORE-174 added the step back and
+ * the jump: the step back needs a page smaller than the cap to walk, which these
+ * two cannot be asked for, so `item.test.ts` steps each back over a fixture
+ * larger than one page instead, and neither is filed under a letter.
+ *
+ * THE COUNTS MOVED WITH CNCORE-172, which added the sixth question below and
+ * the package-export assertion a Container's members was missing. "Also appears
+ * in" needed neither: it is the Listing that already had the size's second
+ * position asserted, which is how that gap was found.
+ */
 const EVERY_LISTING: AListing[] = eachAlsoNarrowed(EVERY_QUESTION);
 
 /** Every Listing above, followed by the same Listing narrowed to a Group. */

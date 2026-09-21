@@ -18,25 +18,10 @@ export const healthCheckResult = z.literal("OK");
 export type HealthCheckResult = z.infer<typeof healthCheckResult>;
 
 /**
- * What the read path emits for one item.
- *
- * ADR-0045: it NAMES EVERY FIELD rather than being the stored row with fields
- * removed, because a strip-list works right up until someone adds a field and
- * forgets. A field added to `items` later is private until it is written here
- * on purpose.
- *
- * `id` is here and is not an exception to "no internal ids". It is the item's
- * ADDRESS -- `/items/<id>` is canonical and the path is identity (ADR-0066) --
- * so a reader who has the payload already has it. What stays out is everything
- * that would let the catalogue be enumerated or its owner identified:
- * `owner_id`, the change sequence, the merge stamp, and the ids of the
- * statements, sources and properties underneath.
- */
-/**
  * What the read path emits for one placement: one item's membership of one
  * container, at one position (ADR-0009).
  *
- * ADR-0045 again -- every field named on purpose. `id` and `containerId` are
+ * ADR-0045: every field named on purpose. `id` and `containerId` are
  * both ADDRESSES rather than internal ids: `id` is what `?via=` carries, the
  * ordering a reader arrived through (ADR-0066), and `containerId` is the
  * container's own `/items/<id>`. What stays out is `owner_id`, the change
@@ -419,6 +404,21 @@ export type GroupsPublic = z.infer<typeof groupsPublic>;
  */
 export const groupWritten = z.object({ id: z.uuid() });
 
+/**
+ * What the read path emits for one item.
+ *
+ * ADR-0045: it NAMES EVERY FIELD rather than being the stored row with fields
+ * removed, because a strip-list works right up until someone adds a field and
+ * forgets. A field added to `items` later is private until it is written here
+ * on purpose.
+ *
+ * `id` is here and is not an exception to "no internal ids". It is the item's
+ * ADDRESS -- `/items/<id>` is canonical and the path is identity (ADR-0066) --
+ * so a reader who has the payload already has it. What stays out is everything
+ * that would let the catalogue be enumerated or its owner identified:
+ * `owner_id`, the change sequence, the merge stamp, and the ids of the
+ * statements, sources and properties underneath.
+ */
 export const itemPublic = z.object({
   id: z.uuid(),
   /**

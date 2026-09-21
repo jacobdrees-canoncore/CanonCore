@@ -1036,6 +1036,23 @@ describe("ADR-0122's optionality", () => {
    * green because nobody was asked. This is the same device `browse` gets above,
    * pointed at the branch this ticket added.
    */
+  it("is exercised in the other direction: something under test is held to ANSWERING", async () => {
+    const declared = await Promise.all(
+      underTest.map(async (participant) => ({
+        name: participant.name,
+        credential: manifest.parse((await get(participant, "/")).body).credential,
+      })),
+    );
+
+    expect(
+      declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
+      "Every provider under test is currently unable to reach its source, so every `search`, " +
+        "`lookup` and `browse` assertion took CNCORE-141's refusal branch and nothing checked " +
+        "that a provider able to answer still owes `200` and a record. That branch is a " +
+        "permission for a provider that cannot answer, never one the whole suite may take.",
+    ).not.toHaveLength(0);
+  });
+
   /**
    * AND AN UNLOCK IS EXERCISED IN BOTH ITS ANSWERS, which is the same device again,
    * pointed at the branch CNCORE-207 added.
@@ -1064,23 +1081,6 @@ describe("ADR-0122's optionality", () => {
       "Nothing under test refused the credential it was given, so the rule that a refusal changes " +
         "nothing is a branch no participant entered. Restore the witness that Spends rather than " +
         "deleting this test.",
-    ).not.toHaveLength(0);
-  });
-
-  it("is exercised in the other direction: something under test is held to ANSWERING", async () => {
-    const declared = await Promise.all(
-      underTest.map(async (participant) => ({
-        name: participant.name,
-        credential: manifest.parse((await get(participant, "/")).body).credential,
-      })),
-    );
-
-    expect(
-      declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
-      "Every provider under test is currently unable to reach its source, so every `search`, " +
-        "`lookup` and `browse` assertion took CNCORE-141's refusal branch and nothing checked " +
-        "that a provider able to answer still owes `200` and a record. That branch is a " +
-        "permission for a provider that cannot answer, never one the whole suite may take.",
     ).not.toHaveLength(0);
   });
 });

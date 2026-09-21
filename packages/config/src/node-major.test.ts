@@ -331,6 +331,16 @@ describe("CanonCore's Node major", () => {
    * Comparing the two files to each other would let a bump applied to both
    * agree its way past the rule that decides which major is right.
    */
+  it("is the major the Dockerfile builds and runs on", () => {
+    const selected = newestLtsAsOf(new Date());
+
+    expect(
+      dockerfileMajor(),
+      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the only statement of ` +
+        `the major that SHIPS: move its FROM lines with the rest.`,
+    ).toBe(selected);
+  });
+
   /**
    * THE CHECK ITSELF, against fixtures rather than the real file, for the reason
    * `docker-compose.test.ts` gives about its port reader: run only against the
@@ -355,16 +365,6 @@ describe("CanonCore's Node major", () => {
     expect(() => dockerfileMajor("FROM debian:trixie-slim AS build\n")).toThrow(
       /nothing states a major/,
     );
-  });
-
-  it("is the major the Dockerfile builds and runs on", () => {
-    const selected = newestLtsAsOf(new Date());
-
-    expect(
-      dockerfileMajor(),
-      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the only statement of ` +
-        `the major that SHIPS: move its FROM lines with the rest.`,
-    ).toBe(selected);
   });
 });
 

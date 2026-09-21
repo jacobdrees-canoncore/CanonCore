@@ -186,7 +186,7 @@ describe("readCorpusCensus", () => {
    * THE CATALOGUE IS WIDER THAN THE CORPUS AND THE TWO FIGURES SAY SO. Six
    * Items here: two Orderings, three stories and a Character nothing placed.
    * `items` is every one of them because `catalogue.list` excludes nothing
-   * (ADR-0077), where `storiesPlaced` is three.
+   * (ADR-0077), where `itemsPlaced` is three.
    *
    * `items` IS THE LISTING'S OWN `total` RATHER THAN A COUNT OF ROWS WALKED,
    * which is the figure a reader sees on the front page -- so if the two ever
