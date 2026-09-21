@@ -197,15 +197,25 @@ authenticated route answers for a private repository, and it is the route the ga
 **Every question the gate asks goes through the one authenticated client**, so no repository is
 visible to some of its checks and invisible to others.
 
-Three things measured with gh 2.97.0 on 2026-09-21 hold it in place:
+Four things measured with gh 2.97.0 on 2026-09-21 hold it in place:
 
 - **The exit status is the verdict, not the output.** A ref GitHub has not got answers 404 with its
   JSON body on STDOUT, `--jq` or not. A gate reading the output alone would compare
   `{"message":"Not Found",...}` with the head and report `LAGGING` behind a commit named `{"messa`.
 - **The singular `git/ref` endpoint answers only the exact ref.** Asked for a prefix of CNCORE-319's
-  own branch name, it answered 404 rather than the longer branch.
-- **A branch name with a slash goes into the path as it is.** `heads/jacobdrees/cncore-319` needed
-  no encoding.
+  own branch name, or for the `jacobdrees` directory the dispatched branches sit under, it answered
+  404 rather than a longer branch.
+- **A slash goes into the path as it is.** `heads/jacobdrees/cncore-319` needed no encoding.
+- **Other characters git permits do not, so the name's shape is checked before the request.** The
+  branch name is not the dispatcher's to type, the way the repository name is: it is whatever the
+  author called the branch, and on a public repository that can be a stranger's fork. Git permits
+  names that make this request ask about a DIFFERENT ref. `gh` fills `{branch}` with the caller's
+  own checked-out branch and drops everything from `#`, and GitHub resolves an encoded `..`, so
+  `x/%2e%2e/main` answered with `main`'s tip. The gate refuses as `UNREADABLE`, before asking,
+  anything outside letters, digits, `.`, `_`, `/` and `-`, and any segment that starts with a dot.
+  All 309 distinct branch names across the three repositories that day, standing or named by a pull
+  request (`gh api .../branches` and `gh pr list --state all`), fit that shape. This ticket's own
+  review found it: the unauthenticated read took the name as a ref argument, not as a URL path.
 
 **What is NOT measured is whether this source leads the pull request's field inside the
 force-push window** the way `ls-remote` did in the measurement above. CNCORE-319 pushed its own
@@ -217,7 +227,8 @@ request, which is the property the check needs; it has not yet been caught leadi
 `merge-gate.test.ts` holds it with #30's own world: a private repository whose stubbed `git`
 answers `ls-remote` the way provider-tmdb's did and whose stubbed `gh` answers normally, and a green
 head that must read `PASSED`. A second row gives the branch no ref at all, and must read
-`UNREADABLE` rather than `LAGGING`.
+`UNREADABLE` rather than `LAGGING`. A third hands the gate each of the three names above, and must
+see no ref asked for.
 
 ## What this does not cover
 
@@ -243,7 +254,8 @@ built here, by an authenticated `gh api` since CNCORE-319, above), reads
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
 `packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
-twenty-three scenarios (twenty-one as built here, and CNCORE-319's two), including #210's own world — the head with no runs beside the pre-rebase commit's green.
+twenty-four scenarios (twenty-one as built here, and CNCORE-319's three), including #210's own
+world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
 

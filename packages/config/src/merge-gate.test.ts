@@ -48,16 +48,6 @@ const realGit =
   (spawnSync("which", ["git"], { encoding: "utf8" }).stdout ?? "").trim() || "/usr/bin/git";
 
 /**
- * One PR, what each commit's check-runs say, and where its branch really points
- * -- the three answers `gh` gives and the only three the gate has to go on.
- *
- * `checks` IS KEYED BY COMMIT because that is the whole subject. A sha the map
- * does not hold is a commit GitHub does not know, which the stub answers the
- * way gh 2.97.0 did on 2026-09-21 rather than by inventing an empty list: `422`,
- * its body on stdout, non-zero. An empty ARRAY and a missing COMMIT are
- * different worlds and the gate is entitled to tell them apart.
- */
-/**
  * The fields of a pull request this gate reads, and no others -- a spread of a
  * `Record<string, unknown>` loses every known key, which is what put
  * `headRefOid` out of reach of the default above.
@@ -70,6 +60,16 @@ type PullRequestFields = {
   readonly isDraft?: boolean;
 };
 
+/**
+ * One PR, what each commit's check-runs say, and where its branch really points
+ * -- the three answers `gh` gives and the only three the gate has to go on.
+ *
+ * `checks` IS KEYED BY COMMIT because that is the whole subject. A sha the map
+ * does not hold is a commit GitHub does not know, which the stub answers the
+ * way gh 2.97.0 did on 2026-09-21 rather than by inventing an empty list: `422`,
+ * its body on stdout, non-zero. An empty ARRAY and a missing COMMIT are
+ * different worlds and the gate is entitled to tell them apart.
+ */
 type World = {
   readonly pr: PullRequestFields;
   readonly checks: Readonly<Record<string, readonly Record<string, unknown>[]>>;
@@ -102,6 +102,9 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
   // A BRANCH NAME UNLESS THE WORLD SAYS OTHERWISE, so only the test that is
   // ABOUT its absence has to mention it.
   const pr: PullRequestFields = { headRefName: "jacobdrees/cncore-244", ...world.pr };
+  // WHERE THE BRANCH REALLY POINTS, which both stubs below answer from: the
+  // PR's own head unless the world says otherwise, and no ref at all for `null`.
+  const tip = world.branchTip === null ? null : (world.branchTip ?? pr.headRefOid ?? "");
   writeFileSync(join(dir, "pr.json"), JSON.stringify(pr));
   for (const [sha, runs] of Object.entries(world.checks)) {
     // GITHUB'S OWN PAGING, because it is what the gate has to get past. The
@@ -134,8 +137,8 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
       // the output without its status reads that body as a commit.
       '  ref=$(printf "%s\\n" "$@" | sed -n "s|^repos/[^/]*/[^/]*/git/ref/||p")',
       '  if [ -n "$ref" ]; then',
-      `    if [ "$ref" = ${JSON.stringify(`heads/${pr.headRefName}`)} ] && ${world.branchTip !== null}; then`,
-      `      echo ${JSON.stringify(world.branchTip ?? pr.headRefOid ?? "")}; exit 0`,
+      `    if [ "$ref" = ${JSON.stringify(`heads/${pr.headRefName}`)} ] && ${tip !== null}; then`,
+      `      echo ${JSON.stringify(tip ?? "")}; exit 0`,
       "    fi",
       `    echo '{"message":"Not Found","status":"404"}'`,
       '    echo "gh: Not Found (HTTP 404)" >&2; exit 1',
@@ -144,7 +147,9 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
       '  page="$dir/checks-$sha.json"',
       '  case "$*" in *--slurp*) page="$dir/checks-$sha.all.json";; esac',
       '  if [ -f "$page" ]; then cat "$page"; exit 0; fi',
-      '  echo "{\\"message\\":\\"No commit found for SHA: $sha\\",\\"status\\":\\"422\\"}"',
+      '  body="{\\"message\\":\\"No commit found for SHA: $sha\\",\\"status\\":\\"422\\"}"',
+      '  case "$*" in *--slurp*) body="[$body]";; esac',
+      '  echo "$body"',
       '  echo "gh: No commit found for SHA: $sha (HTTP 422)" >&2; exit 1',
       "fi",
       'echo "gh: unstubbed $*" >&2; exit 1',
@@ -174,8 +179,8 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
       // ONLY FOR THE REF ACTUALLY ASKED FOR. A stub answering every ref cannot
       // tell a gate that queries the right branch from one that queries any
       // branch, and the tip check is the thing under test here.
-      `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] && ${world.branchTip !== null} || exit 0`,
-      `  printf '%s\\t%s\\n' ${JSON.stringify(world.branchTip ?? pr.headRefOid ?? "")} "$3"`,
+      `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] && ${tip !== null} || exit 0`,
+      `  printf '%s\\t%s\\n' ${JSON.stringify(tip ?? "")} "$3"`,
       "  exit 0",
       "fi",
       `exec ${JSON.stringify(realGit)} "$@"`,
@@ -461,11 +466,11 @@ describe("a check the gate reads", () => {
   });
 
   /**
-   * THE REPOSITORY ARGUMENT REACHES A URL AND A CLONE ADDRESS, so its shape is
-   * checked before either is built. It is typed by a dispatcher rather than
-   * taken from a stranger, which is why this is a shape check and not an
-   * allowlist: a list of three names is a fourth repository's maintenance
-   * burden, while `..` in a path segment is never anything but a mistake.
+   * THE REPOSITORY ARGUMENT REACHES URL PATHS, so its shape is checked before
+   * any is built. It is typed by a dispatcher rather than taken from a
+   * stranger, which is why this is a shape check and not an allowlist: a list
+   * of three names is a fourth repository's maintenance burden, while `..` in a
+   * path segment is never anything but a mistake.
    *
    * IT REFUSES BEFORE IT ASKS, which is the part worth asserting -- a guard
    * that builds the wrong URL and then judges the answer has already made the
@@ -576,6 +581,28 @@ describe("a check the gate reads", () => {
     expect(output).toContain("refs/heads/jacobdrees/gone");
     expect(output).not.toContain("LAGGING");
     expect(status).not.toBe(0);
+  });
+
+  /**
+   * THE BRANCH NAME REACHES A URL PATH, so its shape is checked before the tip
+   * is asked for, as the repository name's is. Git permits all three of these,
+   * and each made the tip read ask about a DIFFERENT ref, measured with gh
+   * 2.97.0 on 2026-09-21: gh fills `{branch}` with the CALLER's checked-out
+   * branch, drops everything from `#`, and GitHub resolves an encoded `..` --
+   * `x/%2e%2e/main` answered with `main`'s tip. A head confirmed against some
+   * other ref is the verdict this check exists to refuse.
+   */
+  it("refuses a branch name that would ask about a different ref, before it asks", () => {
+    for (const branch of ["{branch}", "nope#tail", "x/%2e%2e/main"]) {
+      const { status, output, calls } = gateAgainst({
+        pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN", headRefName: branch },
+        checks: { [REBASED]: [check("Test", "success")] },
+      });
+
+      expect(calls.filter((call) => call.includes("/git/ref/"))).toStrictEqual([]);
+      expect(output).toContain("BLOCKED");
+      expect(status).not.toBe(0);
+    }
   });
 });
 

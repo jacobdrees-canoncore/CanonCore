@@ -28,11 +28,11 @@ set -uo pipefail
 pr="${1:?usage: gate.sh <pr-number> [repo]}"
 repo="${2:-CanonCore}"
 
-# THE REPOSITORY NAME REACHES A URL PATH AND A CLONE ADDRESS, so its shape is
-# checked before either is built. A dispatcher types this rather than a stranger
-# sending it, which is why it is a shape check and not an allowlist: three names
-# hardcoded here is a fourth repository's maintenance burden, while a `/` or a
-# `..` in it is never anything but a mistake.
+# THE REPOSITORY NAME REACHES URL PATHS, so its shape is checked before any is
+# built. A dispatcher types this rather than a stranger sending it, which is why
+# it is a shape check and not an allowlist: three names hardcoded here is a
+# fourth repository's maintenance burden, while a `/` or a `..` in it is never
+# anything but a mistake.
 case "$repo" in
   *[!A-Za-z0-9._-]* | "" | .* ) echo "BLOCKED UNREADABLE '$repo' is not a repository name"; exit 1;;
 esac
@@ -94,6 +94,17 @@ fi
 # a branch that existed read as missing, and every provider merge was refused.
 # The exit status is the verdict, not the output: a 404 prints its JSON body on
 # stdout, which read as a tip would be a LAGGING about a commit named `{"messa`.
+#
+# AND SO THE BRANCH NAME REACHES A URL PATH, which unlike the repository's is not
+# typed by the dispatcher: it is whatever the author called the branch, and on a
+# PUBLIC repository that can be a stranger's fork. Git permits names that make
+# this ask about a DIFFERENT ref -- gh fills `{branch}` with the caller's own
+# checked-out branch and drops everything from `#`, and GitHub resolves an
+# encoded `..`, so `x/%2e%2e/main` answered with main's tip (gh 2.97.0,
+# 2026-09-21). Anything outside the shape branches take here is refused unasked.
+case "$branch" in
+  *[!A-Za-z0-9._/-]* | .* | */.* ) echo "BLOCKED UNREADABLE #$pr's branch '$branch' is not a name this gate will put in a URL"; exit 1;;
+esac
 tip=$(gh api "repos/$slug/git/ref/heads/$branch" --jq .object.sha 2>/dev/null) ||
   { echo "BLOCKED UNREADABLE cannot read refs/heads/$branch in $slug"; exit 1; }
 if [ "$tip" != "$head" ]; then
