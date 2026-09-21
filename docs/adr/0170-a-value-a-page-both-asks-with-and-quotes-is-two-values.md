@@ -39,8 +39,9 @@ and a value of any length still occupies the page.
 **The second surface was found by a reviewer, not by the fix**, which is the part worth keeping.
 This record was first written naming `/search` as the sixth site and asserting the set was then
 complete -- the identical error it had just corrected in ADR-0163, committed in the sentence
-correcting it. Nothing in the tree reports a site that owes a bound and lacks one, so the count is
-only ever as good as the last person to read every page. CNCORE-296 was filed for `/import` and
+correcting it. Nothing in the tree reported a site that owes a bound and lacks one, so the count was
+only ever as good as the last person to read every page -- which is what CNCORE-298 answered, and
+[[0178-a-parameter-a-page-speaks-is-reported-where-it-is-unbounded]] is that check's record. CNCORE-296 was filed for `/import` and
 folded into this ticket, because one reason to change is one pass.
 
 ## Measured on the Owner's own install, before this landed

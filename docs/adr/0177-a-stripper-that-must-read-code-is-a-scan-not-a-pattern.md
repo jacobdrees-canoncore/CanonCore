@@ -82,6 +82,25 @@ That is more machinery than taking comments out of a file deserves, against an A
 unstable. **The sixty lines that do it here have no dependency, and the population they read passes
 through them in the time the suite already took.**
 
+**THE TRIGGER WAS ISOLATED AFTERWARDS, UNDER CNCORE-298, AND IT IS NOT A POPULATION FACT.** The
+sentence above is corrected here rather than beside itself: a plain `scan()` never re-scans a `/`, so
+a REGEX BODY is read as code, and the `#` in `tree-figures.ts`'s own
+`/(^|\s)(#)[ \t]?/gm` is a stall in it. Where the body holds a BACKTICK instead -- and
+`ui-callers.test.ts` writes three -- the scan enters a template literal that runs on until the next
+backtick, which lands it inside a docblock, where a `#` in prose stalls it. That is why all six files
+stall on `PrivateIdentifier` at a `#` that is plainly inside a comment, and why reducing it to a
+docblock holding a `#` did NOT reproduce: a `#` in a comment is harmless until something has already
+desynced the scan into it. Minimally, `const r = /(#)/;` stalls and
+`/** prose `#1` */ const x = 1;` does not.
+
+**NONE OF WHICH REOPENS THIS RECORD'S DECISION**, since driving the scanner correctly is exactly the
+"error handling the parser supplies" named above: `reScanSlashToken` for a regex, `reScanTemplateToken`
+for a template's `}`, and `scanJsxToken` for JSX text, none of which taking comments out of a file
+should have to know about. `bounded-parameters.test.ts` pays that cost because it needs a token's
+POSITION and not a stripped string, which
+[[0178-a-parameter-a-page-speaks-is-reported-where-it-is-unbounded]] argues where it chooses the
+scanner. The sixty lines here remain the right answer for this question.
+
 ## The first version of this scan shipped the same class of defect
 
 **A HAND-WRITTEN SCAN THAT DOES NOT TRACK REGEX LITERALS IS STILL A THING THAT CANNOT TELL A LITERAL
