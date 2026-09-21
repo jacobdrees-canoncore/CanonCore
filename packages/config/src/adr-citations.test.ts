@@ -194,6 +194,15 @@ describe("an ADR number a document cites", () => {
       disclosed().size,
       `${AMNESTY_HEADING} is gone from docs/research/README.md`,
     ).toBeGreaterThan(0);
+
+    // AND THE SLUG HALF HAS A SUBJECT. The three counts above are all satisfied by
+    // the two spellings that carry no slug, so the prose form could stop matching
+    // entirely and the rule below would pass by asking nothing -- the same silence
+    // this test exists to refuse, one capture group down.
+    expect(
+      citations().filter(({ slug }) => slug !== undefined).length,
+      "no citation was read in the [[0120-the-slug]] form",
+    ).toBeGreaterThan(0);
   });
 
   it("names a record this tree holds, or one the amnesty accounts for", () => {
