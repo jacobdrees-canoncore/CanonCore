@@ -146,6 +146,12 @@ const IMPLEMENTED_BY: Implementation[] = [
     file: ".claude/skills/dispatch/gate.sh",
     holds: "the head resolved and asked about by name, in place of the pull request's own rollup",
   },
+  {
+    adr: "0185",
+    file: "apps/web/e2e/instance.ts",
+    holds:
+      "`next start`, and the warning about the entry point this suite deliberately does not serve",
+  },
 ];
 
 /**

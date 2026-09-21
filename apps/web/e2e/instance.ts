@@ -171,11 +171,24 @@ export async function theBuildServing(
   close: () => void;
 }> {
   /*
-   * TODO(CNCORE-302): `next.config.ts` sets `output: "standalone"`, and Next warns
-   * once per server that `next start` is not the entry point that configuration
-   * ships. A warning rather than a throw -- the `output: "export"` branch beside
-   * it throws -- so nothing here is broken by it. But this suite argues that it
-   * tests the SHIPPED page, and a deployment runs `.next/standalone/server.js`.
+   * `next start`, AND NEXT WARNS ONCE PER SERVER THAT IT IS NOT THE ENTRY POINT
+   * `output: "standalone"` SHIPS. The warning is expected here and is not a
+   * fault to chase (ADR-0185, CNCORE-302).
+   *
+   * THE SHIPPED ENTRY POINT CANNOT TAKE AN EPHEMERAL PORT, which is what
+   * decides this. `next build` writes the glue, and it reads
+   * `parseInt(process.env.PORT, 10) || 3000` -- so `PORT=0` is not a request
+   * for a port, it is 3000. Eleven servers would each need one named in
+   * advance, which is exactly the window `thePortItBound` below exists to
+   * close (ADR-0144), and on the Owner's machine 3000 is the live install:
+   * measured, a standalone server bound beside it and served ITS callers this
+   * suite's fixtures.
+   *
+   * SO THE ENTRY POINT THAT SHIPS IS PROVED WHERE IT CAN BE. CI's `image` job
+   * runs the real image and asks a route that reads the database, which is the
+   * one defect class this cannot see -- a module the app reaches that tracing
+   * missed. `packages/config/src/image.test.ts` holds that job to it, because
+   * this line is only acceptable while that one is true.
    */
   const server = spawn("next", ["start", "--hostname", SERVER_HOST, "--port", "0"], {
     cwd: webRoot,

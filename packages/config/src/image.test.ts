@@ -213,6 +213,106 @@ function publishingSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
   });
 }
 
+/**
+ * THE STEPS THAT GET A PAGE OUT OF THE BUILT IMAGE.
+ *
+ * BOTH HALVES IN ONE STEP, AND THAT IS THE CORRECTION RATHER THAN A DETAIL.
+ * This filter asked only for a step that ran `canoncore:smoke` at first, and a
+ * mutation caught it: deleting the image from the step that SERVES left the
+ * assertion green, because the step below it that proves the container
+ * REFUSES to serve an unmigrated database runs the same tag and matched
+ * instead. A run and an answer in two different steps is not evidence that the
+ * shipped entry point served anything.
+ */
+function stepsThatServeTheBuiltImage(): Step[] {
+  const steps = workflow().jobs?.image?.steps ?? [];
+  // Not vacuous: a renamed or deleted job would satisfy every assertion below
+  // by having no subject, which is the failure this whole file is written
+  // against.
+  expect(
+    steps.length,
+    "the `image` job has no steps, so nothing below has a subject",
+  ).toBeGreaterThan(0);
+
+  return steps.filter(
+    ({ run }) =>
+      /docker\s+run\b/.test(run ?? "") &&
+      /canoncore:smoke/.test(run ?? "") &&
+      /curl/.test(run ?? ""),
+  );
+}
+
+/**
+ * THE SMOKE TEST THE E2E SUITE'S ENTRY POINT LEANS ON (ADR-0185, CNCORE-302).
+ *
+ * THIS IS AN ARGUMENT AND NOT ONLY AN ASSERTION, so it is worth stating the
+ * argument before the code. `apps/web/next.config.ts` sets `output:
+ * "standalone"` and the e2e harness serves every one of its eleven instances
+ * with `next start`, which Next warns is not the entry point that
+ * configuration ships. ADR-0185 accepts that warning, and the acceptance is
+ * CONDITIONAL: it holds only because SOMETHING ELSE runs the entry point that
+ * does ship. That something else is the `image` job below.
+ *
+ * SO THE CONDITION IS WHAT IS PINNED HERE. `next start` and
+ * `.next/standalone/apps/web/server.js` load the same `.next/server` output
+ * through the same `startServer`, and differ in which `node_modules` resolve:
+ * the shipped tree carries the TRACED SUBSET, and a module the app reaches at
+ * runtime but tracing missed works under `next start` and fails under the
+ * server that ships. That is not hypothetical in this repository -- the
+ * `Dockerfile` builds the migrator its own module tree precisely because
+ * `drizzle-orm` is a part the trace does not carry -- and it is the one class
+ * of defect the e2e suite is structurally blind to.
+ *
+ * WHICH MAKES THIS THE ASSERTION THAT KEEPS ADR-0185 TRUE. Delete the smoke
+ * test, or weaken it to a route that answers without opening a connection, and
+ * nothing anywhere runs the shipped entry point -- while the e2e suite goes on
+ * reporting its 374 green tests and claiming it tests the page that ships. The
+ * claim becomes false with nothing in the diff saying so, which is the shape
+ * [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] is about.
+ */
+describe("the smoke test the e2e suite's entry point leans on", () => {
+  /**
+   * THE IMAGE'S OWN SERVER, not a build on the runner. `docker run` of the tag
+   * the build step loaded is what makes this the shipped entry point at all:
+   * the Dockerfile's `CMD` is `node apps/web/server.js`, so running the image
+   * is the only thing in this repository that executes that file.
+   */
+  it("runs the server that ships, and gets an answer out of it", () => {
+    expect(
+      stepsThatServeTheBuiltImage().map(({ name }) => name),
+      "no step both runs the built image and asks it for a page, so the standalone entry point is served nowhere",
+    ).not.toStrictEqual([]);
+  });
+
+  /**
+   * A ROUTE THAT READS THE DATABASE, which is the half that carries the proof.
+   *
+   * `/` answers 200 with the server never having opened a connection, so a
+   * smoke test that asked only for it would pass against an image whose traced
+   * module subset cannot reach PostgreSQL at all. An unknown id must come back
+   * 404 -- the app asked and found nothing -- and never 500, which is what an
+   * unreachable driver produces. The workflow says so in its own comment; this
+   * holds it to it.
+   */
+  it("asks it a question only a server that reached its database can answer", () => {
+    const asking = stepsThatServeTheBuiltImage().filter(({ run }) =>
+      /\/items\/[0-9a-f]{8}-[0-9a-f-]+/.test(run ?? ""),
+    );
+
+    expect(
+      asking.map(({ name }) => name),
+      "the smoke test asks for no database-backed route, so it would pass against an image that cannot reach PostgreSQL",
+    ).not.toStrictEqual([]);
+
+    for (const step of asking) {
+      expect(
+        step.run,
+        `${step.name} reads a database-backed route without holding it to 404`,
+      ).toMatch(/404/);
+    }
+  });
+});
+
 describe("the image's own labels", () => {
   /**
    * THE LABELS THE DOCKERFILE STATES, which nothing was holding.
