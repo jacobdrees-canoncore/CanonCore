@@ -126,3 +126,73 @@ describe("the sentence that says the flush works", () => {
     expect(silent).toStrictEqual([]);
   });
 });
+
+/**
+ * THE HAZARD THAT NAMES NO WAY THROUGH IT (CNCORE-306).
+ *
+ * The same three documents tell a dispatcher that input to a PARKED agent goes
+ * to the prompt widget, where `--enter` SELECTS the option under the cursor.
+ * True, and stated as a hazard with nothing on the other side of it: a reader
+ * who has only that has been told what not to do and not what to do, so the
+ * options are to guess the keystrokes or to leave the agent parked. That is
+ * what left the widget recipe undocumented for as long as it was, and on
+ * 2026-09-21 it cost four messages -- sent into a multi-select whose confirm
+ * screen was still open, eaten in silence while `orca terminal send` answered
+ * `Sent N bytes`.
+ *
+ * THE WINDOW IS THE SENTENCE AND THE ONE AFTER IT, not the document. A pointer
+ * three sections away from the warning is the shape `CLAUDE.md` refuses --
+ * "placed beside one, it leaves the old claim standing" -- and a
+ * document-level check would pass `CLAUDE.md`, which cites a dozen records
+ * elsewhere in the file and would satisfy the rule without the hazard gaining
+ * anything.
+ *
+ * THE RECORD EXCLUDES ITSELF, which is `adr-records.ts`'s idiom in its own
+ * words. ADR-0187 IS the way through, so it states the hazard in order to
+ * answer it; asking it to cite itself beside its own answer would be asking for
+ * a pointer to the paragraph underneath.
+ */
+
+/** The hazard, in the spelling all three carriers share. */
+const THE_HAZARD = /SELECTS the option under the cursor/i;
+
+/**
+ * The record holding the way through, in the three spellings this tree cites a
+ * record by (`adr-citations.test.ts` enumerates them).
+ *
+ * THE NUMBER IS WRITTEN OUT rather than derived, and it is load-bearing that it
+ * is: ADR numbers are assigned by the dispatcher and have collided before, so a
+ * renumbering that orphans these pointers should redden something. This is that
+ * something, and `adr-citations.test.ts` catches the other half by refusing a
+ * cited number the tree holds no record for.
+ */
+const THE_WAY_THROUGH = /ADR-0187\b|docs\/adr\/0187-|\[\[0187-/;
+
+/** The record that IS the answer, which is why it is not asked the question. */
+const ANSWERS_IT = "0187-";
+
+function hazardsOwedAnAnswer(): { path: string; window: string }[] {
+  return corpus()
+    .filter(({ path }) => !path.includes(ANSWERS_IT))
+    .flatMap(({ path, sentences }) =>
+      sentences.flatMap((sentence, index) =>
+        THE_HAZARD.test(sentence)
+          ? [{ path, window: [sentence, sentences[index + 1] ?? ""].join(" ") }]
+          : [],
+      ),
+    );
+}
+
+describe("the sentence that warns about the prompt widget", () => {
+  /** BEFORE THE RULE, for the reason the guard above it carries. */
+  it("is found in the tree at all", () => {
+    expect(hazardsOwedAnAnswer().length).toBeGreaterThan(0);
+  });
+
+  it("names the record holding the way through, beside the warning", () => {
+    const unanswered = hazardsOwedAnAnswer()
+      .filter(({ window }) => !THE_WAY_THROUGH.test(window))
+      .map(({ path, window }) => `${path}: ${window}`);
+    expect(unanswered).toStrictEqual([]);
+  });
+});

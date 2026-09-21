@@ -276,7 +276,9 @@ let the range pick the newer one up later.
   `printf '\030\023'` flushes it **and INTERRUPTS the turn in progress**, and the hint
   disappearing is the confirmation. **And with the
   flag, to a PARKED agent, the input goes to the PROMPT WIDGET, where `--enter` SELECTS the option
-  under the cursor** — on a multi-select with a free-text field the text can land in the field.
+  under the cursor** — on a multi-select with a free-text field the text can land in the field. The
+  keystrokes that answer it, per widget shape, are ADR-0187, and so is the confirm screen that eats
+  every chat send until it clears.
   Measured broadcasting to eight agents on 2026-09-20: six received it, two were parked, and BOTH
   known tells read clean because nothing ever reached the input box. So **read `--screen` BEFORE
   sending, not only after**: `Enter to select` on the screen means the agent is unreachable until

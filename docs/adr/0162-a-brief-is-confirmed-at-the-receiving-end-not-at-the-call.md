@@ -117,8 +117,12 @@ behaviour is closer to Escape followed by Enter.
 merge notice to eight agents: six received it, two were sitting on an `AskUserQuestion`. Both known
 tells read clean — no `ctrl+x ctrl+s` hint, no unsent text — because the input never reached the
 box. Worse, **`--enter` on a parked agent SELECTS the option under the cursor**, and on a
-multi-select with a free-text field the text can land in the field. Neither agent's answer was
-corrupted here; that was luck, not design.
+multi-select with a free-text field the text can land in the field. The way through — which
+keystrokes, in which order, for each shape of widget, and what the widget swallows until its confirm
+screen clears — is [[0187-wait-for-the-prompt-because-the-flush-costs-the-turn]], added 2026-09-21
+under CNCORE-306: this record stated the hazard and stopped, which is what left the recipe
+undocumented for as long as it was. Neither agent's answer was corrupted here; that was luck, not
+design.
 
 ## The decision
 
