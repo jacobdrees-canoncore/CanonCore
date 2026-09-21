@@ -52,10 +52,18 @@ once the controls are gone, but the UNACTIONABLE one.
 
 ## The answer was already in the tree
 
-`reasonFor` in `packages/providers/src/reason.ts` meets this shape: `bounded(message) || SILENT`,
+`reasonFor` in `packages/providers/src/reason.ts` met this shape: `bounded(message) || SILENT`,
 where `SILENT` reports the silence rather than dressing it up — "the provider failed without saying
 why." CNCORE-92's rule is that **a refusal reworded is not a refusal reported**, so these sentences
 say the value could not be shown rather than printing nothing and leaving the reader to guess.
+
+**It was half a precedent, and the half it was missing is the one this record is about** — it could
+not tell a value that said nothing from one that said nothing showable, which is what the paragraph
+under "What this does not cover" reported against itself. CNCORE-305 gave it a second sentence and
+that line now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`;
+[[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] carries it. The shape quoted
+above is kept as what this record was written from rather than corrected away, because the argument
+for `quotedTo` was taken from it.
 
 ## One phrase, six callers
 
@@ -143,14 +151,15 @@ does not re-derive it:
   it: `said === "" ? \`${answered}.\` : \`${answered}: ${said}\``. The empty case was handled at that
   seam before this record existed.
 
-**THREE FALLBACKS IN `@canoncore/providers` STATE THE OPPOSITE OF THIS RECORD, and they predate it.**
-`reasonFor`'s `bounded(message) || SILENT` — "the provider failed without saying why." — and
-`cmpp.ts`'s two `boundedProse` fallbacks all fire on the empty string, so a provider whose message
-was three zero-width spaces is reported as one that said nothing. That is the conflation this record
-forbids, committed by the very code this record cites as its precedent. They differ from the six
-above in having WORDS already; what is wrong is that the words are imprecise, which is a different
-fix in a different package. **CNCORE-305** carries it, and a TODO at `reason.ts` names it. Both axes
-of PR #225's review found it independently.
+**THE THREE FALLBACKS IN `@canoncore/providers` THAT STATED THE OPPOSITE OF THIS RECORD ARE FIXED,
+AND ARE NO LONGER THIS RECORD'S EDGE.** `reasonFor`'s fallback and `cmpp.ts`'s two `boundedProse`
+fallbacks each fired on the empty string, so a provider whose message was three zero-width spaces was
+reported as one that said nothing — the conflation this record forbids, in the very code it cites as
+its precedent. Both axes of PR #225's review found it independently. CNCORE-305 gave each of the
+three a second sentence, built from `unshowable` so the phrase stays in one place, and
+[[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] records the shape and what the
+`cause` chain turned out to do with an unshowable link. The TODO that stood at `reason.ts` is gone
+with the defect.
 
 `shortenTo` keeps its one caller, `shortly`, and owes these words nothing — **but not for the reason
 that first went in here, which a reviewer refuted.** "No prose for the strip to act on" is not an

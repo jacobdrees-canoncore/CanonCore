@@ -1,3 +1,4 @@
+import { unshowable } from "@canoncore/text";
 import { z } from "zod";
 
 import { boundedProse } from "./reason";
@@ -205,6 +206,23 @@ const MAX_NOTICE_CHARS = 1_000;
 const UNNAMED = "a Provider that did not name itself";
 
 /**
+ * AND WHAT STANDS IN WHEN IT NAMED ITSELF IN SOMETHING NOBODY CAN PRINT
+ * (ADR-0176, ADR-0179).
+ *
+ * `UNNAMED` above is about a DIFFERENT manifest. A name of three zero-width
+ * spaces bounds to the same empty string a name of three spaces does, and one
+ * sentence for both says this Provider gave no name when it gave one that cannot
+ * be shown -- a fact the Owner can act on, since it names what is wrong with the
+ * Provider's own manifest rather than leaving them to wonder why a nameless
+ * Provider is in their list.
+ *
+ * NO FULL STOP, BECAUSE `UNNAMED` HAS NONE. This value stands in for a NAME and
+ * is rendered where a name is rendered; a sentence's punctuation in that slot
+ * would read as part of the name.
+ */
+const UNSHOWABLE_NAME = unshowable("a Provider whose name is");
+
+/**
  * What stands in for a credential a Provider described in no words.
  *
  * The Owner still has to be told this Provider wants something, and the honest
@@ -212,6 +230,22 @@ const UNNAMED = "a Provider that did not name itself";
  * described it in nothing.
  */
 const SAID_NOTHING = "this Provider needs something, and did not say what.";
+
+/**
+ * AND WHAT STANDS IN WHEN IT DESCRIBED THE CREDENTIAL IN SOMETHING NOBODY CAN
+ * PRINT (ADR-0176, ADR-0179).
+ *
+ * `SAID_NOTHING` above was answering this input too, and it is the one sentence
+ * here that was plainly false: a Provider whose label is three zero-width spaces
+ * DID say what it needs. The Owner reads this above a link they are about to give
+ * a credential to, so which of the two is wrong with the manifest is the
+ * difference between a Provider to ask about and a Provider to distrust.
+ *
+ * A FULL STOP, BECAUSE `SAID_NOTHING` HAS ONE. Both are whole sentences the
+ * settings page prints, and a field whose two answers are punctuated differently
+ * reads as two voices.
+ */
+const UNSHOWABLE_LABEL = `${unshowable("this Provider needs something, and named it in words")}.`;
 
 /**
  * What a provider declares about itself.
@@ -262,7 +296,7 @@ const SAID_NOTHING = "this Provider needs something, and did not say what.";
  * downstream able to read the raw value at all.
  */
 export const cmppManifest = z.object({
-  name: boundedProse(UNNAMED),
+  name: boundedProse(UNNAMED, UNSHOWABLE_NAME),
   versions: z.array(z.number().int().positive()).default([1]),
   operations: z.array(z.string()).default([]),
   /**
@@ -411,7 +445,7 @@ export const cmppManifest = z.object({
   credential: z
     .object({
       /** One sentence for the OWNER: the only prose CanonCore renders about a credential. */
-      label: boundedProse(SAID_NOTHING),
+      label: boundedProse(SAID_NOTHING, UNSHOWABLE_LABEL),
       /**
        * WHERE THE OWNER GOES, ON THE PROVIDER. A PATH and not a URL, which is
        * the one place in CMPP that distinction is load-bearing: the provider

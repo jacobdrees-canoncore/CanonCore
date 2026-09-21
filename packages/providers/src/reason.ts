@@ -1,4 +1,4 @@
-import { boundedTo, oneLine } from "@canoncore/text";
+import { boundedTo, oneLine, strippedToNothing, unshowable } from "@canoncore/text";
 import { z } from "zod";
 
 import { OutboundRefused } from "./boundary";
@@ -73,16 +73,12 @@ export type FailureReason = z.infer<typeof failureReason>;
  * bounded at all, and exempting one branch would mean the bound held only while
  * every caller agreed about which branch it was on.
  */
-// TODO(CNCORE-305): `bounded(message) || SILENT` fires on the empty string, so
-// a provider whose message was only stripped characters is reported as one that
-// said nothing. ADR-0179 settled that a value nobody can show is not a value
-// nobody sent, and `quotedTo`'s `strippedToNothing` makes the distinction.
-// `cmpp.ts`'s two `boundedProse` fallbacks have the same shape.
 export function reasonFor(thrown: unknown): FailureReason {
   const spoke = unwrapped(thrown);
   const message = spoke instanceof Error ? spoke.message : String(spoke);
   const ours = spoke instanceof OutboundRefused && spoke.boundary === "config";
-  return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
+  const said = boundedOr(message, SILENT, UNSHOWABLE_REASON);
+  return { wrote: ours ? "canoncore" : "provider", text: said };
 }
 
 /**
@@ -140,6 +136,39 @@ export function bounded(text: string): string {
 }
 
 /**
+ * A PROVIDER'S PROSE, OR WHICHEVER OF THE TWO THINGS ABOUT ITS ABSENCE IS TRUE
+ * (ADR-0176).
+ *
+ * THERE ARE THREE ANSWERS HERE AND THERE WERE TWO. `bounded` above returns the
+ * empty string for a value that said nothing AND for one made of nothing the
+ * strip leaves, so `bounded(text) || whenSilent` answered both with the sentence
+ * for the first -- telling the Owner that a Provider which named a reason named
+ * none. ADR-0179 settled that a value nobody can show is not a value nobody
+ * sent.
+ *
+ * ONE FUNCTION BECAUSE THE TWO CALLERS HAD THE SAME DEFECT SEPARATELY, which is
+ * `reasonFor`'s own argument for existing at all: `provider.search` and
+ * `provider.container` each mapped its own catch and each got it wrong. This
+ * file's own `reasonFor` and `boundedProse` then did the same thing to the same
+ * distinction, in two spellings, and a third caller composing it again is how
+ * ADR-0163 watched its levers drift twice.
+ *
+ * BOTH SENTENCES COME FROM THE CALLER AND NEITHER IS DEFAULTED. `boundedProse`'s
+ * argument is that no house sentence fits every field, and it holds twice over
+ * here: `SILENT` and `UNNAMED` are punctuated differently because one IS a
+ * sentence a page prints and the other stands in for a NAME. A default would
+ * have to pick, and picking is what makes a field read in two voices.
+ *
+ * THE QUESTION IS `strippedToNothing`'S AND NOT `trim()`'S, which is the whole
+ * reason this reaches the leaf for it. U+FEFF is whitespace to `trim` AND a
+ * member of the zero-width family, so a guard spelled `text.trim() === ""` would
+ * answer "nothing there" for exactly the value these words exist to name.
+ */
+function boundedOr(text: string, whenSilent: string, whenUnshowable: string): string {
+  return bounded(text) || (strippedToNothing(text) ? whenUnshowable : whenSilent);
+}
+
+/**
  * A PROSE FIELD A PROVIDER DECLARES ABOUT ITSELF, BOUNDED AT THE FIELD RATHER
  * THAN AT EACH SURFACE THAT PRINTS IT (ADR-0123, CNCORE-165).
  *
@@ -155,24 +184,37 @@ export function bounded(text: string): string {
  * `z.string().min(1)`, so nothing distinguished prose somebody had thought about
  * from prose nobody had; the two spellings differ now.
  *
- * `whenSilent` IS REQUIRED RATHER THAN DEFAULTED, because there is no house
+ * BOTH SENTENCES ARE REQUIRED RATHER THAN DEFAULTED, because there is no house
  * sentence that fits every field: a nameless Provider and a Provider that
  * described its credential in no words need different words. What a caller must
- * not be allowed to do is skip it -- `min(1)` admits a value of a single space,
- * `bounded` collapses that to nothing, and an empty string then fails the
+ * not be allowed to do is skip either -- `min(1)` admits a value of a single
+ * space, `bounded` collapses that to nothing, and an empty string then fails the
  * `min(1)` the surfaces declare on their own OUTPUT. That is a provider crashing
  * the request that reads it, which is exactly what `SILENT` exists to prevent one
  * seam over.
  *
- * IT REPORTS THE SILENCE RATHER THAN DRESSING IT UP, as everything else here
+ * `whenUnshowable` IS THE SECOND, AND IT ARRIVED BECAUSE ONE SENTENCE WAS
+ * ANSWERING TWO INPUTS (ADR-0176). Defaulting it to `whenSilent` would have been
+ * the compatibility shim that put the defect back: both of this schema's fields
+ * had words for a Provider that said NOTHING and used them on a Provider that
+ * said something nobody can print. `boundedOr` above carries the question; these
+ * two arguments carry the answers, and the punctuation is why neither can be
+ * house-supplied -- `UNNAMED` stands in for a NAME and takes no full stop, while
+ * `SAID_NOTHING` is a sentence a page prints and takes one.
+ *
+ * IT REPORTS WHAT HAPPENED RATHER THAN DRESSING IT UP, as everything else here
  * does: CNCORE-92's rule is that a refusal reworded is not a refusal reported,
- * and a provider that said nothing said nothing.
+ * so a provider that said nothing said nothing -- and a provider that said
+ * something unshowable said something unshowable.
  */
-export function boundedProse(whenSilent: string): z.ZodType<string, unknown> {
+export function boundedProse(
+  whenSilent: string,
+  whenUnshowable: string,
+): z.ZodType<string, unknown> {
   return z
     .string()
     .min(1)
-    .transform((text) => bounded(text) || whenSilent);
+    .transform((text) => boundedOr(text, whenSilent, whenUnshowable));
 }
 
 /**
@@ -188,3 +230,21 @@ export function boundedProse(whenSilent: string): z.ZodType<string, unknown> {
  * a failure that named no reason is that it named none.
  */
 const SILENT = "the provider failed without saying why.";
+
+/**
+ * What is said when the thrown thing said something nobody can show (ADR-0176).
+ *
+ * `SILENT` ABOVE IS ABOUT A DIFFERENT INPUT, and until CNCORE-305 one sentence
+ * answered both. `bounded` strips the controls and trims, so a message of
+ * nothing but them arrives at the same empty string `new Error()` does -- and the
+ * sentence for it asserted that a provider which NAMED a reason named none.
+ * ADR-0179 settled that a value nobody can show is not a value nobody sent, and
+ * `strippedToNothing` asks which of the two happened rather than whether the
+ * result is empty.
+ *
+ * THE PHRASE IS `@canoncore/text`'S AND THE FRAME IS THIS FILE'S, which is
+ * ADR-0179's split kept. The full stop is here because `SILENT` carries one: this
+ * value IS the sentence a page prints, so its two answers have to be punctuated
+ * alike or the field reads as two voices.
+ */
+const UNSHOWABLE_REASON = `${unshowable("the provider's reason was")}.`;
