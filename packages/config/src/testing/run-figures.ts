@@ -237,6 +237,31 @@ const THE_REGISTER: Registration[] = [
     kind: "foreign",
     why: "the page's own copy, quoted: `Showing item 465 of 465` is what a reader sees on a listing of one, and it moves with the catalogue rather than with this tree's tests",
   },
+  /*
+   * THE RECORD THAT DEFINES THE SPELLINGS, CAUGHT BY THE CHECK IT ARGUES FOR,
+   * on the rebase that added it (CNCORE-339). A record naming which spellings
+   * a sweep covers cannot name them without writing them down, and describing
+   * them in words would leave a reader unable to tell the covered shape from
+   * the near miss beside it -- which is the whole subject of that section.
+   *
+   * REGISTERED RATHER THAN ADDED TO `THE_IRREDUCIBLE`, deliberately. That list
+   * excuses a whole FILE, which is right for the reader and its suite because
+   * every figure in them is a specimen. ADR-0201 is prose that could state a
+   * figure of its own tomorrow, and excusing the document would excuse that
+   * one too. These two rows excuse exactly the two quotations and nothing else.
+   */
+  {
+    path: "docs/adr/0201-a-figure-about-a-run-is-found-by-sweeping-rather-than-by-a-roll-call.md",
+    figure: "18 of 18",
+    kind: "foreign",
+    why: "the record's own specimen of the first spelling this sweep covers, quoting the figure CNCORE-338 deleted from `provider-wiki`; it is an example of a shape rather than a claim about how anything ran",
+  },
+  {
+    path: "docs/adr/0201-a-figure-about-a-run-is-found-by-sweeping-rather-than-by-a-roll-call.md",
+    figure: "8 failed | 21 passed (29)",
+    kind: "foreign",
+    why: "the record's own specimen of the second spelling, which is the one every hand pass missed; quoting it is how the section says which shapes are covered",
+  },
   {
     path: "docs/adr/0181-a-check-is-evidence-only-for-the-commit-it-ran-against.md",
     figure: "16 of 16",

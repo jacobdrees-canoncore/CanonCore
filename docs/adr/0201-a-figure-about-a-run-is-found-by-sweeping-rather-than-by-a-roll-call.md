@@ -113,6 +113,29 @@ file before reading it and keeps an offset map so the line number survives the f
   written without stating the spellings they match. Each is held to finding something, so a third
   name added to buy silence reddens the run that adds it.
 
+## As built, under CNCORE-339 — and this record stays PROPOSED
+
+**BUILT: the sweep, the rule and the register, in this repository.**
+`packages/config/src/run-figures.test.ts` and `testing/run-figures.ts` read every tracked `.ts` and
+`.md`, in both spellings, and redden on a figure that neither derives nor carries an anchor. The
+floor is held before the rule, so an emptied pattern goes red rather than passing on an empty
+population. Nine defects in this tree were repaired under
+[[0188-a-count-nobody-routes-by-is-deleted-rather-than-derived]], and the register holds four
+entries across three documents, each of which must keep finding its figure.
+
+**NOT BUILT HERE, BECAUSE IT CANNOT BE: the two provider halves, which are the same check in
+`provider-wiki#67` and `provider-tmdb#36`.** `docs/adr/` is in this repository and no PR in a
+provider repository reaches it, so a claim about their trees is one a reviewer of this diff cannot
+check against the diff
+([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). Both PRs are open and
+green. **This record reads `accepted` when they merge, and the ticket that flips it is the second
+one**, which is CLAUDE.md's rule for a cross-repo pair.
+
+**AND THE CHECK CAUGHT THIS RECORD, on the rebase that added it.** The section naming the two
+spellings has to write them down, so the sweep reported both. They are registered as `foreign`
+rather than excused by filename: this document could state a figure of its own tomorrow, and
+excusing the file would excuse that one too.
+
 ## What this leaves for its own record
 
 [[0153-a-figure-about-this-tree-is-derived-or-dated]] stays `proposed`, and this narrows what is
