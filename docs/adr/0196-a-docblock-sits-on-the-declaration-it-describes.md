@@ -11,7 +11,7 @@ status: accepted
 > by hand under CNCORE-258, in two PRs MERGED before this one: `provider-wiki#61` as `8aa5bff` and
 > `provider-tmdb#32` as `1f4f3c3`. **Each provider repository holds the check too since
 > CNCORE-321**, ported with the scan it reads, in two PRs MERGED before the change recording them:
-> `provider-wiki#62` as `PENDING` and `provider-tmdb#33` as `PENDING`. This record's number was
+> `provider-wiki#62` as `d1f6714` and `provider-tmdb#33` as `e14e361`. This record's number was
 > assigned by the dispatcher.
 
 ## Why a misplaced block is worse than none
