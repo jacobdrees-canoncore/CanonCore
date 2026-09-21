@@ -351,7 +351,7 @@ interface LockedOptions {
  * provider that declares a credential, its image is private, and CI supplies it
  * with nothing -- so on any machine that cannot pull it, every assertion about a
  * locked provider is a branch nothing enters, and ADR-0122's own optionality guard
- * fails outright. Measured before this existed: `Tests 2 failed | 48 passed`.
+ * fails outright. Measured before this existed: `Tests 2 failed`.
  *
  * WHAT IT STANDS FOR IS THE REFUSAL, NOT THE WIKI. `CONTEXT.md` gives the claim in
  * the product's own words -- a Provider with no Credential "stays reachable and
