@@ -1,4 +1,4 @@
-import { boundedTo } from "@canoncore/text";
+import { quotedTo } from "@canoncore/text";
 
 /**
  * WHAT ONE QUERY PARAMETER SAYS, when a reader may have supplied it more than
@@ -82,8 +82,21 @@ const QUERY_IN_A_SENTENCE = 80;
 // sites this function exists for were found by a person reading a diff --
 // `/search` by inspection, `/import` by the review of the ticket that fixed
 // `/search` -- so the list is only ever as good as the last such reading.
+/*
+ * AND THE WORDS FOR A QUERY THE STRIP EMPTIED (ADR-0179). `boundedTo` removes
+ * the controls and trims, so a query made of NOTHING ELSE comes back empty and
+ * both sentences above lose the subject they were built around. It is
+ * reachable off the address rather than exotic: `oneValue` admits it, because
+ * `trim()` does not remove U+200B, so `?q=` of three zero-width spaces is a
+ * non-empty parameter that arrives here whole.
+ *
+ * THE PHRASE IS `quotedTo`'S AND THE NOUN IS THIS FILE'S. Five sites owe the
+ * same sentence about an emptied value; the words live in `@canoncore/text` so
+ * one concept ships in one voice, and what this file knows is that the value
+ * is a query the reader TYPED.
+ */
 export function theQueryQuoted(query: string): string {
-  return boundedTo(query, QUERY_IN_A_SENTENCE);
+  return quotedTo(query, QUERY_IN_A_SENTENCE, "a query");
 }
 
 export function oneValue(parameter: string | string[] | undefined): string | undefined {

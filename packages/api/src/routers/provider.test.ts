@@ -2316,6 +2316,37 @@ describe("provider.beginImportRun", () => {
   });
 
   /**
+   * THE SAME STRIP, TAKING EVERY CHARACTER THERE WAS (ADR-0179). The test above
+   * proves the controls come out of an id with glyphs either side of them. An
+   * id made of NOTHING BUT them bounds to the empty string, and this sentence
+   * then opens with nothing -- " is 256 characters, at position 1, and a
+   * Container id is at most 255", which names no id for the Owner to find.
+   *
+   * IT REACHES THIS SENTENCE RATHER THAN THE REPEAT'S, and that is why the
+   * words cannot live at one site. 256 zero-width spaces are refused HERE for
+   * their length, before `beginImportRun` ever sees the list (ADR-0160), so the
+   * fix landing only in `@canoncore/db` would leave this half standing.
+   *
+   * THE WHOLE SENTENCE IS ASSERTED, as the two beside it are: what the fallback
+   * protects is the SUBJECT of the clause, and a test checking only that the
+   * message was non-empty would pass on a refusal that had lost it.
+   */
+  it("says the id was made only of characters that cannot be shown, rather than quoting nothing", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const unshowable = "\u200b".repeat(256);
+
+    const { error } = await safe(
+      call(appRouter.provider.beginImportRun, { baseUrl, containerIds: [unshowable] }, { context }),
+    );
+
+    expect(unshowable).toHaveLength(256);
+    expect(error?.message).toBe(
+      "an id made only of characters that cannot be shown is 256 characters, " +
+        "at position 1, and a Container id is at most 255",
+    );
+  });
+
+  /**
    * THE BOUND ITSELF, AND THE SIDE OF IT A LEGAL ID SITS ON. 255 is the longest
    * a Container id may be, not the first length refused, and a bound asserted
    * only from above passes just as well when it is written one character tight

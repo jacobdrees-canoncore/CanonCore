@@ -15,6 +15,7 @@ import {
   readImportRun,
   recordContainerLanded,
   recordContainerRefused,
+  theContainerIdQuoted,
 } from "@canoncore/db";
 import {
   type Allowlist,
@@ -31,7 +32,6 @@ import {
   reasonFor,
   searchProviders,
 } from "@canoncore/providers";
-import { boundedTo } from "@canoncore/text";
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
@@ -571,28 +571,16 @@ function asReportedContainer(container: RunContainer): z.infer<typeof runContain
  */
 const CONTAINER_ID_MAX_LENGTH = 255;
 
-/**
- * A CONTAINER ID AS THIS REFUSAL QUOTES IT BACK, which is 80 characters of it.
- *
- * ADR-0123's ceiling for a value interpolated into a refusal, TAKEN RATHER THAN
- * CHOSEN AGAIN, because this is the same question that record answered about a
- * different reader -- the argument `tasks/registry.ts` makes in those words
- * about that record's other number. The rule is that the value is bounded WHERE
- * IT ENTERS the sentence, so the prose around it is fixed-length and cannot be
- * cut; an id refused FOR ITS LENGTH is precisely the value that would otherwise
- * eat the clause explaining why it was refused.
- *
- * THE LEVERS ARE `boundedTo`'S AND THE NUMBER IS THIS FILE'S (CNCORE-269),
- * reached through `@canoncore/text` since ADR-0163 moved them to a leaf every
- * package can import.
- * ADR-0123 bounds a stranger's text on two -- how MUCH of it lands in the
- * sentence, and what it may DO to the words around it -- and this reaches for
- * both through one call, because taking the cut alone is half a mechanism that
- * looks finished. Review caught exactly that here: a bidirectional override in
- * an id re-orders the clause naming the ceiling that refused it.
+/*
+ * THE ID THIS SENTENCE QUOTES IS BOUNDED BY `theContainerIdQuoted`, WHICH IS
+ * WHERE THE CEILING WENT (ADR-0179). This file spelled `ID_IN_A_SENTENCE = 80`
+ * beside `import-runs.ts` spelling the same 80, each docblock telling the next
+ * reader it was "TAKEN RATHER THAN CHOSEN AGAIN" -- a copy kept in step by a
+ * comment asking for it to be kept in step, which is the instrument ADR-0163
+ * proved does not work after watching its own levers drift twice. The ceiling,
+ * both levers and the words for an id that strips to nothing are now one
+ * function in `@canoncore/db`, reached by this refusal and by the repeat's.
  */
-const ID_IN_A_SENTENCE = 80;
-
 /**
  * The first id on this list that is longer than a Container id may be, and
  * where it sits, or `undefined` if every one of them fits.
@@ -1796,7 +1784,7 @@ export const provider = {
       if (overlong !== undefined) {
         throw errors.BAD_REQUEST({
           message:
-            `${boundedTo(overlong.externalId, ID_IN_A_SENTENCE)} is ` +
+            `${theContainerIdQuoted(overlong.externalId)} is ` +
             `${overlong.externalId.length} characters, at position ${overlong.at + 1}, ` +
             `and a Container id is at most ${CONTAINER_ID_MAX_LENGTH}`,
         });

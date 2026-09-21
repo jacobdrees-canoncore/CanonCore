@@ -9,7 +9,7 @@ import {
   type TaskOutcome,
   type TaskRun,
 } from "@canoncore/db";
-import { boundedTo } from "@canoncore/text";
+import { boundedTo, unshowable } from "@canoncore/text";
 
 export type { TaskOutcome, TaskRun } from "@canoncore/db";
 
@@ -339,7 +339,31 @@ function reasonFor(thrown: unknown): string {
  * history.
  */
 function bounded(detail: string): string {
-  return boundedTo(detail, BOUNDED_DETAIL);
+  return boundedTo(detail, BOUNDED_DETAIL) || UNSHOWABLE_DETAIL;
 }
+
+/**
+ * WHAT A RUN LEAVES BEHIND WHEN THE STRIP TOOK EVERY CHARACTER IT SAID
+ * (ADR-0179).
+ *
+ * The levers above remove the controls, collapse whitespace and trim, so a
+ * detail made of nothing else comes back EMPTY -- and `tasks/page.tsx` renders
+ * it as `{said} Ran {when}.`, a history entry opening on a bare space. A bound
+ * that empties a value is not a bound.
+ *
+ * `?? "It said nothing."` ON THAT PAGE DOES NOT CATCH IT, and would be the
+ * wrong sentence if it did. That fallback tests for NULL and this is a non-null
+ * empty string; more to the point, a task that threw a message of zero-width
+ * spaces did not say NOTHING, it said something nobody can show. CNCORE-92's
+ * rule is that a refusal reworded is not a refusal reported, so the two stay
+ * two sentences.
+ *
+ * A WHOLE SENTENCE RATHER THAN A QUOTED NOUN, WHICH IS WHY THIS REACHES
+ * `unshowable` AND NOT `quotedTo`. The other four callers interpolate a value
+ * into a sentence they wrote and need a bare noun phrase; a `detail` IS the
+ * sentence the page prints, so it takes a capital and a full stop. The PHRASE
+ * is the shared one either way, which is the part that has to be one voice.
+ */
+const UNSHOWABLE_DETAIL = `${unshowable("A detail")}.`;
 
 export const BOUNDED_DETAIL = 300;

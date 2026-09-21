@@ -1,4 +1,4 @@
-import { boundedTo } from "@canoncore/text";
+import { quotedTo } from "@canoncore/text";
 import { and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
@@ -115,13 +115,8 @@ export async function beginImportRun(
 ): Promise<ImportRun> {
   const repeated = theRepeatIn(containerIds);
   if (repeated !== undefined) {
-    // TODO(CNCORE-285): an id made ENTIRELY of stripped characters bounds to the
-    // empty string, and this sentence then opens with nothing -- unactionable
-    // rather than unsafe. `reasonFor`'s `bounded(message) || SILENT` is the
-    // shape of the answer, and the same gap sits on `provider.ts`'s overlong
-    // refusal, so the words are one decision across two sites.
     throw new ImportRunRefused(
-      `${boundedTo(repeated.externalId, ID_IN_A_SENTENCE)} is listed twice, ` +
+      `${theContainerIdQuoted(repeated.externalId)} is listed twice, ` +
         `at positions ${repeated.first + 1} and ${repeated.again + 1}`,
     );
   }
@@ -182,16 +177,19 @@ async function openTheRun(
  * A CONTAINER ID AS THIS REFUSAL QUOTES IT BACK, which is 80 characters of it.
  *
  * ADR-0123's ceiling for a value interpolated into a refusal, TAKEN RATHER THAN
- * CHOSEN AGAIN, and the same number `provider.ts` takes for the sentence beside
- * this one -- the two refusals are one complaint a constraint apart, so an id
- * too long and an id twice quote back the same amount of it.
+ * CHOSEN AGAIN. The two refusals that quote an id are one complaint a
+ * constraint apart (ADR-0160), so an id too long and an id twice quote back the
+ * same amount of it -- and since ADR-0179 they do that by reaching the SAME
+ * function rather than by `provider.ts` spelling this number again. It is read
+ * only by `theContainerIdQuoted` below.
  *
- * THE CEILING IS THIS FILE'S AND THE LEVERS ARE NOT (ADR-0163). `boundedTo`
+ * THE CEILING IS THIS PACKAGE'S AND THE LEVERS ARE NOT (ADR-0163). `quotedTo`
  * applies both of ADR-0123's -- how MUCH of a stranger's value lands in the
  * sentence, and what it may DO to the words around it -- and the number stays
- * here, beside the sentence it bounds. Until CNCORE-282 this sentence took
- * NEITHER lever: CNCORE-268 capped what could arrive at 255 characters at the
- * router, which is a smaller flood rather than this record's mechanism.
+ * beside the sentences it bounds rather than moving into the leaf. Until
+ * CNCORE-282 this sentence took NEITHER lever: CNCORE-268 capped what could
+ * arrive at 255 characters at the router, which is a smaller flood rather than
+ * this record's mechanism.
  *
  * REACHED THROUGH `@canoncore/text` RATHER THAN COPIED. ADR-0123 refused the
  * import that would have shared these levers and was right about the dependency
@@ -201,6 +199,34 @@ async function openTheRun(
  * themselves.
  */
 const ID_IN_A_SENTENCE = 80;
+
+/**
+ * A Container id AS A REFUSAL QUOTES IT BACK: bounded on both of ADR-0123's
+ * levers, or the words saying why there was nothing left to quote (ADR-0179).
+ *
+ * ONE FUNCTION FOR BOTH REFUSALS THAT NAME AN ID, which is the whole point of
+ * it being here rather than spelled at each. The repeat's sentence is thrown in
+ * this file and the overlong one at the router (ADR-0160) -- "one complaint a
+ * constraint apart" -- and two sites composing the call themselves is the shape
+ * ADR-0163 already watched drift twice: half a mechanism looks finished from
+ * outside, and the half missing here was the fallback rather than a lever.
+ *
+ * THE WORDS ARE `quotedTo`'S AND THE NOUN IS THIS FILE'S. Five sites across
+ * four packages owe the same sentence about a value the strip emptied, so the
+ * phrase lives in `@canoncore/text` and one concept ships in one voice; what
+ * this file knows, and that leaf does not, is that the value is an id.
+ *
+ * IT CARRIES THE CEILING WITH IT, which is the one thing ADR-0163 said would
+ * stay put. That record left `ID_IN_A_SENTENCE` spelled in two files with a
+ * comment in each saying it was "TAKEN RATHER THAN CHOSEN AGAIN" -- a copy kept
+ * in step by a comment telling the next reader to keep it in step, which is the
+ * exact instrument that record proved does not work. `theQueryQuoted` is its
+ * own precedent: one function holding the ceiling and both levers, reached by
+ * both surfaces that print a query. ADR-0179 records the same for an id.
+ */
+export function theContainerIdQuoted(externalId: string): string {
+  return quotedTo(externalId, ID_IN_A_SENTENCE, "an id");
+}
 
 /**
  * The first id this list names twice, and the two places it sits, or

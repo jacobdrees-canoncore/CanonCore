@@ -1,0 +1,121 @@
+---
+status: accepted
+---
+
+# A bound that empties a value says so, in one phrase everywhere
+
+> **ACCEPTED 2026-09-21, whole, in one repository.** `quotedTo` and `unshowable` in
+> `packages/text/src/index.ts` hold the phrase "made only of characters that cannot be shown", and
+> every caller that bounds a stranger's value reaches one of them: the repeat's refusal
+> (`packages/db/src/import-runs.ts`), the overlong-id refusal (`packages/api/src/routers/provider.ts`),
+> `theQueryQuoted` at `/search` and `/import` (`apps/web/src/components/query-params.ts`),
+> `theEntryRefused` at `/settings` (`apps/web/src/app/settings/refusal.ts`) and a task's `detail`
+> (`packages/tasks/src/registry.ts`). That is FIVE sites in four packages, counted by grepping
+> `boundedTo`'s callers and reading each. A witness at each seam drives a value of only stripped
+> characters and was checked RED first. `ID_IN_A_SENTENCE`'s two copies folded into
+> `theContainerIdQuoted`; `REASON_MAX_LENGTH`, `QUERY_IN_A_SENTENCE`, `ENTRY_MAX` and
+> `BOUNDED_DETAIL` stay where they were, and `@canoncore/text` still holds no ceiling. No provider
+> repository is touched, so nothing is owed at a second one.
+
+[[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] bounds a stranger's text on two levers,
+and [[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]] moved both into `@canoncore/text`
+so every caller reaches them through one call. `boundedTo` strips the controls, collapses whitespace
+and trims.
+
+**A value made of nothing but those characters bounds to the empty string.** Every sentence built
+around one then loses its subject:
+
+```
+ is listed twice, at positions 1 and 3
+ is 256 characters, at position 1, and a Container id is at most 255
+```
+
+**A bound that empties a value is not a bound. It is a second defect wearing the first one's fix**,
+and it is the case ADR-0123 cares most about: not the dangerous one, since nothing is re-ordered
+once the controls are gone, but the UNACTIONABLE one.
+
+## It is reachable at every site, not exotic
+
+`trim()` does not remove U+200B, and nothing upstream of these seams does either:
+
+- **The two id refusals.** `theContainerIdsIn` drops blank lines and `#` comments only, so a line of
+  three zero-width spaces is a non-blank line that becomes a Container id and clears ADR-0160's
+  255-character ceiling with 252 to spare. Listed twice it reaches the repeat's sentence; at 256 of
+  them it reaches the overlong one instead.
+- **`theQueryQuoted` and `theEntryRefused`.** Both guard with `oneValue`, which tests
+  `parameter.trim() !== ""` — so `?q=` and `?refused=` of three zero-width spaces are NOT blank by
+  that test and arrive whole, off an address anybody can compose.
+- **A task's `detail`.** What a task THROWS is written by whatever broke, and `tasks/page.tsx`
+  renders the result as `{said} Ran {when}.`
+
+## The answer was already in the tree
+
+`reasonFor` in `packages/providers/src/reason.ts` meets this shape: `bounded(message) || SILENT`,
+where `SILENT` reports the silence rather than dressing it up — "the provider failed without saying
+why." CNCORE-92's rule is that **a refusal reworded is not a refusal reported**, so these sentences
+say the value could not be shown rather than printing nothing and leaving the reader to guess.
+
+## One phrase, five callers
+
+**The phrase is "made only of characters that cannot be shown", and it lives in one place.** Five
+sites across four packages owe the same sentence. Each composing its own `boundedTo(...) || "..."`
+would ship ONE concept in five voices, which is a two-readings defect rather than a matter of taste —
+a reader meeting "an unprintable id" on one page and "a query with no showable characters" on the
+next has no way to know they are the same fact.
+
+**"MADE ONLY OF" IS LOAD-BEARING AND MUST NOT BE SHORTENED.** A value that is PARTLY unshowable —
+`249‮643` — is QUOTED, as `249643`, by the strip alone. This phrase is reached ONLY when the
+whole value went. "An id of characters that cannot be shown" would name a class holding both and
+tell the reader the wrong thing about which of their lines is at fault. It costs ten characters
+against ceilings whose longest sentence measures 120, which is the cheap side of the trade. **A
+witness in `packages/text/src/index.test.ts` goes red if it is shortened back**, because the next
+reader to meet a long string is the one who shortens it, and a rule stated only in a record is not
+one the tree enforces.
+
+**The NOUN and the FRAME are the caller's**, because only it knows what the value is.
+`boundedProse`'s argument that no house sentence fits every field is kept: what is shared is the
+phrase, not the sentence.
+
+**`quotedTo` for four callers, `unshowable` for one.** Four interpolate a value into a sentence they
+wrote and need a bare noun phrase — "an id", "a query", "an entry". A task's `detail` IS the
+sentence the page prints, so it takes a capital and a full stop. They are published side by side on
+the same argument that publishes `shortenTo` beside `boundedTo`: a fork in the road needs the
+doc comment saying which way each caller goes.
+
+**Absent and unshowable stay two answers.** `theEntryRefused` still returns `undefined` for an
+absent parameter, because `WhichEntry` renders that as "That entry" — a refusal that named nothing
+is a different fact from one naming something nobody can print. For the same reason a task's empty
+detail does not become `tasks/page.tsx`'s `?? "It said nothing."`: that tests for NULL, and a task
+that threw zero-width spaces did not say nothing.
+
+## The ceiling moved, which ADR-0163 said it would not
+
+That record's "What moves, and what does not" says the LEVERS move and the CEILINGS do not, naming
+`ID_IN_A_SENTENCE` in two files as staying where it was. **That half is superseded here, for that
+value only.** The rest stands: `REASON_MAX_LENGTH`, `QUERY_IN_A_SENTENCE`, `ENTRY_MAX` and
+`BOUNDED_DETAIL` do not move, and `@canoncore/text` still holds no ceiling.
+
+The reason is ADR-0163's own evidence turned on its own remedy. It left the 80 spelled twice with a
+docblock in each file telling the next reader it was "TAKEN RATHER THAN CHOSEN AGAIN" — **a copy
+kept in step by a comment asking for it to be kept in step**, which is the exact instrument that
+record proved does not work after watching its levers drift twice, in CNCORE-272 and CNCORE-274.
+Adding a fallback would have made it two copies of three things rather than of one.
+
+**`theQueryQuoted` is the precedent, and it is ADR-0163's own.** That record describes `/search` and
+`/import` reading "the ceiling and both levers" from one function. `theContainerIdQuoted` is the
+same shape for an id: one function, reached by both sites that print one. It lives in
+`@canoncore/db` rather than in the leaf, because "an id" is domain vocabulary and `@canoncore/text`
+depends on nothing and knows about no Containers; `@canoncore/api` already imports `beginImportRun`
+and `ImportRunRefused` from that package, so the refusal and the words it may use arrive together.
+
+## What this does not cover
+
+**The five sites are the callers of `boundedTo` that existed on 2026-09-21**, found by grepping it
+and reading each. ADR-0163 had to add a paragraph about itself after a reviewer found two sites its
+own list had missed, and its conclusion is the one to keep here: **a count of `boundedTo`'s callers
+is not a count of the places that owe it.** Nothing in this tree reports a surface that prints a
+value it did not write without passing through one of these functions, so the list is only ever as
+good as the last reading of it.
+
+`shortenTo` keeps its one caller, `shortly`, which quotes parsed URLs, hosts and addresses. There is
+no prose there for the strip to act on, so it cannot empty a value and owes these words nothing.

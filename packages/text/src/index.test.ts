@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundedTo, shortenTo } from "./index";
+import { boundedTo, quotedTo, shortenTo } from "./index";
 
 /**
  * ADR-0163. The levers live here so every package that puts a stranger's text
@@ -57,5 +57,42 @@ describe("shortenTo", () => {
 
     expect(shortened.isWellFormed()).toBe(true);
     expect(shortened.length).toBeLessThanOrEqual(80);
+  });
+});
+
+/**
+ * ADR-0179. A bound that empties a value is not a bound: the sentence built
+ * around it loses its subject, and the reader is told nothing about which of
+ * their lines is at fault. The words live here so ONE concept ships in ONE
+ * voice across five callers -- a second agent choosing its own phrasing is the
+ * two-readings defect, not a style question.
+ */
+describe("quotedTo", () => {
+  /**
+   * THE CASE THE LEVERS CREATE. `boundedTo` strips the controls, collapses
+   * whitespace and trims, so a value made of NOTHING ELSE bounds to the empty
+   * string -- which is reachable rather than exotic, because `trim()` does not
+   * remove U+200B and nothing upstream does either.
+   */
+  it("says what could not be shown when the strip took every character there was", () => {
+    expect(quotedTo("​​​", 80, "an id")).toBe("an id made only of characters that cannot be shown");
+  });
+
+  /**
+   * "MADE ONLY OF" IS LOAD-BEARING. A value that is PARTLY unshowable is
+   * quoted, by the strip alone, so this phrase is reached only when the WHOLE
+   * value went. Shortening it to "an id of characters that cannot be shown"
+   * would name a class holding both and misdirect the reader about which line
+   * is theirs. This witness is what makes that shortening go red.
+   */
+  it("quotes a value the strip only partly took, rather than reaching for the words", () => {
+    expect(quotedTo("249‮643", 80, "an id")).toBe("249643");
+  });
+
+  /** The caller names the noun, because only it knows what the value IS. */
+  it("names whatever the caller called it", () => {
+    expect(quotedTo("﻿", 80, "a query")).toBe(
+      "a query made only of characters that cannot be shown",
+    );
   });
 });
