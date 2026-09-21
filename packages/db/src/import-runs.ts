@@ -211,10 +211,10 @@ const ID_IN_A_SENTENCE = 80;
  * ADR-0163 already watched drift twice: half a mechanism looks finished from
  * outside, and the half missing here was the fallback rather than a lever.
  *
- * THE WORDS ARE `quotedTo`'S AND THE NOUN IS THIS FILE'S. Six sites across
- * four packages owe the same sentence about a value the strip emptied, so the
- * phrase lives in `@canoncore/text` and one concept ships in one voice; what
- * this file knows, and that leaf does not, is that the value is an id.
+ * THE WORDS ARE `quotedTo`'S AND THE NOUN IS THIS FILE'S. Every site owing the
+ * same sentence about a value the strip emptied takes the phrase from
+ * `@canoncore/text`, so one concept ships in one voice; what this file knows,
+ * and that leaf does not, is that the value is an id.
  *
  * IT CARRIES THE CEILING WITH IT, which is the one thing ADR-0163 said would
  * stay put. That record left `ID_IN_A_SENTENCE` spelled in two files with a

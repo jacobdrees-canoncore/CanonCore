@@ -90,9 +90,9 @@ const QUERY_IN_A_SENTENCE = 80;
  * `trim()` does not remove U+200B, so `?q=` of three zero-width spaces is a
  * non-empty parameter that arrives here whole.
  *
- * THE PHRASE IS `quotedTo`'S AND THE NOUN IS THIS FILE'S. Five sites owe the
- * same sentence about an emptied value; the words live in `@canoncore/text` so
- * one concept ships in one voice, and what this file knows is that the value
+ * THE PHRASE IS `quotedTo`'S AND THE NOUN IS THIS FILE'S. Every site owing the
+ * same sentence about an emptied value takes the words from `@canoncore/text`
+ * so one concept ships in one voice, and what this file knows is that the value
  * is a query the reader TYPED.
  */
 export function theQueryQuoted(query: string): string {

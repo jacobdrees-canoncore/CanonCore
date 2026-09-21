@@ -64,7 +64,7 @@ describe("shortenTo", () => {
  * ADR-0179. A bound that empties a value is not a bound: the sentence built
  * around it loses its subject, and the reader is told nothing about which of
  * their lines is at fault. The words live here so ONE concept ships in ONE
- * voice across five callers -- a second agent choosing its own phrasing is the
+ * voice across every caller -- a second agent choosing its own phrasing is the
  * two-readings defect, not a style question.
  */
 describe("quotedTo", () => {

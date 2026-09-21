@@ -364,10 +364,10 @@ function bounded(detail: string): string {
  * two sentences.
  *
  * A WHOLE SENTENCE RATHER THAN A QUOTED NOUN, WHICH IS WHY THIS REACHES
- * `unshowable` AND NOT `quotedTo` ALONE. The other five callers interpolate a value
- * into a sentence they wrote and need a bare noun phrase; a `detail` IS the
- * sentence the page prints, so it takes a capital and a full stop. The PHRASE
- * is the shared one either way, which is the part that has to be one voice.
+ * `unshowable` AND NOT `quotedTo` ALONE. A caller interpolating a value into a
+ * sentence it wrote needs a bare noun phrase; a `detail` IS the sentence the
+ * page prints, so it takes a capital and a full stop. The PHRASE is the shared
+ * one either way, which is the part that has to be one voice.
  */
 const UNSHOWABLE_DETAIL = unshowable("A detail");
 
