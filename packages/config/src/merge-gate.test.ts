@@ -48,14 +48,14 @@ const realGit =
   (spawnSync("which", ["git"], { encoding: "utf8" }).stdout ?? "").trim() || "/usr/bin/git";
 
 /**
- * One PR, and what each commit's check-runs say -- the two answers `gh` gives
- * and the only two the gate has to go on.
+ * One PR, what each commit's check-runs say, and where its branch really points
+ * -- the three answers `gh` gives and the only three the gate has to go on.
  *
  * `checks` IS KEYED BY COMMIT because that is the whole subject. A sha the map
- * does not hold is one GitHub has no check-runs for, which the stub answers the
- * way the API does rather than by inventing an empty list: `404`, on stderr,
- * non-zero. An empty ARRAY and a missing COMMIT are different worlds and the
- * gate is entitled to tell them apart.
+ * does not hold is a commit GitHub does not know, which the stub answers the
+ * way gh 2.97.0 did on 2026-09-21 rather than by inventing an empty list: `422`,
+ * its body on stdout, non-zero. An empty ARRAY and a missing COMMIT are
+ * different worlds and the gate is entitled to tell them apart.
  */
 /**
  * The fields of a pull request this gate reads, and no others -- a spread of a
@@ -75,8 +75,10 @@ type World = {
   readonly checks: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   /** A `total_count` this many higher than the runs actually handed over. */
   readonly shortBy?: number;
-  /** What the branch's ref really points at, when it differs from the PR's field. */
-  readonly branchTip?: string;
+  /** What the branch's ref really points at, when it differs from the PR's field; `null` for no ref. */
+  readonly branchTip?: string | null;
+  /** A private repository, which answers `gh` and refuses an unauthenticated `git`. */
+  readonly private?: boolean;
 };
 
 /** A check-run as the gate reads one: a name, a status and a conclusion. */
@@ -125,11 +127,25 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
       'if [ "$1 $2" = "pr view" ]; then cat "$dir/pr.json"; exit 0; fi',
       'if [ "$1 $2" = "pr merge" ]; then exit 0; fi',
       'if [ "$1" = "api" ]; then',
+      // THE BRANCH'S REAL TIP, ONLY FOR THE BRANCH ACTUALLY ASKED FOR, for the
+      // same reason as the `ls-remote` stub below. It prints what
+      // `--jq .object.sha` prints; a ref GitHub has not got is a 404 whose BODY
+      // goes to stdout, measured with gh 2.97.0 on 2026-09-21, so a gate reading
+      // the output without its status reads that body as a commit.
+      '  ref=$(printf "%s\\n" "$@" | sed -n "s|^repos/[^/]*/[^/]*/git/ref/||p")',
+      '  if [ -n "$ref" ]; then',
+      `    if [ "$ref" = ${JSON.stringify(`heads/${pr.headRefName}`)} ] && ${world.branchTip !== null}; then`,
+      `      echo ${JSON.stringify(world.branchTip ?? pr.headRefOid ?? "")}; exit 0`,
+      "    fi",
+      `    echo '{"message":"Not Found","status":"404"}'`,
+      '    echo "gh: Not Found (HTTP 404)" >&2; exit 1',
+      "  fi",
       '  sha=$(printf %s "$*" | sed -n "s|.*/commits/\\([0-9a-f]*\\)/check-runs.*|\\1|p")',
       '  page="$dir/checks-$sha.json"',
       '  case "$*" in *--slurp*) page="$dir/checks-$sha.all.json";; esac',
       '  if [ -f "$page" ]; then cat "$page"; exit 0; fi',
-      '  echo "gh: Not Found (HTTP 404)" >&2; exit 1',
+      '  echo "{\\"message\\":\\"No commit found for SHA: $sha\\",\\"status\\":\\"422\\"}"',
+      '  echo "gh: No commit found for SHA: $sha (HTTP 422)" >&2; exit 1',
       "fi",
       'echo "gh: unstubbed $*" >&2; exit 1',
       "",
@@ -142,11 +158,23 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
     join(bin, "git"),
     [
       "#!/usr/bin/env bash",
+      // A PRIVATE REPOSITORY IS "NOT FOUND" TO AN UNAUTHENTICATED CLIENT, not
+      // refused: GitHub will not confirm it exists. These are the lines and the
+      // status `git ls-remote` gave on provider-tmdb, 2026-09-21.
+      ...(world.private
+        ? [
+            'if [ "$1" = "ls-remote" ]; then',
+            '  echo "remote: Repository not found." >&2',
+            `  echo "fatal: repository '$2/' not found" >&2`,
+            "  exit 128",
+            "fi",
+          ]
+        : []),
       'if [ "$1" = "ls-remote" ]; then',
       // ONLY FOR THE REF ACTUALLY ASKED FOR. A stub answering every ref cannot
       // tell a gate that queries the right branch from one that queries any
       // branch, and the tip check is the thing under test here.
-      `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] || exit 0`,
+      `  [ "$3" = ${JSON.stringify(`refs/heads/${pr.headRefName}`)} ] && ${world.branchTip !== null} || exit 0`,
       `  printf '%s\\t%s\\n' ${JSON.stringify(world.branchTip ?? pr.headRefOid ?? "")} "$3"`,
       "  exit 0",
       "fi",
@@ -497,6 +525,56 @@ describe("a check the gate reads", () => {
 
     expect(output).toContain("DRAFT");
     expect(output).not.toContain("PASSED");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * A PRIVATE REPOSITORY IS READ THROUGH THE SAME AUTHENTICATED CLIENT AS
+   * EVERYTHING ELSE. The tip check first asked an unauthenticated
+   * `git ls-remote`, which GitHub answers for a private repository with
+   * "Repository not found" rather than a refusal -- so on provider-tmdb#30,
+   * 2026-09-21, the gate reported a branch that existed at `bd37c17` as
+   * `UNREADABLE`, and would have for every pull request in either provider.
+   *
+   * EVERY WORLD HERE WAS PUBLIC, which is how it merged: CanonCore is the one
+   * public repository, and every pull request the gate met before landing was
+   * CanonCore's. This row is #30's own world, where the check-runs are green
+   * and only the unauthenticated read cannot see them.
+   */
+  it("passes a private repository's pull request, which only an authenticated read can see", () => {
+    const head = "bd37c174b71069fbf3dd69e4acc1504178a8f6cf";
+
+    const { status, output } = gateAgainst(
+      {
+        private: true,
+        pr: { headRefOid: head, headRefName: "jacobdrees/cncore-304", mergeStateStatus: "CLEAN" },
+        checks: { [head]: [check("Test", "success"), check("Build", "success")] },
+      },
+      ["30", "provider-tmdb"],
+    );
+
+    expect(output).toContain("PASSED");
+    expect(output).toContain(head.slice(0, 7));
+    expect(status).toBe(0);
+  });
+
+  /**
+   * A BRANCH GITHUB HAS NOT GOT IS UNREADABLE, NOT LAGGING. `gh api` answers a
+   * missing ref with a non-zero status and its 404 BODY on stdout, so a gate
+   * that reads the output and not the status sees `{"message":"Not Found"...`,
+   * compares it with the head, and reports the pull request as lagging behind a
+   * commit that is a fragment of an error message.
+   */
+  it("says a branch the remote has not got cannot be read, rather than lagging behind a 404", () => {
+    const { status, output } = gateAgainst({
+      pr: { headRefOid: REBASED, mergeStateStatus: "CLEAN", headRefName: "jacobdrees/gone" },
+      checks: { [REBASED]: [check("Test", "success")] },
+      branchTip: null,
+    });
+
+    expect(output).toContain("UNREADABLE");
+    expect(output).toContain("refs/heads/jacobdrees/gone");
+    expect(output).not.toContain("LAGGING");
     expect(status).not.toBe(0);
   });
 });

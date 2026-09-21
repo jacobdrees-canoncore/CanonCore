@@ -87,8 +87,15 @@ fi
 # was no longer on the branch. The two disagreeing is not a verdict either way
 # -- it means the question was asked inside that window -- so it refuses and
 # the dispatcher looks again.
-tip=$(GIT_TERMINAL_PROMPT=0 git ls-remote "https://github.com/$slug.git" "refs/heads/$branch" 2>/dev/null | cut -f1)
-[ -n "$tip" ] || { echo "BLOCKED UNREADABLE cannot read refs/heads/$branch in $slug"; exit 1; }
+#
+# THROUGH `gh`, AUTHENTICATED, LIKE EVERY OTHER CALL HERE. The tip was first read
+# with an unauthenticated `git ls-remote`, which GitHub answers for a PRIVATE
+# repository with "Repository not found" -- so on provider-tmdb#30, 2026-09-21,
+# a branch that existed read as missing, and every provider merge was refused.
+# The exit status is the verdict, not the output: a 404 prints its JSON body on
+# stdout, which read as a tip would be a LAGGING about a commit named `{"messa`.
+tip=$(gh api "repos/$slug/git/ref/heads/$branch" --jq .object.sha 2>/dev/null) ||
+  { echo "BLOCKED UNREADABLE cannot read refs/heads/$branch in $slug"; exit 1; }
 if [ "$tip" != "$head" ]; then
   echo "BLOCKED LAGGING #$pr says its head is ${head:0:7}, the branch is at ${tip:0:7} -- ask again"
   exit 1
