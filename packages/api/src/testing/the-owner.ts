@@ -20,8 +20,8 @@ import { appRouter } from "../routers";
  *
  * ONE COPY, where every suite that logs the Owner in used to spell its own
  * (CNCORE-316). ADR-0103: "One copy is a function; four is a shape nobody
- * declared." `session.test.ts` is the exception and is right to be: logging in
- * is what it asserts, so it makes the call itself.
+ * declared." `session.test.ts` keeps a guard of its own for the tests that
+ * assert logging in, since they hand `session.logIn` the password themselves.
  */
 export async function aTokenForTheOwner(): Promise<string> {
   const password = env.OWNER_PASSWORD;

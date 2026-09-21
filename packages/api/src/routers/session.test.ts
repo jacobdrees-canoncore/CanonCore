@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -98,10 +99,18 @@ describe("a purge preview, which is not a read", () => {
 
 /**
  * THE PASSWORD THIS SUITE'S INSTANCE IS CONFIGURED WITH, read from the
- * environment rather than written down again -- `vitest.config.ts` sets it
- * beside the allowlist, and `provider.test.ts` reads it the same way. A copy
- * here would be a second place to change, and the test that would then fail is
- * the one asserting the door opens.
+ * environment rather than written down again -- `vitest.config.ts` sets it, and
+ * `aTokenForTheOwner` reads it the same way. A copy here would be a second place
+ * to change, and the test that would then fail is the one asserting the door
+ * opens.
+ *
+ * A GUARD OF ITS OWN, where a suite that only needs a session takes the
+ * helper's. Logging in is what this suite asserts, so it hands `session.logIn`
+ * the password itself, and a wrong one on purpose.
+ *
+ * EVERY USE OF IT SITS IN A CALLBACK WRITTEN AFTER THIS GUARD, which the type
+ * checker decided: TypeScript does not carry the narrowing into a hoisted
+ * declaration, which could run before the guard does.
  */
 const OWNER_PASSWORD = env.OWNER_PASSWORD;
 if (OWNER_PASSWORD === undefined) {
@@ -116,19 +125,9 @@ if (OWNER_PASSWORD === undefined) {
  * is what the application itself reads -- `createContext` resolves the token to
  * the session, so a test that looked the row up another way could pass against a
  * context pointing somewhere else.
- *
- * AN ARROW RATHER THAN A `function`, WHICH THE TYPE CHECKER DECIDED. A hoisted
- * declaration could be called before the guard above runs, so TypeScript will
- * not carry `OWNER_PASSWORD`'s narrowing into it and the password reads as
- * possibly undefined -- which is why every other use of it here is inside a
- * callback written after the guard.
  */
 const logInAs = async () => {
-  const { token } = await call(
-    appRouter.session.logIn,
-    { password: OWNER_PASSWORD },
-    { context: anyone },
-  );
+  const token = await aTokenForTheOwner();
   const context = await createContext({ sessionToken: token });
   if (context.session === null) throw new Error("the token this suite just minted was refused");
   return { token, context, sessionId: context.session.id };

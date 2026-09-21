@@ -12,11 +12,10 @@ afterEach(() => {
  */
 describe("a token for the Owner", () => {
   it("names the config that sets the password, when nothing has", async () => {
-    // EMPTY RATHER THAN DELETED, because `dotenv` fills an ABSENT key from a
-    // developer's `.env` and leaves a present one alone, and `@canoncore/env`
-    // reads an empty value as unset (ADR-0173). A FRESH MODULE GRAPH, because
-    // `env` is a copy taken when that module first loads.
-    vi.stubEnv("OWNER_PASSWORD", "");
+    // A FRESH MODULE GRAPH, because `env` is a copy of the environment taken
+    // when that module first loads, which is how `session.test.ts` builds its
+    // demo instance too.
+    vi.stubEnv("OWNER_PASSWORD", undefined);
     vi.resetModules();
     const { aTokenForTheOwner } = await import("./the-owner");
 

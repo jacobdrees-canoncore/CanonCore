@@ -1942,24 +1942,25 @@ the signal.
 **CNCORE-111's RULE, APPLIED TO THE ROUTER SUITES' LOGIN.** Logging the Owner in to drive an
 `ownerProcedure` is one function now, `aTokenForTheOwner` in `packages/api/src/testing/the-owner.ts`:
 read `OWNER_PASSWORD`, refuse naming `vitest.config.ts` if it is unset, call `session.logIn`, hand
-back the token.
+back the token. Every suite that logged in only to get a session takes it.
 
-**THE TICKET COUNTED FIVE, AND BY SHAPE IT WAS SEVEN.** It searched for the function's name, which
-five files shared. `task.test.ts` spelled the same guard and login as `logInAs`, and
-`import-list.test.ts` spelled it inline at module load, so neither answered to that search. Counted
-2026-09-21, and all seven take the helper now. A shape nobody declared has no name yet, which is
-why searching for one name under-counts it.
+**THE TICKET COUNTED FIVE, AND BY SHAPE THERE WERE EIGHT.** It searched for the function's name,
+which five files shared. `task.test.ts` and `session.test.ts` spelled the same login as `logInAs`,
+and `import-list.test.ts` spelled it inline at module load, so none of the three answered to that
+search. Found 2026-09-21 by reading every call of `session.logIn` under `packages/api/src`. A shape
+nobody declared has no name yet, which is why searching for one name under-counts it.
 
-**IT LOGS IN ON A CONTEXT OF ITS OWN, NOT THE CALLER'S.** Three of the copies logged in through
-their file's module-level `context`, and for them that was harmless, because it was anonymous. In
+**IT LOGS IN ON A CONTEXT OF ITS OWN, NOT THE CALLER'S.** The copies that logged in through their
+file's module-level context got away with it, because that context was anonymous. In
 `provider.test.ts` the module-level `context` is built FROM this token, so the shared version cannot
 take one. It builds an anonymous context itself, which is what a caller logging in is.
 
-**`session.test.ts` KEEPS ITS OWN.** Logging in is what that suite asserts, so it calls
-`session.logIn` itself, with the password as an argument it can also get wrong on purpose.
+**`session.test.ts` KEEPS ITS OWN GUARD.** Its device fixture takes the helper, but logging in is
+what the suite asserts, so its other tests hand `session.logIn` the password themselves, and a wrong
+one on purpose.
 
-**THE GUARD HAS A TEST NOW, WHICH NONE OF THE SEVEN COPIES HAD.** `the-owner.test.ts` stubs the
-password empty and reloads the module graph, because `@canoncore/env` takes its copy of the
-environment at load (ADR-0173). With the guard deleted, the test fails on `Input validation failed`
-instead of the message, measured 2026-09-21. The token half needs no test of its own: every suite
-importing the helper fails its owner tests if the token opens nothing.
+**THE GUARD HAS A TEST NOW, WHICH NONE OF THE COPIES HAD.** `the-owner.test.ts` unsets the password
+and reloads the module graph, because `@canoncore/env` takes its copy of the environment at
+load (ADR-0173). With the guard deleted, the test fails on `Input validation failed` instead of the
+message, measured 2026-09-21. The token half needs no test of its own: every suite importing the
+helper drives an `ownerProcedure` with its token, so a token that opened nothing would fail them.
