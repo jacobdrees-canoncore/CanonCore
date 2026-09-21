@@ -931,6 +931,20 @@ export function letterLinked(text: string, letter: string): string | undefined {
   return letters === undefined ? undefined : linkedIn(letters, letter);
 }
 
+/**
+ * EVERY ENTRY THE JUMP BAR OFFERS, in the order it offers them (CNCORE-242).
+ *
+ * THE WHOLE LIST RATHER THAN A LOOKUP, which `letterLinked` above already
+ * answers: what a test needs of the entry for the Rows before A is that it is
+ * THERE, that it is FIRST, and that the alphabet still follows it whole. A
+ * `toContain` would pass with it appended, and an assertion that only looked
+ * it up would pass with A to Z gone.
+ */
+export function lettersOfferedIn(text: string): string[] {
+  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+  return [...letters.matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(([, words]) => textOf(words ?? ""));
+}
+
 /** The letters the page marks as the one it was jumped to. */
 export function lettersMarkedCurrentIn(text: string): string[] {
   const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";

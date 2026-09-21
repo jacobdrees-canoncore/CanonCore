@@ -130,6 +130,40 @@ describe("catalogue.list", () => {
     expect(narrowed.rows.map((row) => row.id)).toStrictEqual([inside]);
     expect(narrowed.total).toBe(1);
   });
+
+  it("says whether anything sorts before A, within the Group the reader narrowed to", async () => {
+    // CNCORE-242. WHETHER THE JUMP BAR HAS AN ENTRY TO OFFER, which is the one
+    // fact a browsed Listing carries that Catalogue search does not.
+    //
+    // THE RANGE ITSELF IS THE DB SEAM'S, measured there against the collation.
+    // What this adds is the pair `holds` and `sitsIn` above each add: the field
+    // SURVIVES THE SEAM. `.output()` strips whatever the schema does not
+    // declare, so an answer that reached `asListing` and no further would be
+    // invisible to every surface and to the db suite alike -- and it is a
+    // second schema here rather than a field on `cataloguePublic`, so a
+    // procedure wired to the wrong one drops it.
+    //
+    // AND IT IS ASKED WITHIN THE NARROWING, which is what a Group makes
+    // observable: the shared suite catalogue holds Rows before A that other
+    // files wrote, so a read that dropped the `group` would answer `true`
+    // whatever this test put in its own scope.
+    const has = await createGroupByHand(db, { name: "A scope with a Row before A" });
+    const has_not = await createGroupByHand(db, { name: "A scope with none" });
+    await putItemInGroupByHand(db, {
+      groupId: has,
+      itemId: await anItemTitled(db, "42 (a TV story on a narrowed front page)"),
+    });
+    await putItemInGroupByHand(db, {
+      groupId: has_not,
+      itemId: await anItemTitled(db, "Aliens of London, on a narrowed front page"),
+    });
+
+    const before = await call(appRouter.catalogue.list, { group: has }, { context });
+    const none = await call(appRouter.catalogue.list, { group: has_not }, { context });
+
+    expect(before.beforeTheAlphabet).toBe(true);
+    expect(none.beforeTheAlphabet).toBe(false);
+  });
 });
 
 describe("catalogue.works", () => {
@@ -167,6 +201,34 @@ describe("catalogue.works", () => {
 
     expect(narrowed.rows.map((row) => row.id)).toStrictEqual([inside]);
     expect(narrowed.total).toBe(1);
+  });
+
+  it("says whether anything sorts before A, as the other browsed Listing does", async () => {
+    // CNCORE-242, AND IT IS WIRED SEPARATELY: the two procedures share an
+    // input schema and an output schema and are two handlers, so `works`
+    // answering the field is not something `list` answering it proves. This is
+    // the same argument the Group case above makes one procedure along.
+    //
+    // ITS OWN QUESTION NARROWS IT TOO, which is why the Row before A is a
+    // Person: work-browsing excludes the entity kinds (ADR-0077), so a scope
+    // whose only Row before A is one of them has nothing before A HERE while
+    // the catalogue's answer over the same scope is `true`.
+    const scope = await createGroupByHand(db, { name: "A scope whose Row before A is a Person" });
+    for (const [title, kind] of [
+      ["42 (a person on a narrowed works page)", "person"],
+      ["Aliens of London, on a narrowed works page", "work"],
+    ] as const) {
+      await putItemInGroupByHand(db, {
+        groupId: scope,
+        itemId: await anItemTitled(db, title, { kind }),
+      });
+    }
+
+    const works = await call(appRouter.catalogue.works, { group: scope }, { context });
+    const catalogue = await call(appRouter.catalogue.list, { group: scope }, { context });
+
+    expect(works.beforeTheAlphabet).toBe(false);
+    expect(catalogue.beforeTheAlphabet).toBe(true);
   });
 });
 

@@ -235,6 +235,12 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
   project.provide("pagedUntitled", [...paged.fixture.untitled, ...paged.fixture.appearsIn.unnamed]);
   project.provide("pagedContainer", paged.fixture.container);
   project.provide("pagedAppearsIn", paged.fixture.appearsIn);
+  /*
+   * THE ONE ROW THAT SORTS BEFORE A (CNCORE-242): what the jump bar's first
+   * entry has to land on, named so the landing is an exact oracle rather than
+   * "the first Row, whatever that is".
+   */
+  project.provide("pagedBeforeTheAlphabet", paged.fixture.beforeTheAlphabet);
   project.provide("pagedGroup", paged.fixture.group);
   project.provide("pagedEmptyGroup", paged.fixture.emptyGroup);
 
@@ -526,13 +532,47 @@ function aCatalogueTooBigForOnePage(owned: AsyncDisposableStack) {
        * the page says which it is. Nobody writes to this instance, so neither
        * Group moves while it is read.
        */
+      /*
+       * AND ONE ROW THAT SORTS BEFORE A (CNCORE-242), which is the only state
+       * the jump bar's first entry is observable in: A to Z reaches every
+       * other Row this instance holds, so an entry offered for these and an
+       * entry offered always would render identically without one.
+       *
+       * IT OPENS WITH A DIGIT BECAUSE THAT IS WHAT THE OWNER'S CATALOGUE
+       * HOLDS -- `42 (TV story)` and `1001 Nights (audio story)` are two of
+       * the 37 measured there on 2026-09-20. The bucket is the RANGE
+       * `sort name < 'A'` rather than a digit test, which the db seam owns and
+       * measures against the collation; what a digit gives this fixture is a
+       * Row both readings agree about, so a page-seam failure here is the
+       * PAGE's rather than an argument about the predicate.
+       *
+       * AND IT CARRIES `story` for the reason every other title on this
+       * instance does: that is the query `search.test.ts` walks it with, and a
+       * Row in the catalogue's oracle and absent from the search's would be a
+       * difference no reader of either file could see.
+       *
+       * IT IS OUTSIDE THE GROUP BELOW, deliberately, and that is what makes
+       * the narrowed page the other half of the pair: the Group holds the
+       * catalogue's own stories, every one of which files under S, so `/` on
+       * this instance offers the entry and `/?group=` does not. Without that,
+       * "offered only where such Rows exist" could only be read on a second
+       * instance.
+       */
+      const beforeTheAlphabet = await anItemTitled(db, "42 (a TV story filed before A)");
       const groupName = "The stories, and nothing that holds them";
       const emptyGroupName = "A Group nothing was put in";
       const group = await aGroupHolding(db, { name: groupName, holding: catalogue.every });
       const emptyGroup = await aGroupHolding(db, { name: emptyGroupName, holding: [] });
       return {
         ...catalogue,
-        every: [...catalogue.every, container.id, appearsIn.id, ...appearsIn.containers],
+        every: [
+          ...catalogue.every,
+          container.id,
+          appearsIn.id,
+          ...appearsIn.containers,
+          beforeTheAlphabet,
+        ],
+        beforeTheAlphabet,
         container,
         appearsIn,
         group: { id: group, name: groupName, holds: catalogue.every },
@@ -2533,6 +2573,13 @@ declare module "vitest" {
      * So a search walk's oracle is `pagedCatalogue` minus these.
      */
     pagedUntitled: string[];
+    /**
+     * The ONE item on that instance whose sort name sorts BEFORE A, which no
+     * letter of an A-Z bar reaches (CNCORE-242). It is in `pagedCatalogue` and
+     * outside `pagedGroup`, so the whole Listing has one and the narrowed one
+     * has none.
+     */
+    pagedBeforeTheAlphabet: string;
     /**
      * The ONE item on that instance that holds all the others: an ordering
      * larger than one page, which is the only state a members walk is

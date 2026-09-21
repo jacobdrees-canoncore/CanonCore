@@ -1,11 +1,18 @@
 import {
+  type BrowsedListing,
   type Catalogue,
   CHOSEN_ORDERS,
   readCatalogue,
   readWorks,
   searchCatalogue,
 } from "@canoncore/db";
-import { type CataloguePublic, type CatalogueRowPublic, cataloguePublic } from "@canoncore/schemas";
+import {
+  type BrowsedListingPublic,
+  browsedListingPublic,
+  type CataloguePublic,
+  type CatalogueRowPublic,
+  cataloguePublic,
+} from "@canoncore/schemas";
 import { z } from "zod";
 
 import { openProcedure } from "../index";
@@ -185,7 +192,7 @@ export const catalogue = {
    */
   list: openProcedure
     .input(browsedInput)
-    .output(cataloguePublic)
+    .output(browsedListingPublic)
     .handler(async ({ input, context }) => {
       const listing = await readCatalogue(context.db, {
         limit: input.limit,
@@ -196,7 +203,7 @@ export const catalogue = {
         letter: input.letter,
         order: input.order,
       });
-      return asListing(listing);
+      return asBrowsedListing(listing);
     }),
 
   /**
@@ -217,7 +224,7 @@ export const catalogue = {
    */
   works: openProcedure
     .input(browsedInput)
-    .output(cataloguePublic)
+    .output(browsedListingPublic)
     .handler(async ({ input, context }) => {
       const listing = await readWorks(context.db, {
         limit: input.limit,
@@ -228,7 +235,7 @@ export const catalogue = {
         letter: input.letter,
         order: input.order,
       });
-      return asListing(listing);
+      return asBrowsedListing(listing);
     }),
 
   /**
@@ -285,6 +292,19 @@ function asListing({
   continuesBefore,
 }: Catalogue): CataloguePublic {
   return { rows: rows.map(asRow), total, rowsBefore, continuesAfter, continuesBefore };
+}
+
+/**
+ * One of the two BROWSED Listings, as the read path emits it: the listing
+ * above, and the one fact that is true of a Listing filed under letters.
+ *
+ * NAMED HERE TOO (ADR-0045), through `asListing` rather than beside it: what a
+ * Listing is stays written once, and this adds the field that only these two
+ * procedures can answer. A spread of the query's own object would have carried
+ * it by accident and carried the next one too.
+ */
+function asBrowsedListing(listing: BrowsedListing): BrowsedListingPublic {
+  return { ...asListing(listing), beforeTheAlphabet: listing.beforeTheAlphabet };
 }
 
 /**

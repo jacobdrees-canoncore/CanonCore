@@ -149,6 +149,7 @@ export default async function WorksPage({
           narrowed={scope.narrowed}
           chosen={chosen}
           jumpedTo={at.letter}
+          beforeTheAlphabet={works.beforeTheAlphabet}
         />
       )}
       {scope.gone && <NoSuchGroup path="/works" chosen={chosen} />}

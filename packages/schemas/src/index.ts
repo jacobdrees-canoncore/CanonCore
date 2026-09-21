@@ -666,6 +666,41 @@ export const cataloguePublic = z.object({
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
 
 /**
+ * What the read path emits for one of the two BROWSED Listings -- the
+ * catalogue and work-browsing, whose Rows are FILED UNDER LETTERS.
+ *
+ * AN EXTENSION RATHER THAN A FIELD ON `cataloguePublic`, which mirrors
+ * `browsedInput` on the way in and is that input's own argument read back out.
+ * Catalogue search leads on how close a title is to what a reader typed
+ * (ADR-0120), so nothing in it is filed under a letter: a field there would be
+ * one the third procedure could only ever answer falsely, and a false answer
+ * is worse than a shape that cannot say it (the sentence `cataloguePublic`
+ * above makes about `continuesAfter`, applied to a field that goes the other
+ * way).
+ */
+export const browsedListingPublic = cataloguePublic.extend({
+  /**
+   * WHETHER ANY ROW OF THIS LISTING SORTS BEFORE A (CNCORE-242), so the jump
+   * bar knows whether it has an entry to offer for the Rows A to Z cannot
+   * reach. 37 of the Owner's 8,052 Items were in that state and nothing on the
+   * page said they existed.
+   *
+   * WHETHER, NOT HOW MANY, because the bar shows no figure. What it is read
+   * for is one control appearing or not, which is Plex's behaviour: its
+   * `firstCharacters` returns only the characters that HAVE items, and its own
+   * example omits thirteen letters. Jellyfin does the opposite and renders `#`
+   * beside a fixed A-Z whether or not anything is there.
+   *
+   * A RANGE UNDER THE CATALOGUE'S COLLATION and never a digit-or-symbol test,
+   * which the db seam owns and measures. The two agree on today's corpus and
+   * part company on a title opening in punctuation.
+   */
+  beforeTheAlphabet: z.boolean(),
+});
+
+export type BrowsedListingPublic = z.infer<typeof browsedListingPublic>;
+
+/**
  * The Owner's own note about one item (ADR-0096), as the read path answers one.
  *
  * NOT `...Public`, AND THE SUFFIX IS THE DECISION. Every other schema in this
