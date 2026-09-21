@@ -32,10 +32,22 @@
 #   docker stop -t 60 canoncore-postgres && docker rm canoncore-postgres
 #   docker compose up -d
 #
+# `config` rather than `--dry-run` for the check, because the step that has to
+# be right here is the VOLUME and a dry run does not resolve one: `config` is
+# what prints the name Compose would mount, and it is the whole of what stands
+# between this rename and an empty database. The step after it is a plain
+# `docker rm`, which no dry run covers either.
+#
 # Every worktree's database is on the pinned volume at the foot of this file and
 # `docker rm` does not touch a named volume, so what that costs is the
 # connections, as any recreate does. NAME THE CONTAINER, never the install's:
-# `canoncore-canoncore-1` and `canoncore-database-1` are the Owner's instance.
+# `canoncore-canoncore-1` and `canoncore-database-1` are the Owner's instance,
+# and `docker compose -p canoncore down` from here would be aimed at the project
+# they are in.
+#
+# UNTIL THAT IS RUN, A WORKTREE ON THIS FILE DOES NOT OWN THE RUNNING CONTAINER.
+# `db:start` is a create-if-absent, the container is already up, and `db:setup`
+# is all a worktree needs to join it. Check `docker ps` rather than starting it.
 name: canoncore-dev
 
 services:
@@ -136,6 +148,18 @@ services:
 # The pinned name is the one the volume ALREADY HAS, which is why the rename
 # keeps the databases rather than migrating them. `compose.yaml` pins the
 # install's `canoncore_data` for the same reason, one collision earlier.
+#
+# SO COMPOSE WARNS ON EVERY `up`, PERMANENTLY, AND THAT IS EXPECTED:
+#
+#   volume "canoncore_canoncore_postgres_data" already exists but was created
+#   for project "canoncore" (expected "canoncore-dev")
+#
+# The volume carries `com.docker.compose.project=canoncore` from the project
+# that created it, and a label on an existing volume is not rewritten. ADR-0137
+# measured this exact warning when the install's directory was renamed over its
+# own pinned volume, and records that it is not a fault and does not go away.
+# The remedy Compose suggests, `external: true`, is the one to refuse: it makes
+# a FIRST `db:start` in a fresh clone fail on a volume that does not exist yet.
 volumes:
   canoncore_postgres_data:
     name: canoncore_canoncore_postgres_data

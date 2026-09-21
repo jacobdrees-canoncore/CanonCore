@@ -93,7 +93,7 @@ export function isNamedAfterABranch(database: string): boolean {
  * One database per worktree, inside the one container every worktree shares.
  *
  * Every CanonCore worktree resolves the SAME Compose project, because
- * `name: canoncore` pins it and Compose resolves by name rather than by
+ * `name: canoncore-dev` pins it and Compose resolves by name rather than by
  * directory. Sharing the container is fine and cheap. Sharing a DATABASE is
  * not: the harness drops and recreates `<database>_test`, so two worktrees
  * testing at once would take each other's out mid-run.

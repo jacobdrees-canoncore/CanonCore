@@ -52,9 +52,11 @@ CanonCore worktree resolves the SAME project.
 **THE REQUIREMENT IS THAT IT BE ONE NAME, AND NEVER THAT IT BE A PARTICULAR ONE.** This record said
 `name: canoncore` where it means "one name", and stating the literal is what made the collision
 below read as a fixed cost rather than a free choice (CNCORE-250). Nothing reads the string: a grep
-of `packages/db/scripts/`, `packages/db/src/*.ts` and the root `package.json` for
-`COMPOSE_PROJECT_NAME`, `-p canoncore` or a container resolved by project returns nothing, and the
-container is reached by `container_name`, which Compose does not prefix with the project. **The name
+of the whole tree for `COMPOSE_PROJECT_NAME`, `-p canoncore` or a container resolved by project
+returns nothing. The ticket's own grep named `packages/db/scripts/`, `packages/db/src/*.ts` and the
+ROOT `package.json`, which leaves out `packages/db/package.json` — the one file the rename had to
+edit — so the population was widened before the claim was relied on. The container is reached by
+`container_name`, which Compose does not prefix with the project. **The name
 is `canoncore-dev`** since CNCORE-250, so that this stack and the Owner's install are disjoint.
 
 Measured rather than reasoned, and TRUE ONLY WHILE THE TWO COPIES OF THE FILE AGREED: running
@@ -631,7 +633,18 @@ compose config`, which resolves volume names the way Compose does: under `canonc
 read `canoncore-dev_canoncore_postgres_data`, a new and empty one, with every worktree's database
 left on the old. `docker-compose.yml` now pins the name the volume ALREADY HAS, so the rename keeps
 the databases rather than migrating them, and the project name carries no data at all.
-`src/docker-compose.test.ts` fails on a top-level volume that declares no `name:`.
+`src/docker-compose.test.ts` asserts the LITERAL pinned name rather than that something is pinned,
+because a typo in the pin passes the weaker check and lands the exact outcome this guards against.
+
+**AND COMPOSE THEREFORE WARNS ON EVERY `up`, PERMANENTLY.** The volume keeps the
+`com.docker.compose.project=canoncore` label of the project that created it — a label on an existing
+volume is not rewritten — so every `db:start` from now on prints `volume
+"canoncore_canoncore_postgres_data" already exists but was created for project "canoncore" (expected
+"canoncore-dev")`. It is not a fault and it does not clear. ADR-0137 measured this same warning when
+the install's directory was renamed over its own pinned volume, and refused Compose's suggested
+remedy there for the reason that applies here too: `external: true` would make a FIRST `db:start` in
+a fresh clone fail on a volume that does not exist yet. Reasoned from the label, which
+`docker volume inspect` reads, rather than measured: measuring it needs the `up` only the Owner runs.
 
 **THIS IS THE SECOND COLLISION OF THE SHAPE, AND `compose.yaml` ALREADY HELD THE FIRST.** The
 install pins `canoncore_data` explicitly so its catalogue survives its directory being renamed. The

@@ -47,7 +47,8 @@ the outside. Both of the Owner's complaints on 2026-09-20 were empty stores behi
 and one row each told them apart.
 
 Read [WALKING-THE-INSTALL.md](WALKING-THE-INSTALL.md) for the route enumeration, the eight-class case
-taxonomy, the two-instance rule and the compose project-name hazard that can take the catalogue down.
+taxonomy, the two-instance rule and why a throwaway instance must name its own Compose project: the
+volumes are pinned, so one given no `-p` mounts the Owner's live catalogue.
 
 ## 2. Did every ticket in the project land what it said?
 

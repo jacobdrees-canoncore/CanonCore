@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 /**
  * A test that reads a config file rather than a package export, for the same
@@ -20,34 +21,45 @@ const packageFile = fileURLToPath(new URL("../package.json", import.meta.url));
 const installComposeFile = fileURLToPath(new URL("../../../compose.yaml", import.meta.url));
 
 /**
+ * THE DOCUMENT RATHER THAN ITS TEXT, unlike every other reader in this file.
+ * The questions below are about the compose MODEL -- which project, which
+ * volume, pinned to what -- and a regex answering them goes blind on ordinary
+ * YAML rather than wrong: an inline comment, a deeper indent or a quoted key
+ * each made a hand-rolled version report "nothing unpinned" over a file that
+ * had an unpinned volume. A check that sees nothing and a check that passes
+ * are indistinguishable, which is the one failure a guard must not have.
+ *
+ * `yaml` is what `@canoncore/config` already reads `ci.yml` with, for the same
+ * reason. The regexes further down stay regexes on purpose: they ask about the
+ * TEXT -- how a port is written, what a `shm_size` string means -- and the
+ * document a parser returns has already thrown those questions away.
+ */
+type ComposeFile = {
+  readonly name?: string;
+  readonly volumes?: Record<string, { readonly name?: string } | null>;
+};
+
+/**
  * The Compose project a file declares in its top-level `name:`, or `undefined`
  * when it declares none and Compose resolves the project from the DIRECTORY
  * instead (precedence: `-p`, `COMPOSE_PROJECT_NAME`, `name:`, the directory --
  * docs.docker.com, read 2026-09-21).
- *
- * Top-level means column zero. `container_name:` is a different key, a `name:`
- * indented under a volume names that volume, and a commented one names nothing.
  */
 function declaredProjectName(compose: string): string | undefined {
-  return /^name:[ \t]*["']?([^"'\s#]+)/m.exec(compose)?.[1];
+  return (parse(compose) as ComposeFile | null)?.name;
 }
 
 /**
- * The top-level named volumes that declare no `name:` of their own, and are
- * therefore PREFIXED WITH THE PROJECT NAME -- so renaming the project points
- * the service at a different, empty volume.
+ * Every top-level named volume, against the name it pins itself to -- or
+ * `undefined` where it pins none and Compose therefore PREFIXES IT WITH THE
+ * PROJECT, so renaming the project points the service at a different, empty
+ * volume.
  */
-function volumesWithoutPinnedName(compose: string): string[] {
-  const block = /^volumes:[ \t]*\n((?:[ \t]+[^\n]*\n?|\n)*)/m.exec(compose)?.[1];
-  if (block === undefined) return [];
-
-  const unpinned: string[] = [];
-  for (const line of block.split("\n")) {
-    const volume = /^[ \t]{1,2}([A-Za-z0-9._-]+):[ \t]*$/.exec(line)?.[1];
-    if (volume !== undefined) unpinned.push(volume);
-    else if (/^[ \t]{3,}name:/.test(line)) unpinned.pop();
-  }
-  return unpinned;
+function pinnedVolumeNames(compose: string): Record<string, string | undefined> {
+  const volumes = (parse(compose) as ComposeFile | null)?.volumes ?? {};
+  return Object.fromEntries(
+    Object.entries(volumes).map(([volume, declared]) => [volume, declared?.name]),
+  );
 }
 
 /**
@@ -192,11 +204,11 @@ describe("the development database container", () => {
 });
 
 describe("the development project and the Owner's install", () => {
-  it("reads the project name a compose file declares, and only a top-level one", () => {
-    // Fixtures rather than the real files, so the CHECK is tested and not just
-    // exercised. Three things in these files are `name:` and are not the
-    // project's: `container_name:`, a `name:` indented under a volume, and a
-    // comment quoting one. This file carries all three.
+  it("reads the project name a compose file declares, and only the top-level one", () => {
+    // The three `name:`s in these files that are NOT the project's:
+    // `container_name:`, a volume's own `name:`, and one quoted in a comment.
+    // This file carries all three, and each of them defeated the regex this
+    // check was first written as.
     expect(declaredProjectName("name: canoncore-dev\n")).toBe("canoncore-dev");
     expect(declaredProjectName('name: "canoncore-dev"\n')).toBe("canoncore-dev");
     expect(declaredProjectName("services:\n  postgres:\n    container_name: canoncore\n")).toBe(
@@ -228,25 +240,33 @@ describe("the development project and the Owner's install", () => {
     expect({ development, install }).not.toStrictEqual({ development: install, install });
   });
 
-  it("recognises a named volume that the project name would move", () => {
-    // Fixtures rather than the real file, so the check is tested and not just
-    // exercised. A volume with no `name:` of its own is PREFIXED WITH THE
-    // PROJECT, so renaming the project points the service at a different
-    // volume; one with `name:` "is used as is and is not scoped with the stack
-    // name" (docs.docker.com, compose-file/volumes.md, read 2026-09-21).
-    expect(volumesWithoutPinnedName("volumes:\n  data:\n")).toStrictEqual(["data"]);
-    expect(volumesWithoutPinnedName("volumes:\n  data:\n    name: pinned\n")).toStrictEqual([]);
-    expect(volumesWithoutPinnedName("volumes:\n  a:\n    name: x\n  b:\n")).toStrictEqual(["b"]);
+  it("reads what each named volume pins itself to, in the forms a compose file writes", () => {
+    // A volume with no `name:` of its own is PREFIXED WITH THE PROJECT, so
+    // renaming the project points the service at a different volume; one with
+    // `name:` "is used as is and is not scoped with the stack name"
+    // (docs.docker.com, compose-file/volumes.md, read 2026-09-21).
+    expect(pinnedVolumeNames("volumes:\n  data:\n")).toStrictEqual({ data: undefined });
+    expect(pinnedVolumeNames("volumes:\n  data:\n    name: pinned\n")).toStrictEqual({
+      data: "pinned",
+    });
 
-    // The block ends at the next column-zero key, so a `name:` belonging to
-    // something after it does not count as this volume's.
-    expect(volumesWithoutPinnedName("volumes:\n  data:\nname: a-project\n")).toStrictEqual([
-      "data",
-    ]);
-    expect(volumesWithoutPinnedName("services:\n  db:\n    container_name: c\n")).toStrictEqual([]);
+    // THE FOUR SHAPES A HAND-ROLLED REGEX MISSED, each of which returned "no
+    // unpinned volumes" over a file that had one. They are why this reads the
+    // document with a parser instead: a check that goes blind reports the same
+    // thing as a check that passes.
+    expect(pinnedVolumeNames("volumes:\n  data:  # the catalogue\n")).toStrictEqual({
+      data: undefined,
+    });
+    expect(pinnedVolumeNames("volumes:\n    data:\n")).toStrictEqual({ data: undefined });
+    expect(pinnedVolumeNames('volumes:\n  "data":\n')).toStrictEqual({ data: undefined });
+    expect(
+      pinnedVolumeNames("volumes:\n  unpinned:\n  other:\n    driver_opts:\n      name: x\n"),
+    ).toStrictEqual({ unpinned: undefined, other: undefined });
+
+    expect(pinnedVolumeNames("services:\n  db:\n    container_name: c\n")).toStrictEqual({});
   });
 
-  it("pins its volume by name, so the project can be renamed without moving the data", async () => {
+  it("pins its volume to the name the volume already has, so the rename moves no data", async () => {
     // THE RENAME ABOVE WOULD HAVE DESTROYED EVERY WORKTREE'S DATABASE WITHOUT
     // THIS. Measured 2026-09-21 with `docker compose config`, which resolves
     // volume names the way Compose does: under project `canoncore` this volume
@@ -254,10 +274,14 @@ describe("the development project and the Owner's install", () => {
     // every worktree's database; forced to `canoncore-dev` and unpinned it read
     // `canoncore-dev_canoncore_postgres_data`, which is a NEW and EMPTY volume.
     //
-    // Pinning is what makes the project name carry no data. It is the same move
-    // `compose.yaml` makes for the install's `canoncore_data` and for the same
-    // reason, one collision earlier.
-    expect(volumesWithoutPinnedName(await readFile(composeFile, "utf8"))).toStrictEqual([]);
+    // THE LITERAL RATHER THAN "SOMETHING IS PINNED", because a typo in the pin
+    // passes that weaker check and lands the exact outcome this guards: a
+    // silent, empty volume. The string is the name the volume ALREADY HAS,
+    // which is what makes the rename keep the databases rather than migrate
+    // them, so it is the pre-rename project's prefix and not this project's.
+    expect(pinnedVolumeNames(await readFile(composeFile, "utf8"))).toStrictEqual({
+      canoncore_postgres_data: "canoncore_canoncore_postgres_data",
+    });
   });
 });
 
@@ -294,7 +318,7 @@ describe("the scripts every worktree runs against it", () => {
   it("starts the container without recreating the one every worktree is using", async () => {
     // A plain `up` recreates the container whenever this checkout's copy of the
     // file, or the image `postgres:18` names, differs from what created it
-    // (CNCORE-233). `name: canoncore` makes that ONE container for every
+    // (CNCORE-233). The shared project name makes that ONE container for every
     // worktree, so the last worktree to run `db:start` would win, and every
     // other worktree's run would die with it.
     const scripts = await packageScripts();
