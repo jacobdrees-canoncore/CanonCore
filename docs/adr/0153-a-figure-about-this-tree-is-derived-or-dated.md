@@ -113,6 +113,23 @@ from outside, so this says which half.
 the way `corpus-figures.test.ts` applies it to one. That is a sweep of `docs/adr/` rather than a
 line of code.
 
+**PART OF THAT LANDED UNDER CNCORE-339, AND THE REMAINDER IS NARROWER THAN THIS SECTION SAYS.**
+[[0201-a-figure-about-a-run-is-found-by-sweeping-rather-than-by-a-roll-call]] built the sweep this
+paragraph asks for, in all three repositories, for ONE population: a figure stating how a test run
+went. For that population the DATE is now executed rather than conventional -- a figure whose own
+section or comment block names neither the date nor the commit it was taken on is red, with three
+ways out. It is a sweep of every tracked `.ts` and `.md`, not of `docs/adr/` alone, and it found
+twelve defects across the three trees, one of them wrapped across a line break where no `git grep`
+could have reached it.
+
+**TWO THINGS STILL HOLD THIS RECORD OPEN, and they are not the two above.** First, THE QUERY: this
+record asks a dated figure to carry *the query that would take it again*, and nothing checks that.
+A sentence carrying a date and no method is a figure a reader still cannot re-derive, and ADR-0141's
+window is the specimen -- it carries its query because somebody wrote one, not because anything
+asks. Second, THE POPULATIONS THE SWEEP DOES NOT READ: a run figure is one kind of underivable
+figure, and a duration on the forge or a measurement of a running system wears no spelling a sweep
+can key on. Those are still convention.
+
 **AND ONE CRITERION OF CNCORE-251 IS NOT MET, NAMED HERE RATHER THAN LEFT TO BE FOUND.** That
 ticket asked that "`SLOWEST_SECONDS` is derived from the forge, **or** the test fails when the
 recorded figure is more than a stated distance from the real one". NEITHER limb is built. The
