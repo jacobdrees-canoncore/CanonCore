@@ -36,9 +36,12 @@ while true; do
     # provider half gets a worktree of its own, so a main checkout off `main` is
     # one an agent parked: CNCORE-261 left both providers' on its branch after
     # merging, and CNCORE-262 found one there and stopped to ask. A checkout this
-    # cannot read is named too, because silence here has to mean "on main".
+    # cannot read is named too, because silence here has to mean "on main" -- and
+    # the ceiling is what makes a directory that is NOT a repository unreadable,
+    # since `git -C` otherwise walks up and answers for whatever encloses it.
     for r in $REPOS; do
-      b=$(git -C "$HOME/orca/projects/$r" branch --show-current 2>/dev/null) || b=unreadable
+      b=$(GIT_CEILING_DIRECTORIES="$HOME/orca/projects" \
+        git -C "$HOME/orca/projects/$r" branch --show-current 2>/dev/null) || b=unreadable
       [ "$b" = main ] || echo "PARKED $r ${b:-detached}"
     done
 

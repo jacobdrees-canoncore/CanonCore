@@ -73,8 +73,8 @@ local one. `db:setup`'s sweep takes whatever this misses, but only once it is an
 when somebody next sets up a worktree.
 
 **A CROSS-REPO TICKET'S MERGE TAKES ITS PROVIDER WORKTREES TOO.** Each provider PR goes through
-`merge-if-green.sh <n> <repo> ~/orca/workspaces/<repo>/cncore-<n>`, and its worktree goes with it
-by `orca worktree rm --worktree path:<worktree>` alone. A provider worktree has no databases, so
+`merge-if-green.sh <pr> <repo> ~/orca/workspaces/<repo>/cncore-<ticket>`, and its worktree goes with
+it by `orca worktree rm --worktree path:<worktree>` alone. A provider worktree has no databases, so
 nothing follows it, and the removal takes its branch.
 
 **`PARKED <repo> <branch>` IS A MAIN CHECKOUT SOMEBODY WORKED IN**, and it goes back to `main` in
@@ -90,11 +90,12 @@ there. While that ticket is still live, leave the checkout alone: its agent is w
 `PARKED <repo> unreadable` means the monitor could not read that checkout's branch, so the line's
 silence has not answered for that repo.
 
-**AND AFTER A CROSS-REPO TICKET'S LAST PR MERGES, READ ITS STATE BACK.** A ticket with three PRs
-does not close itself. CNCORE-257, 259 and 263 each sat at `In Review` with every PR merged and were
-closed by hand, while each ticket in the same wave with fewer PRs closed itself
-([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). If the integration left
-it open, `orca linear status set CNCORE-<n> --to Done`, and read that back too.
+**AND AFTER THE LAST PR OF A TICKET WITH THREE OR MORE, READ ITS STATE BACK.** The count is the
+variable, not the repos. CNCORE-257, 259 and 263 each opened three, each sat at `In Review` with
+every PR merged, and each was closed by hand, while every ticket in the same wave with one or two
+closed itself ([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). If the
+integration left it open, `orca linear status set CNCORE-<ticket> --to Done`, and read that back
+too.
 
 **A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is
 a line on a ladder no ticket owns: the migration index, the shared fixture, a tool list. CNCORE-74

@@ -156,8 +156,9 @@ dispatcher auditing somebody else's worktree.
 A dispatcher reading the wrong field is exactly what prose cannot prevent, because the instruction
 and the mistake look identical at the moment of the mistake — twice now, seven days apart, by the
 same route. `monitor.sh` already classifies every CanonCore worktree each pass for `ROOM`, `IDLE`
-and `GONE`; `UNBOUND` is the same read, and it chooses the field once so nobody has to choose it
-again.
+and `GONE`; `UNBOUND` is the same read, widened to every repo the dispatcher runs by
+[[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]], and it chooses the field
+once so nobody has to choose it again.
 
 It emits on the ABSENCE, which only fails safe if absence is distinguishable from not having looked.
 So the listing is checked for `truncated` and a short read emits `UNBOUND-BLIND`, the same shape

@@ -26,7 +26,11 @@ import { repoRoot } from "./testing/repo-root";
 const monitor = join(repoRoot, ".claude", "skills", "dispatch", "monitor.sh");
 
 type World = {
-  /** Each repo's main checkout, by the branch it stands on. All three on `main` unless said. */
+  /**
+   * Each repo's main checkout, by the branch it stands on, or `not-a-repository` for a directory
+   * holding none. A repo the map leaves out has no checkout at all. With no map, all three stand on
+   * `main`.
+   */
   readonly checkouts?: Readonly<Record<string, string>>;
   /** Orca's worktrees, as `<repo>/<name>` and the Linear ticket each is bound to. */
   readonly worktrees?: Readonly<Record<string, string | null>>;
@@ -34,13 +38,26 @@ type World = {
 
 const ALL_ON_MAIN = { CanonCore: "main", "provider-wiki": "main", "provider-tmdb": "main" };
 
-/** A real git checkout at `dir`, standing where the world says. */
+/**
+ * A real git checkout at `dir`, standing where the world says.
+ *
+ * THE DEVELOPER'S OWN GIT CONFIG IS KEPT OUT, so a global signing key or hook cannot shape the
+ * fixture, and a git call that fails throws here rather than surfacing later as a wrong line.
+ */
 function checkout(dir: string, on: string) {
   mkdirSync(dir, { recursive: true });
-  const git = (...args: string[]) =>
-    spawnSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
-      encoding: "utf8",
-    });
+  if (on === "not-a-repository") return;
+  const git = (...args: string[]) => {
+    const ran = spawnSync(
+      "git",
+      ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", ...args],
+      {
+        encoding: "utf8",
+        env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+      },
+    );
+    if (ran.status !== 0) throw new Error(`fixture: git ${args.join(" ")} -- ${ran.stderr}`);
+  };
   git("init", "-q", "-b", "main");
   git("commit", "-q", "--allow-empty", "-m", "root");
   if (on === "detached") git("checkout", "-q", "--detach");
@@ -54,6 +71,9 @@ function onePassOf(world: World): string[] {
   const scratch = join(home, "scratch");
   mkdirSync(bin);
   mkdirSync(scratch);
+  // `HOME` IS ITSELF A REPOSITORY ON `main`, so a checkout that is not one cannot pass by being
+  // read through whatever encloses it: `git -C` walks UP until it finds a repository.
+  checkout(home, "main");
   for (const [repo, on] of Object.entries(world.checkouts ?? ALL_ON_MAIN)) {
     checkout(join(home, "orca", "projects", repo), on);
   }
@@ -109,14 +129,20 @@ describe("a main checkout the monitor reads", () => {
    * for `UNBOUND-BLIND` and `LINEAR-BLIND`. A checkout that is missing or not a
    * repository answers nothing about its branch, and reading that as on `main`
    * is a false all-clear about exactly the thing the line exists to report.
+   *
+   * NOT A REPOSITORY IS THE HARDER CASE, because `git -C` walks up to whatever
+   * repository encloses the directory and answers for that one instead --
+   * `merge-if-green.sh` guards the same walk. Here the enclosing repository is on
+   * `main`, so reading through it would be silence.
    */
   it("names a checkout it cannot read, rather than reading it as on main", () => {
     const lines = onePassOf({
-      checkouts: { CanonCore: "main", "provider-wiki": "main" },
+      checkouts: { CanonCore: "main", "provider-wiki": "not-a-repository" },
     });
 
+    expect(lines).toContain("PARKED provider-wiki unreadable");
     expect(lines).toContain("PARKED provider-tmdb unreadable");
-    expect(lines.filter((line) => line.startsWith("PARKED provider-wiki"))).toEqual([]);
+    expect(lines.filter((line) => line.startsWith("PARKED CanonCore"))).toEqual([]);
   });
 });
 

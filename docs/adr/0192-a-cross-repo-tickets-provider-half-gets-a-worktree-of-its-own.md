@@ -17,13 +17,15 @@ repo in `REPOS` rather than CanonCore's alone, and prints each as `<repo>/<workt
 `packages/config/src/dispatch-monitor.test.ts` runs one pass of the real script against a stubbed
 world and pins both lines.
 
-## What happened: one problem, three answers, two nights
+## What happened: one problem, three answers, one wave
 
 The dispatch skill said a cross-repo fold's agent "lives in one worktree and reaches into the other
 with `cd`". That was written for a fold, where one agent owns both halves and nothing else is
 running, and it is right there. It never said whose the other worktree was, or what happens when
 two cross-repo tickets are in flight at once. Read alone, it sends the agent into the provider's
-main checkout. Measured on 2026-09-20 and 21 (CNCORE-295):
+main checkout. Measured over the wave of 2026-09-20 into 21. What 257, 259, 261, 262 and 263 did
+is CNCORE-295's own evidence; CNCORE-258 and CNCORE-264 were read from their agents' session
+transcripts on 2026-09-21, when this was built:
 
 - **CNCORE-261** left both provider main checkouts on its branch after merging, a branch the merge
   had deleted.
@@ -32,10 +34,10 @@ main checkout. Measured on 2026-09-20 and 21 (CNCORE-295):
   stopped and asked, and the dispatcher created it a worktree. That cost a round trip.
 - **CNCORE-257** held both main checkouts on its own branch. CNCORE-259 and CNCORE-263 worked around
   it by creating provider worktrees of their own, and so did CNCORE-258, naming its `cncore-258`.
-- **CNCORE-264**, the next night, was told mid-flight to take a provider worktree of its own and to
-  ask the dispatcher for it. It waited for it. `cncore-264-tmdb` then arrived with no Linear
-  binding, because the dispatcher created it without `--linear-issue`. Its agent found that and
-  bound it by hand.
+- **CNCORE-264**, later in the same wave, was told mid-flight to take a provider worktree of its
+  own and to ask the dispatcher for it. It worked on without one until it could not, then asked,
+  and the dispatcher created it. `cncore-264-tmdb` arrived with no Linear binding, because the
+  dispatcher created it without `--linear-issue`. Its agent found that and bound it by hand.
 
 So the main checkout, a worktree the dispatcher made on request, and a worktree the agent made for
 itself: three answers to one question, and two round trips through the dispatcher. Nothing reported
@@ -86,7 +88,9 @@ Nothing stops an agent from checking out a branch in a main checkout, and nothin
 can be done is to see it at once, rather than when the next ticket trips over it. The one thing
 `PARKED`'s silence has to mean is that every main checkout is on `main`. So a checkout the monitor
 cannot read is named too, as `unreadable`, for the same reason `UNBOUND-BLIND` refuses to read a
-failed listing as all clear.
+failed listing as all clear. That includes a directory that is not a repository: `git -C` would
+walk up and answer for whatever encloses it, so the read stops at `~/orca/projects`, the trap
+`merge-if-green.sh` already guards.
 
 A parked checkout whose ticket is still live is left where it is. The agent is working in it, and
 taking the branch out from under it would cost that work. It goes back to `main` in the same action
@@ -94,14 +98,18 @@ as its ticket's merge, once nothing in it is uncommitted or unpushed.
 
 ## A ticket with three PRs does not close itself
 
-This turned up in the same wave, at the same merge step. CNCORE-257, 259 and 263 each opened three
-PRs naming the ticket, one per repo. Each stayed at `In Review` after its last PR merged, and each
-was moved to `Done` by hand. CNCORE-262, 264 and 297 opened fewer, and the GitHub integration moved
-each of them to `Done` itself. Measured from each ticket's own activity log on 2026-09-21.
+This turned up in the same wave, at the same merge step, and the filer's second comment on
+CNCORE-295 narrowed it. CNCORE-257, 259 and 263 each opened three PRs naming the ticket, one per
+repo. Each stayed at `In Review` after its last PR merged, and each was moved to `Done` by hand.
+Tickets with one or two closed themselves, the two-PR set CNCORE-297, 299 and 301 among them. So the
+variable is the number of PRs, not the number of repos. This record re-read the activity logs on
+2026-09-21: the three-PR tickets' `Done` was set by a user, and the two-PR CNCORE-262, 264 and 297's
+by the GitHub integration.
 
-Why three fails is not known, and nothing here depends on knowing it. After the last PR of a
-cross-repo ticket merges, the dispatcher reads the ticket's state back and moves it to `Done` only if
-the integration did not. The read comes first, so setting the state by hand does not hide whether
+Why three fails is not known, and nothing here depends on knowing it. It is three observations and
+no counter-example, so the rule is a read rather than a prediction: after the last PR of a ticket
+with three or more merges, the dispatcher reads the ticket's state back and moves it to `Done` only
+if the integration did not. The read comes first, so setting the state by hand does not hide whether
 the linkage works, which is what `docs/agents/issue-tracker.md` refuses hand-set states for.
 
 ## What is a check and what is procedure
@@ -111,7 +119,7 @@ the linkage works, which is what `docs/agents/issue-tracker.md` refuses hand-set
   2026-09-21, on the condition that the script grows no flag only the test would read. So the test
   ends the loop by stubbing `sleep`.
 - **Procedure, in the dispatch skill.** Creating the provider worktrees at dispatch, removing them
-  at merge, returning a parked checkout to `main`, and reading back a cross-repo ticket's state.
+  at merge, returning a parked checkout to `main`, and reading back a three-PR ticket's state.
   Nothing in this repository can observe the order in which a dispatcher does things. The two lines
   above are what make a missed step visible.
 - **For the agent, in `CLAUDE.md`.** Where its provider half is, and that the main checkout is not
