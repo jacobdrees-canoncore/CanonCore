@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "pg";
-import { afterEach, describe, expect, inject, it } from "vitest";
+import { afterEach, describe, expect, inject, it, onTestFinished } from "vitest";
 
 import { worktreeDatabaseName } from "./index";
 import { holdingSetupLock } from "./setup-worktree";
@@ -435,6 +435,9 @@ async function admin<T>(work: (client: Client) => Promise<T>): Promise<T> {
 /** A repository on `trunk` with one linked worktree on `branch`. */
 function repositoryWithAWorktree(branch: string): { main: string; linked: string } {
   const root = mkdtempSync(join(tmpdir(), "canoncore-sweep-"));
+  // The linked worktree lives under `root` too, so removing the root takes the
+  // registry entry in `main/.git` with it and leaves no worktree behind either.
+  onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const main = join(root, "main");
   const linked = join(root, "linked");
   mkdirSync(main);

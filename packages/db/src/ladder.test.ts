@@ -1,8 +1,8 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import type { Database } from "./index";
 import {
@@ -100,7 +100,9 @@ describe("a rung that has shipped is frozen", () => {
   it("catches a rung edited after it was applied", async () => {
     // Drizzle writes this SHA-256 and never reads it back, unlike Flyway. The
     // data is already there; nothing checks it.
-    const folder = join(await mkdtemp(join(tmpdir(), "canoncore-ladder-")), "migrations");
+    const directory = await mkdtemp(join(tmpdir(), "canoncore-ladder-"));
+    onTestFinished(() => rm(directory, { recursive: true, force: true }));
+    const folder = join(directory, "migrations");
     await cp(migrationsFolder, folder, { recursive: true });
     const [first] = await readJournal(folder);
     const edited = join(folder, `${first!.tag}.sql`);
@@ -113,7 +115,9 @@ describe("a rung that has shipped is frozen", () => {
   });
 
   it("catches a rung that a database has run but the ladder no longer holds", async () => {
-    const folder = join(await mkdtemp(join(tmpdir(), "canoncore-ladder-")), "migrations");
+    const directory = await mkdtemp(join(tmpdir(), "canoncore-ladder-"));
+    onTestFinished(() => rm(directory, { recursive: true, force: true }));
+    const folder = join(directory, "migrations");
     await cp(migrationsFolder, folder, { recursive: true });
     const journal = await readJournal(folder);
     await writeFile(

@@ -5,11 +5,12 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
 
@@ -97,6 +98,7 @@ const check = (name: string, conclusion: string, status = "completed") => ({
  */
 function inAWorldOf(world: World, script: string, args: readonly string[]) {
   const dir = mkdtempSync(join(tmpdir(), "merge-gate-"));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   const bin = join(dir, "bin");
   mkdirSync(bin);
   // A BRANCH NAME UNLESS THE WORLD SAYS OTHERWISE, so only the test that is
@@ -614,8 +616,10 @@ describe("a check the gate reads", () => {
  */
 function aRepoWith({ held = 0 }: { held?: number } = {}) {
   const origin = mkdtempSync(join(tmpdir(), "merge-gate-origin-"));
+  onTestFinished(() => rmSync(origin, { recursive: true, force: true }));
   spawnSync("git", ["init", "--bare", "-q", origin]);
   const worktree = mkdtempSync(join(tmpdir(), "merge-gate-wt-"));
+  onTestFinished(() => rmSync(worktree, { recursive: true, force: true }));
   const git = (...args: string[]) =>
     spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: worktree });
 
@@ -696,6 +700,7 @@ describe("the command that merges", () => {
    */
   it("refuses to merge over a worktree holding uncommitted work", () => {
     const worktree = mkdtempSync(join(tmpdir(), "merge-gate-wt-"));
+    onTestFinished(() => rmSync(worktree, { recursive: true, force: true }));
     spawnSync("git", ["init", "-q"], { cwd: worktree });
     writeFileSync(join(worktree, "half-written.ts"), "export const x = 1;\n");
 

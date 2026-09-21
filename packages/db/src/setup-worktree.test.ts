@@ -1,8 +1,8 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "pg";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished } from "vitest";
 
 import { worktreeDatabaseName } from "./index";
 import { setUpWorktreeDatabase } from "./setup-worktree";
@@ -19,15 +19,19 @@ const branch = "reviewer/db-setup-under-test";
 const database = worktreeDatabaseName(branch);
 let serverUrl: string;
 let envFile: string;
+/** The directory holding `envFile`, kept so the `afterAll` below can remove it. */
+let envDirectory: string;
 
 beforeAll(async () => {
   const url = new URL(inject("databaseUrl"));
   url.pathname = "/postgres";
   serverUrl = url.toString();
-  envFile = join(await mkdtemp(join(tmpdir(), "canoncore-setup-")), ".env");
+  envDirectory = await mkdtemp(join(tmpdir(), "canoncore-setup-"));
+  envFile = join(envDirectory, ".env");
 });
 
 afterAll(async () => {
+  await rm(envDirectory, { recursive: true, force: true });
   const admin = new Client({ connectionString: serverUrl });
   await admin.connect();
   try {
@@ -66,7 +70,9 @@ describe("setUpWorktreeDatabase", () => {
     // .env is the developer's own machine state and may point somewhere they
     // chose. Being wrong in this direction costs them their configuration;
     // being wrong the other way costs them running the command again.
-    const theirs = join(await mkdtemp(join(tmpdir(), "canoncore-setup-")), ".env");
+    const directory = await mkdtemp(join(tmpdir(), "canoncore-setup-"));
+    onTestFinished(() => rm(directory, { recursive: true, force: true }));
+    const theirs = join(directory, ".env");
     await writeFile(theirs, "DATABASE_URL=postgresql://somewhere/they/chose\n");
 
     const result = await setUpWorktreeDatabase({ serverUrl, branch, envFile: theirs });
@@ -80,12 +86,16 @@ describe("setUpWorktreeDatabase", () => {
     // database, so setup leaves it alone, reports success, and the worktree
     // quietly goes on using the database every other worktree uses -- which is
     // the failure the whole change exists to end.
-    const elsewhere = join(await mkdtemp(join(tmpdir(), "canoncore-setup-")), ".env");
+    const elsewhereDirectory = await mkdtemp(join(tmpdir(), "canoncore-setup-"));
+    onTestFinished(() => rm(elsewhereDirectory, { recursive: true, force: true }));
+    const elsewhere = join(elsewhereDirectory, ".env");
     await writeFile(
       elsewhere,
       "DATABASE_URL=postgresql://postgres@localhost:55432/canoncore_main\n",
     );
-    const here = join(await mkdtemp(join(tmpdir(), "canoncore-setup-")), ".env");
+    const hereDirectory = await mkdtemp(join(tmpdir(), "canoncore-setup-"));
+    onTestFinished(() => rm(hereDirectory, { recursive: true, force: true }));
+    const here = join(hereDirectory, ".env");
     await writeFile(here, `DATABASE_URL=postgresql://postgres@localhost:55432/${database}\n`);
 
     const pointsAway = await setUpWorktreeDatabase({ serverUrl, branch, envFile: elsewhere });
@@ -102,7 +112,11 @@ describe("setUpWorktreeDatabase", () => {
     const racing = "reviewer/db-setup-raced";
     const raced = worktreeDatabaseName(racing);
     const envFiles = await Promise.all(
-      [0, 1].map(async () => join(await mkdtemp(join(tmpdir(), "canoncore-race-")), ".env")),
+      [0, 1].map(async () => {
+        const directory = await mkdtemp(join(tmpdir(), "canoncore-race-"));
+        onTestFinished(() => rm(directory, { recursive: true, force: true }));
+        return join(directory, ".env");
+      }),
     );
 
     try {

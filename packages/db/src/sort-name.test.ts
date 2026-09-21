@@ -1,8 +1,8 @@
-import { cp, mkdtemp, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, eq, isNull } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import {
   createDb,
@@ -221,7 +221,9 @@ describe("an install that already had a catalogue", () => {
 const SORT_NAME_RUNG = "20260914103000_migration_17_a_sort_name_is_derived";
 
 async function theLadderBelowTheSortNameRung(): Promise<string> {
-  const folder = join(await mkdtemp(join(tmpdir(), "canoncore-sort-name-")), "migrations");
+  const directory = await mkdtemp(join(tmpdir(), "canoncore-sort-name-"));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const folder = join(directory, "migrations");
   await cp(migrationsFolder, folder, { recursive: true });
   const entries = await readJournal(folder);
   const rung = entries.findIndex((entry) => entry.tag === SORT_NAME_RUNG);

@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { asc } from "drizzle-orm";
 import { Client } from "pg";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { createDb, items, owners, placements } from "./index";
 import { readJournal } from "./ladder";
@@ -28,7 +28,9 @@ import { buildTestDatabase } from "./testing/build-database";
 /** A custom-format dump of the database a URL names, on disk. */
 async function dumpOf(url: string): Promise<string> {
   const { username, pathname } = new URL(url);
-  const file = join(await mkdtemp(join(tmpdir(), "canoncore-dump-")), "catalogue.dump");
+  const directory = await mkdtemp(join(tmpdir(), "canoncore-dump-"));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const file = join(directory, "catalogue.dump");
   const out = openSync(file, "w");
   try {
     const dumped = spawnSync(
@@ -108,7 +110,9 @@ async function rungsAppliedTo(url: string): Promise<number> {
  * day this was written: its ledger stopped at migration 18 while `main` held 20.
  */
 async function theLadderBelowItsHead(): Promise<string> {
-  const folder = join(await mkdtemp(join(tmpdir(), "canoncore-restore-")), "migrations");
+  const directory = await mkdtemp(join(tmpdir(), "canoncore-restore-"));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const folder = join(directory, "migrations");
   await cp(migrationsFolder, folder, { recursive: true });
   const entries = await readJournal(folder);
   await writeFile(
@@ -249,6 +253,7 @@ describe("restoring a dump into a database of its own", () => {
     const before = await catalogueAt(target);
     const whole = await readFile(await dumpOf(target));
     const directory = await mkdtemp(join(tmpdir(), "canoncore-not-a-dump-"));
+    onTestFinished(() => rm(directory, { recursive: true, force: true }));
     const notADump = join(directory, "notes.txt");
     await writeFile(notADump, "this is not an archive\n");
     const cutShort = join(directory, "cut-short.dump");
