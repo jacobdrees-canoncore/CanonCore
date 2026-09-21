@@ -6,9 +6,10 @@ status: accepted
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** The dispatch loop now confirms a brief where it
 > lands rather than where it was sent. **BUILT AS A CHECK: the binding channel only** — `monitor.sh`
-> emits `UNBOUND` for a CanonCore worktree carrying no Linear binding, reading `linkedLinearIssue`,
-> and `UNBOUND-BLIND` when the listing was truncated, so silence means every worktree was seen and
-> bound. **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: the two `terminal send`
+> emits `UNBOUND` for a worktree carrying no Linear binding, in every repo the dispatcher runs since
+> [[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]] (CanonCore's alone until
+> then), reading `linkedLinearIssue`, and `UNBOUND-BLIND` when the listing was truncated, so silence
+> means every worktree was seen and bound. **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: the two `terminal send`
 > channels**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
 > another agent's input box. The sentences that told a dispatcher a call's `ok: true` was evidence
 > are corrected in place in `CLAUDE.md`, `.claude/skills/dispatch/SKILL.md` and

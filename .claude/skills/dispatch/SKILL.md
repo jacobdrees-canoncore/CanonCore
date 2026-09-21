@@ -20,8 +20,8 @@ tool capped it at 30 minutes three times running and said so only in its start m
 notice at expiry is easy to read as another event. Re-arm on that notice, with the same `SCRATCH`
 so the diff resumes instead of re-announcing the board. A merged change to `monitor.sh` also does
 nothing until you stop the running watch and start it again. Its header names every line it
-emits; `ROOM`, `IDLE`, `UNBOUND` and `UNBOUND-BLIND` are read under **How full**, the `DRIFT-` lines
-under **Drift**.
+emits; `ROOM`, `IDLE`, `UNBOUND` and `UNBOUND-BLIND` are read under **How full**, `PARKED` under
+step 2, the `DRIFT-` lines under **Drift**.
 
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's
 own reasoning is not evidence either. Take the one load-bearing claim the work rests on and put it
@@ -71,6 +71,30 @@ Owner's catalogue ([[0191-removing-a-worktree-drops-its-databases-and-refuses-a-
 Take the branch from the PR, because by now the merge and the removal have usually deleted the
 local one. `db:setup`'s sweep takes whatever this misses, but only once it is an hour old and only
 when somebody next sets up a worktree.
+
+**A CROSS-REPO TICKET'S MERGE TAKES ITS PROVIDER WORKTREES TOO.** Each provider PR goes through
+`merge-if-green.sh <n> <repo> ~/orca/workspaces/<repo>/cncore-<n>`, and its worktree goes with it
+by `orca worktree rm --worktree path:<worktree>` alone. A provider worktree has no databases, so
+nothing follows it, and the removal takes its branch.
+
+**`PARKED <repo> <branch>` IS A MAIN CHECKOUT SOMEBODY WORKED IN**, and it goes back to `main` in
+the same action as the merge of the ticket whose branch it names, once `git status` is clean and
+nothing is unpushed:
+
+```sh
+git -C ~/orca/projects/<repo> switch main && git -C ~/orca/projects/<repo> pull --ff-only
+```
+
+CNCORE-261 left both providers' main checkouts on its deleted branch, and the next ticket found one
+there. While that ticket is still live, leave the checkout alone: its agent is working in it.
+`PARKED <repo> unreadable` means the monitor could not read that checkout's branch, so the line's
+silence has not answered for that repo.
+
+**AND AFTER A CROSS-REPO TICKET'S LAST PR MERGES, READ ITS STATE BACK.** A ticket with three PRs
+does not close itself. CNCORE-257, 259 and 263 each sat at `In Review` with every PR merged and were
+closed by hand, while each ticket in the same wave with fewer PRs closed itself
+([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). If the integration left
+it open, `orca linear status set CNCORE-<n> --to Done`, and read that back too.
 
 **A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is
 a line on a ladder no ticket owns: the migration index, the shared fixture, a tool list. CNCORE-74
@@ -158,6 +182,22 @@ fixed. Create a worktree first and the explanation is a report about work alread
 When the yes comes back: one ticket per worktree, `--prompt "/implement"` and nothing more. Fold
 only on one reason to change (`CLAUDE.md`).
 
+**A CROSS-REPO TICKET GETS ITS PROVIDER WORKTREES IN THE SAME ACTION, BEFORE ITS AGENT STARTS.** One
+per provider repo the ticket reaches, named `cncore-<n>` exactly as its CanonCore worktree is, so
+the agent finds `~/orca/workspaces/<repo>/cncore-<n>` from its binding alone:
+
+```sh
+git -C ~/orca/projects/<repo> fetch -q origin
+orca worktree create --repo name:<repo> --name cncore-<n> --linear-issue CNCORE-<n> --setup skip --json
+```
+
+Creating them is yours, as removing them is, and the agent never works in a main checkout
+([[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]]). Made on request instead,
+each one costs a round trip. CNCORE-262 paid one, and CNCORE-264 waited for `cncore-264-tmdb` on
+2026-09-21, which the dispatcher then created without `--linear-issue`. `UNBOUND` now reads every
+repo, so the same slip reads `UNBOUND provider-tmdb/cncore-264-tmdb`. A provider worktree is not one
+of the four (**How full**).
+
 Done when every merged PR's worktree is gone and the frontier is in front of the user. New tickets
 arriving is the review working; one arriving that nothing blocks belongs in the next ask rather than
 in a worktree.
@@ -182,14 +222,15 @@ remove. Dead: read the terminal before assuming the work is lost.
 Anything sent to it goes to the prompt widget rather than the chat, where `--enter` answers the
 question on its behalf (ADR-0162). Answer the prompt first, then send.
 
-**`UNBOUND <worktree>` MEANS A WORKTREE THAT CANNOT BRIEF ITS OWN AGENT**, because `--prompt
+**`UNBOUND <repo>/<worktree>` MEANS A WORKTREE THAT CANNOT BRIEF ITS OWN AGENT**, because `--prompt
 "/implement"` carries no ticket number and the binding is the whole brief. It reads
 `linkedLinearIssue`, which is the field the 2026-09-20 wave got wrong by reading `linkedIssue`
-beside it. It emits on the ABSENCE, so a pass with no `UNBOUND` line has already answered the
-question — which is the direction that fails safe, since a worktree wrongly reported bound is the
-one that sends an agent out blind. **`UNBOUND-BLIND` means the listing itself could not be trusted**
-— unparseable, an unexpected shape, or `truncated` on a paged read — so that pass saw nothing rather
-than saw nothing wrong, and silence keeps its one meaning.
+beside it. It reads every repo in `REPOS`, and names the repo because a provider worktree carries
+its CanonCore twin's name. It emits on the ABSENCE, so a pass with no `UNBOUND` line has already
+answered the question — which is the direction that fails safe, since a worktree wrongly reported
+bound is the one that sends an agent out blind. **`UNBOUND-BLIND` means the listing itself could not
+be trusted** — unparseable, an unexpected shape, or `truncated` on a paged read — so that pass saw
+nothing rather than saw nothing wrong, and silence keeps its one meaning.
 
 **`GONE <worktree>` MEANS NO AGENT AT ALL, AND THE WORK IS PROBABLY STILL THERE.** A session restart
 killed two agents at once on 2026-09-19. Their worktrees held seven commits between them, five never
@@ -277,12 +318,14 @@ let the range pick the newer one up later.
   4m05s; on #221 that was read as "not yet" and the merge went in 3m42s before its run finished.
   `gate.sh` names which of the two it is rather than leaving you to infer it at speed.
 
-- **A CROSS-REPO FOLD MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
-  lives in one worktree and reaches into the other with `cd`, so the repo holding the FILES has no
-  agent in it and the worktree holding the AGENT shows `+0,-0` until the second half starts. The
-  work is in a third place: the other repo's `git status`. Say this when you brief the fold — the
-  163/164 pair read as stalled on 2026-09-14 while it was writing a compose file and a 209-line
-  test, and the question came back as "the orca worktree isnt doing anyhting".
+- **A CROSS-REPO TICKET MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
+  lives in its CanonCore worktree and reaches into its provider worktree,
+  `~/orca/workspaces/<repo>/cncore-<n>`, with `cd`, never into the provider's main checkout. So the
+  worktree holding the FILES has no agent in it, and the worktree holding the AGENT shows `+0,-0`
+  until the second half starts. The work shows in one place only: the provider worktree's
+  `git status`. Say this when you put a cross-repo ticket up — the 163/164 pair read as stalled on
+  2026-09-14 while it was writing a compose file and a 209-line test, and the question came back as
+  "the orca worktree isnt doing anyhting".
 - **`orca terminal send` TYPES; `--enter` SENDS — AND `--enter` IS STILL NOT DELIVERY.** There are
   three ways a brief fails to arrive and all three answer `ok: true` with a byte count (ADR-0162).
   Without the flag the text lands in the input box and sits there: two briefs naming a merged ADR
