@@ -12,13 +12,13 @@ import {
   someStories,
   theOwner,
 } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
 import { placementsInContainerPublic, placementsOfItemPublic } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -668,21 +668,8 @@ describe("item.get on a container larger than one page", () => {
  * THE OWNER'S CONTEXT, because everything below WRITES. `item.create` and
  * `item.retitle` are `ownerProcedure`s (CNCORE-109, ADR-0043), so a caller with
  * no session is refused before reaching any of the behaviour asserted here.
- *
- * IT LOGS IN THROUGH THE ROUTER rather than assembling a session object, for
- * the reason `provider.test.ts` gives: a hand-made session would keep passing
- * on the day the shape of one changes.
  */
 const asTheOwner = await createContext({ sessionToken: await aTokenForTheOwner() });
-
-async function aTokenForTheOwner(): Promise<string> {
-  const password = env.OWNER_PASSWORD;
-  if (password === undefined) {
-    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-  }
-  const { token } = await call(appRouter.session.logIn, { password }, { context });
-  return token;
-}
 
 /**
  * ADR-0003 made usable: an Item with no Provider record and no file is a

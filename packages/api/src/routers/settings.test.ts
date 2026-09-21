@@ -2,11 +2,11 @@ import { createServer, type Server } from "node:http";
 
 import { type Database, writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -18,19 +18,6 @@ import { appRouter } from "./index";
  * every test below that says "the next request" is asserting exactly that —
  * a context built AFTER the write sees it, with nothing restarted.
  */
-async function aTokenForTheOwner(): Promise<string> {
-  const password = env.OWNER_PASSWORD;
-  if (password === undefined) {
-    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-  }
-  const { token } = await call(
-    appRouter.session.logIn,
-    { password },
-    { context: await createContext() },
-  );
-  return token;
-}
-
 const sessionToken = await aTokenForTheOwner();
 
 /**

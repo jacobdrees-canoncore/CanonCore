@@ -1,11 +1,11 @@
 import type { Database } from "@canoncore/db";
 import { anItem, anItemTitled, connect } from "@canoncore/db/testing/catalogue";
-import { env } from "@canoncore/env/server";
 import { parseAllowlist } from "@canoncore/providers";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
+import { aTokenForTheOwner } from "../testing/the-owner";
 import { appRouter } from "./index";
 
 /**
@@ -25,15 +25,6 @@ beforeAll(async () => {
 });
 
 const asTheOwner = await createContext({ sessionToken: await aTokenForTheOwner() });
-
-async function aTokenForTheOwner(): Promise<string> {
-  const password = env.OWNER_PASSWORD;
-  if (password === undefined) {
-    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
-  }
-  const { token } = await call(appRouter.session.logIn, { password }, { context });
-  return token;
-}
 
 describe("group.create", () => {
   it("makes a scope the Owner has named, which the catalogue then lists", async () => {
