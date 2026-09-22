@@ -51,8 +51,11 @@ of the data effort would be designing pages for content that does not arrive.
 
 **THE CORPUS HAS NO RECORD TO SCOPE A REDESIGN FROM, AND THAT IS NOT AN OVERSIGHT.** Every surface and
 listing decision in the corpus is `accepted`, which in this repository means the mechanism is whole:
-0119, 0133, 0136, 0138, 0140, 0142, 0143, 0149, 0150, 0151. Sorting all 67 `proposed` records by which
-effort owns them yields **zero** in the redesign. So the redesign is UNSPECIFIED rather than pending,
+0119, 0133, 0136, 0138, 0140, 0142, 0143, 0149, 0150, 0151. Sorting the 67 `proposed` records THIS
+CORPUS HELD ON 2026-09-20 by which effort owns them yields **zero** in the redesign. The count is
+dated because the corpus grows: it read 71 of 188 on 2026-09-21, and the seven `proposed` records
+added in between (0153, 0155, 0156, 0158, 0167, 0168, 0187) were re-sorted on that date and still
+yield zero, so the finding stands on the larger corpus rather than only on the one it was taken over. So the redesign is UNSPECIFIED rather than pending,
 and its scope has to be argued from scratch — which is a further reason it cannot precede the effort
 that gives it something to show.
 

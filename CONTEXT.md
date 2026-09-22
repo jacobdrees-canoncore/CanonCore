@@ -56,6 +56,15 @@ the source order is one for the whole instance (ADR-0025). A Group asks none unt
 what it asks changes nothing about claims already in the catalogue.
 _Avoid_: connect (Unlock's word), subscribe, enable
 
+**A Group's Rule**:
+How a Group decides its members, stored on the Group from a closed set of kinds: `property` (every
+Item carrying a named Property with a named value), `provider` (every Item a named Provider
+supplied), and `manual` (the Owner chose them). A rule is a stored PREDICATE and never a walk of the
+tree: multi-placement puts one Item under several parents at once, so "everything below X" has no
+single answer. Changing a rule re-evaluates membership rather than leaving it stale. This is the
+shape Plex ships as a smart collection and Kodi as a smart playlist.
+_Avoid_: smart collection, smart playlist, filter, query, descent
+
 **Continuity**:
 The reserved word for a distinct internal timeline, should two ever need telling apart. Not yet a
 construct in the model.
