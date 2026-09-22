@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, readProviderSettings, writeProviderSettings } from "./index";
@@ -99,7 +100,66 @@ describe("what the owner configured", () => {
       providerAllowlist: "wiki.test, 127.0.0.0/8",
     });
   });
+
+  /**
+   * TWO WRITES AT ONCE, ONE SETTING EACH, AND BOTH SURVIVE (CNCORE-386).
+   *
+   * THE ORDER IS FORCED RATHER THAN HOPED FOR, and that is why this test can
+   * fail where the `Promise.all` race written under CNCORE-99 could not. The
+   * allowlist's write stays open in a transaction holding the row, so the
+   * provider's write reads the row as it stood before, and parks on its UPDATE
+   * until the allowlist commits. A write that puts both columns back then
+   * writes the allowlist it read, which is the allowlist from before, and the
+   * owner's edit is gone with no error anywhere.
+   */
+  it("leaves it alone when the other is saved at the same moment", async () => {
+    await anInstanceNobodyHasConfigured();
+    // A ROW TO UPDATE, because the insert race on an unconfigured instance is a
+    // different one, and `settings_single_row` already makes it loud.
+    await writeProviderSettings(db, { providerUrls: "", providerAllowlist: "" });
+
+    // Two handles, so the two writes are two connections rather than two turns
+    // on one.
+    const editing = await connect();
+    const naming = await connect();
+    try {
+      let named!: Promise<unknown>;
+      await editing.transaction(async (tx) => {
+        await writeProviderSettings(tx, { providerAllowlist: "wiki.test" });
+        named = writeProviderSettings(naming, { providerUrls: "http://wiki.test:8080" });
+        // Awaited below; this only stops a failure inside it reading as an
+        // unhandled rejection during the wait.
+        named.catch(() => {});
+        await untilAWriteIsWaitingOnTheRow();
+      });
+      await named;
+
+      expect(await readProviderSettings(db)).toEqual({
+        providerUrls: "http://wiki.test:8080",
+        providerAllowlist: "wiki.test",
+      });
+    } finally {
+      await editing.$client.end();
+      await naming.$client.end();
+    }
+  });
 });
+
+/**
+ * Until a backend in this database is parked on a lock. `fileParallelism:
+ * false` is what makes one enough: no other file is writing here.
+ */
+async function untilAWriteIsWaitingOnTheRow(): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const { rows } = await db.execute<{ waiting: string }>(
+      sql`select count(*) as waiting from pg_stat_activity
+          where datname = current_database() and wait_event_type = 'Lock'`,
+    );
+    if (Number(rows[0]?.waiting ?? 0) >= 1) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("waited for a write parked on the settings row and never saw one");
+}
 
 /**
  * THE CEREMONY ADR-0075 ASKS OF EVERY TABLE, on the one this rung adds.

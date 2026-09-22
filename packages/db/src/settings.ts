@@ -72,32 +72,41 @@ export async function writeProviderSettings(
   writer: Writer,
   change: Partial<ProviderSettings>,
 ): Promise<ProviderSettings> {
-  const [existing] = await writer.select({ id: settings.id, ...WHAT_IS_CONFIGURED }).from(settings);
-  const next: ProviderSettings = {
-    providerUrls: existing?.providerUrls ?? NOTHING_CONFIGURED.providerUrls,
-    providerAllowlist: existing?.providerAllowlist ?? NOTHING_CONFIGURED.providerAllowlist,
-    ...change,
-  };
+  const [existing] = await writer.select({ id: settings.id }).from(settings);
 
   /*
    * THE FIRST WRITE CREATES THE ROW, and every later one changes it. An
    * instance with no row is one nobody has configured (migration 16 writes
    * none), so there is nothing to insert until an owner configures something.
    *
-   * `settings_single_row` IS WHAT MAKES THE RACE LOUD RATHER THAN SILENT. Two
-   * writes arriving at an unconfigured instance at once would both find no row;
-   * the unique index on `(true)` refuses the second insert, so the loser gets an
-   * error instead of a second row that half the reads would answer from.
+   * THE UPDATE SETS ONLY THE COLUMNS IT WAS GIVEN, which is what makes "the
+   * other is left exactly as it was" true of two writers rather than only of
+   * one (CNCORE-386). This read both settings, merged the change into them and
+   * wrote the pair back, so an owner editing the allowlist while a provider was
+   * named would lose one edit to the other's stale read, with no error
+   * anywhere. A column nobody changed is now a column no statement mentions.
+   *
+   * A TEST PINS IT, and the one that could not is worth knowing about before
+   * somebody writes another. Two calls raced with `Promise.all` passed against
+   * the merging version too, because nothing made one call read before the
+   * other wrote. `settings.test.ts` forces that order with a transaction
+   * holding the row, and goes red on every run without this.
+   *
+   * `settings_single_row` IS WHAT MAKES THE OTHER RACE LOUD, and it is a
+   * different one. Two writes arriving at an UNCONFIGURED instance at once
+   * would both find no row; the unique index on `(true)` refuses the second
+   * insert, so the loser gets an error instead of a second row that half the
+   * reads would answer from.
    */
   const [written] = existing
     ? await writer
         .update(settings)
-        .set(next)
+        .set(change)
         .where(eq(settings.id, existing.id))
         .returning(WHAT_IS_CONFIGURED)
     : await writer
         .insert(settings)
-        .values({ ownerId: await theOwnerId(writer), ...next })
+        .values({ ownerId: await theOwnerId(writer), ...NOTHING_CONFIGURED, ...change })
         .returning(WHAT_IS_CONFIGURED);
 
   if (!written) throw new Error("the settings write returned no row");
