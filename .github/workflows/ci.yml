@@ -457,7 +457,7 @@ jobs:
   e2e:
     name: The page over HTTP
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     services:
       # As above: a real server, matching packages/db/docker-compose.yml.
       postgres:

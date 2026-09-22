@@ -81,7 +81,7 @@ check enforcing this ratio was green for eight days while the figure it multipli
 | `env-guard`: Env guard                                                  |  760 |    17s |     83s |   5 min |
 | `test`: Test                                                            |  771 |    86s |    216s |  11 min |
 | `migrations`: Migration ladder                                          |  799 |    46s |    114s |   6 min |
-| `e2e`: The page over HTTP                                               |   2² |   102s |    105s |   5 min |
+| `e2e`: The page over HTTP                                               |   2² |   102s |    105s |   6 min |
 | `browser`: The page in a browser                                        |  540 |    81s |    116s |   6 min |
 | `credentials`: Which provider credentials this run can reach            |  269 |     3s |      6s |   5 min |
 | `provider`: Import and browse over HTTP, against the real provider-tmdb |  392 |   147s |    260s |  13 min |
