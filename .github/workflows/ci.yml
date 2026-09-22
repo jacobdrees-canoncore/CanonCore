@@ -769,12 +769,15 @@ jobs:
       # provider anything. So running it here checked nothing the `e2e` job had
       # not, and it was the longest thing CI did: 136.7 of this job's 228
       # seconds, measured on run 35741009637. Leaving it out took the suite step
-      # from 191s to 62s and this job to 118s on run 35742473820.
+      # from 191s to 62s and 57s, and this job to 118s and 93s, on the two runs
+      # after it (35742473820 and 35795564409).
       #
       # WHAT IT DOES NOT BUY IS WALL CLOCK, and the honest half is saying so:
       # `The page over HTTP` still runs this file and is still the pipeline's
-      # longest job, so the run as a whole went 243s to 234s. What is gone is a
-      # duplicate, not the pole.
+      # longest job, unmoved at 231s, 234s and 228s across those three runs. A
+      # run's own total is noisier than that -- 243s, 234s, 265s -- because job
+      # start times skew, which is why the pole is what this claim rests on.
+      # What is gone is a duplicate, not the pole.
       #
       # `ci-workflow.test.ts` fails if a file is left out of every job that runs
       # this suite, and if what a job leaves out stops existing.

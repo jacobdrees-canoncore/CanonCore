@@ -325,12 +325,18 @@ coverage at all.
 > **THAT SENTENCE SAID "the pipeline's slowest job" AND THAT WAS WRONG, corrected here on
 > 2026-09-22 by CNCORE-343, which made the change and measured it.** The job it describes is
 > `provider`; the pipeline's SLOWEST job is `e2e`, and `e2e` is the one that goes on running this
-> file. The derivation of the job itself held up well — measured 118s against the 105s predicted,
-> the suite step 191s to 62s — but the run's wall clock moved 243s to 234s, which is noise. **So
-> removing the duplicate buys compute and not latency**, and the latency claim in §9.2 below
-> belongs to the SECOND change rather than the first: until the measurement has a job of its own,
-> or leaves `e2e` too, something still spends 137s counting statements on the critical path. Both
-> runs are on the same commit's tree, an hour apart: 35741009637 before, 35742473820 after.
+> file. The derivation of the job itself held up well — measured 118s and then 93s against the 105s
+> predicted, its suite step 191s to 62s and 57s — but **the pole did not move at all: `e2e` ran 231s
+> before and 234s then 228s after.** So removing the duplicate buys compute and not latency, and the
+> latency claim in §9.2 below belongs to the SECOND change rather than the first: until the
+> measurement has a job of its own, or leaves `e2e` too, something still spends 137s counting
+> statements on the critical path.
+>
+> **A RUN'S OWN TOTAL IS THE WRONG INSTRUMENT HERE, which is worth recording because this note used
+> it.** The three runs' wall clocks read 243s, 234s and 265s, and the 265s is the one where nothing
+> got slower: a run's total carries how long each job waited for a runner as well as how long it
+> took. The longest JOB is the figure that answers "how long does a pull request wait", and it is
+> what the correction above rests on. Runs 35741009637 (before), 35742473820 and 35795564409 (after).
 
 **This note does not propose the change**, because sequencing suites across jobs is not what
 CNCORE-341 asked about and the constraint in `global-setup.ts` — the counted catalogue is built for
@@ -726,7 +732,7 @@ asks for unless the note justifies otherwise, and for path filtering the note do
 
 | Do this | Buys | Costs |
 |---|---|---|
-| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343, done 2026-09-22) | Measured: 110s off the `provider` job, on **every** run. **No latency**: the `e2e` job is the pole and keeps the file, so the wall clock went 243s to 234s (§6A.2) | Nothing. It counts database statements and never touches a provider (§6A) |
+| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343, done 2026-09-22) | Measured: the `provider` job 228s to 118s and 93s, on **every** run. **No latency**: the `e2e` job is the pole, keeps the file, and did not move (231s, then 234s and 228s) (§6A.2) | Nothing. It counts database statements and never touches a provider (§6A) |
 | **Give the cost measurement its own job** | The latency the row above does not buy: the `e2e` job's remaining files are ~53s of work | A job, which is free here (§4) |
 | **Make `gate.sh` refuse a commit whose RUN concluded `failure`** (CNCORE-342) | A hang stops reporting `PASSED` | One extra API call per run. Measured and ready to specify (§10.1) |
 | Path filters, in any form | ~8.5 min per ten days | A new mechanism in the merge path, and §8.1's trap |
