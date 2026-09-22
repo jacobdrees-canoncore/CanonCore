@@ -263,10 +263,10 @@ killed rather than holding a pull request for six hours. It IS killed. It then c
 leaves a trail of cancelled runs on every force-push and reading those as failures produced a false
 breakage claim on 2026-09-20. Its dependent concludes `skipped`, which is in the good set. **Every
 check-run on the commit is then either good or tolerated, and the gate said `PASSED` over a suite
-that hung** — from this record's own landing on 2026-09-21 until CNCORE-342 closed it on 2026-09-23,
-two days in which no pull request met it: of the 84 runs in this repository's history that concluded
-`failure`, every one had a job that failed, and of 362 merged pull requests only #210's head carried
-a cancelled check-run at all (swept 2026-09-22).
+that hung** — from this record's own landing on 2026-09-21 until CNCORE-342 closed it on 2026-09-23.
+**Nothing merged through the hole in those two days, and that is measured rather than assumed:** of
+the 362 merged pull requests across this repository and both providers, exactly one head carries a
+cancelled check-run at all — #210's, where every one of the thirteen was re-run (swept 2026-09-22).
 
 **`timed_out` is not the value to look for, and that is the trap.** The good set is refused by name
 above and `timed_out` sits in the BAD set — but nothing in Actions was observed to emit it. No job
