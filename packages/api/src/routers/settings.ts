@@ -1,4 +1,4 @@
-import { readProviderSettings, writeProviderSettings } from "@canoncore/db";
+import { changeProviderUrls, readProviderSettings, writeProviderSettings } from "@canoncore/db";
 import {
   type Allowlist,
   failureReason,
@@ -541,14 +541,12 @@ export const settings = {
     .input(z.object({ baseUrl: z.string() }))
     .errors({ ...NOT_A_SETTING, ...NOT_ONE_PROVIDER })
     .handler(async ({ input, context, errors }) => {
-      // TODO(CNCORE-391): a read and a write with nothing holding the row
-      // between them, so a second change to this setting at the same moment
-      // writes back the list it read and this one is lost.
-      const configured = await readProviderSettings(context.db);
       try {
-        await writeProviderSettings(context.db, {
-          providerUrls: nameProvider(configured.providerUrls, input.baseUrl),
-        });
+        // THE ROW IS HELD FROM THE READ TO THE WRITE (CNCORE-391), so a second
+        // change at the same moment computes its list from this one's.
+        await changeProviderUrls(context.db, (configured) =>
+          nameProvider(configured, input.baseUrl),
+        );
       } catch (cause) {
         /*
          * WHICH OF THE THREE, WHERE THE ENTRY IS WHAT WAS REFUSED (CNCORE-262).
@@ -585,12 +583,10 @@ export const settings = {
     .input(z.object({ baseUrl: z.string().min(1) }))
     .errors(NOT_A_SETTING)
     .handler(async ({ input, context, errors }) => {
-      // TODO(CNCORE-391): the same read-then-write as `nameProvider` above.
-      const configured = await readProviderSettings(context.db);
       try {
-        await writeProviderSettings(context.db, {
-          providerUrls: removeProvider(configured.providerUrls, input.baseUrl),
-        });
+        await changeProviderUrls(context.db, (configured) =>
+          removeProvider(configured, input.baseUrl),
+        );
       } catch (cause) {
         if (cause instanceof OutboundRefused) throw errors.BAD_REQUEST({ message: cause.message });
         throw cause;

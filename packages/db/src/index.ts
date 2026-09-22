@@ -104,6 +104,7 @@ export {
   sweepSessions,
 } from "./sessions";
 export {
+  changeProviderUrls,
   type ProviderSettings,
   readProviderSettings,
   writeProviderSettings,

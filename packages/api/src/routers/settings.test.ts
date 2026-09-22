@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 
 import { type Database, writeProviderSettings } from "@canoncore/db";
-import { connect } from "@canoncore/db/testing/catalogue";
+import { connect, untilSomebodyWaitsOn } from "@canoncore/db/testing/catalogue";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -250,6 +250,80 @@ describe("removing a provider", () => {
       { context: await theNextRequest() },
     );
     expect(configured.providers).toEqual([]);
+  });
+});
+
+/**
+ * TWO CHANGES TO THE PROVIDERS AT ONCE, AND BOTH SURVIVE (CNCORE-391).
+ *
+ * THE ORDER IS FORCED, as in `settings.test.ts` beside the store, and for the
+ * same reason: a `Promise.all` of two namings would usually interleave the
+ * harmless way and pass against the defect. One change is held open in a
+ * transaction that has written the row; the router's change then starts, and
+ * the holder commits only once the router's connection is blocked on it. A
+ * router that read the list before taking the row would read the list from
+ * before the held change, park on its UPDATE, and write back a list that
+ * leaves the held change out, with no error anywhere.
+ *
+ * THE HELD CHANGE IS A STORE WRITE RATHER THAN A SECOND ROUTER CALL, because a
+ * router call cannot be stopped halfway. It stands for the other request at the
+ * one moment that matters: its list written, its commit not yet made.
+ */
+describe("two changes to the Providers at the same moment", () => {
+  async function whileAChangeIsHeldOpen(held: string, change: () => Promise<unknown>) {
+    const holding = await connect();
+    try {
+      let changed!: Promise<unknown>;
+      await holding.transaction(async (tx) => {
+        await writeProviderSettings(tx, { providerUrls: held });
+        changed = change();
+        // Awaited below; this only stops a failure inside it reading as an
+        // unhandled rejection during the wait.
+        changed.catch(() => {});
+        await untilSomebodyWaitsOn(db, tx);
+      });
+      await changed;
+    } finally {
+      await holding.$client.end();
+    }
+  }
+
+  it("keeps both when two Providers are named", async () => {
+    await writeProviderSettings(db, { providerUrls: "http://a.test" });
+
+    await whileAChangeIsHeldOpen("http://a.test\nhttp://b.test", async () =>
+      call(
+        appRouter.settings.nameProvider,
+        { baseUrl: "http://c.test" },
+        { context: await theNextRequest() },
+      ),
+    );
+
+    const configured = await call(
+      appRouter.provider.configured,
+      {},
+      { context: await theNextRequest() },
+    );
+    expect(configured.providers).toEqual(["http://a.test", "http://b.test", "http://c.test"]);
+  });
+
+  it("keeps a naming made while another Provider is removed", async () => {
+    await writeProviderSettings(db, { providerUrls: "http://a.test\nhttp://b.test" });
+
+    await whileAChangeIsHeldOpen("http://a.test\nhttp://b.test\nhttp://c.test", async () =>
+      call(
+        appRouter.settings.removeProvider,
+        { baseUrl: "http://a.test" },
+        { context: await theNextRequest() },
+      ),
+    );
+
+    const configured = await call(
+      appRouter.provider.configured,
+      {},
+      { context: await theNextRequest() },
+    );
+    expect(configured.providers).toEqual(["http://b.test", "http://c.test"]);
   });
 });
 

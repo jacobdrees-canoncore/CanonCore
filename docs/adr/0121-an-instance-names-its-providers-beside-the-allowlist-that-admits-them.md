@@ -146,6 +146,16 @@ refuse what the parsers refuse, so the surface that typed the entry is told, and
 cannot be read reaches a row. The store is validated at its only writer rather than at every reader,
 which is the posture every configuration file in this class of product takes.
 
+**A WRITE THAT CHANGES THE LIST HOLDS THE ROW FROM ITS READ TO ITS WRITE (CNCORE-391).** Naming and
+removing a Provider compute the next list from the stored one, and did it as a read on the pool
+and a second statement to write, so two at once each read the list before the other wrote and one
+Provider went, with no error. `changeProviderUrls` reads the row `FOR UPDATE` inside the write's
+transaction, and takes the change as a function because the rule for what a list becomes lives in
+`@canoncore/providers`, which the store does not depend on. The one-statement alternative would
+have put that rule in SQL, as a second copy of the parser. The wholesale edits, `editProviders` and
+`editAllowlist`, read nothing and need nothing held. Two of them at once are ordinary
+last-writer-wins.
+
 **AND THE STATE THAT LEAVES IS WORTH NAMING RATHER THAN GLOSSING**: a value written AROUND the
 product, by hand in SQL. It throws where it is read -- and `/settings` is one of the places that
 reads it, so the surface an owner would repair it from is down too. That is accepted rather than
