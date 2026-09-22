@@ -1199,7 +1199,10 @@ async function itemPlacedTitled(
  * these assertions hold that image to the contract.
  *
  * "THE DIFFERENCE BETWEEN THE TWO RUNS IS WHICH PROCESS ANSWERS CMPP AND
- * NOTHING ELSE" IS STILL TRUE, AND IT USED TO CLAIM MORE THAN IT DELIVERED. It
+ * NOTHING ELSE" IS STILL TRUE OF EVERY FILE THAT RUNS IN BOTH, AND IT USED TO
+ * CLAIM MORE THAN IT DELIVERED. There is now one file that does not run in both
+ * -- `item-page-cost.test.ts`, which the provider job leaves out because it asks
+ * no provider anything (CNCORE-343) -- and for the rest the sentence holds. It
  * was written of both providers when neither was reached: turbo filtered both
  * variables out of `test:e2e`, so the provider job ran the same stubs as the
  * `e2e` job. It now holds for the TMDB half alone -- `theProvider` below is the

@@ -12,12 +12,13 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { globSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { data, Evaluator, Lexer, Parser } from "@actions/expressions";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  allSteps,
   type Job,
   pnpmSetupSteps,
   type Step,
@@ -26,6 +27,7 @@ import {
   workflow,
 } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
+import { packageScripts } from "./testing/vitest-configs";
 
 /**
  * The exact ref every step must use, so that the input list below cannot
@@ -1043,11 +1045,30 @@ describe("the CI workflow", () => {
   });
 });
 
+/** The suite whose files the jobs below divide between them. */
+const E2E_TASK = "test:e2e";
+
 /**
- * What Vitest resolves an e2e `--exclude` against: its root, which is the one
- * package declaring `test:e2e`.
+ * The root Vitest resolves an e2e `--exclude` against, DERIVED rather than
+ * spelled `apps/web` here: the package that declares `test:e2e` is the one the
+ * runner starts in, so a suite that moved would take this reader with it rather
+ * than leave it globbing the wrong tree.
+ *
+ * IT THROWS ON ANY ANSWER BUT ONE, the way `workspace.ts` throws: two packages
+ * declaring the task means an exclusion resolves against two roots and the rows
+ * below cannot say which, and none means there is no e2e suite to be asking
+ * about at all.
  */
-const E2E_ROOT = join(repoRoot, "apps", "web");
+function e2eRoot(): string {
+  const declared = packageScripts().filter(({ script }) => script === E2E_TASK);
+  if (declared.length !== 1) {
+    throw new Error(
+      `${declared.length} packages declare \`${E2E_TASK}\`, so what a \`--exclude\` resolves ` +
+        `against is not one directory`,
+    );
+  }
+  return join(repoRoot, declared[0]?.directory ?? "");
+}
 
 /**
  * Every run of the e2e suite through the guard, with the files it is told to
@@ -1055,29 +1076,33 @@ const E2E_ROOT = join(repoRoot, "apps", "web");
  *
  * READ OFF WHAT THE GUARD FORWARDS, in both spellings Vitest takes:
  * `--exclude <glob>` and `--exclude=<glob>`. A reader that knew only one would
- * count a job written in the other as leaving nothing out, which is the job the
- * first row below exists to catch.
+ * count a job written in the other as leaving nothing out -- and the row below
+ * would then report a file as running somewhere while it ran nowhere, which is
+ * the one failure this pair exists to prevent. The shape of what it reads is
+ * asserted rather than trusted, in the second row.
+ *
+ * THE WALK IS `allSteps`, not a fourth copy of it: `testing/ci-workflow.ts`
+ * exists to hold exactly that, and its header names the Shotgun Surgery a
+ * private copy here would be.
  */
 function e2eRuns(parsed: Workflow): { job: string; excluded: string[] }[] {
   const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const invocation = new RegExp(`(?:^|\\s)${guard}\\s+test:e2e(?![\\w:-])(.*)`, "g");
-  return Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) =>
-    (definition.steps ?? []).flatMap(({ run }) =>
-      [...(run ?? "").matchAll(invocation)].map((match) => {
-        const words = (match[1] ?? "").trim().split(/\s+/);
-        const excluded = words.flatMap((word, index) => {
-          if (word === "--exclude") return words.slice(index + 1, index + 2);
-          return word.startsWith("--exclude=") ? [word.slice("--exclude=".length)] : [];
-        });
-        return { job, excluded };
-      }),
-    ),
+  const invocation = new RegExp(`(?:^|\\s)${guard}\\s+${E2E_TASK}(?![\\w:-])(.*)`, "g");
+  return allSteps(parsed).flatMap(({ job, step }) =>
+    [...(step.run ?? "").matchAll(invocation)].map((match) => {
+      const words = (match[1] ?? "").trim().split(/\s+/);
+      const excluded = words.flatMap((word, index) => {
+        if (word === "--exclude") return words.slice(index + 1, index + 2);
+        return word.startsWith("--exclude=") ? [word.slice("--exclude=".length)] : [];
+      });
+      return { job, excluded };
+    }),
   );
 }
 
 /** The files under the e2e root that a glob a job leaves out matches. */
 function filesMatching(glob: string): string[] {
-  return globSync(glob, { cwd: E2E_ROOT });
+  return globSync(glob, { cwd: e2eRoot() });
 }
 
 describe("the e2e files a job leaves out", () => {
@@ -1085,7 +1110,9 @@ describe("the e2e files a job leaves out", () => {
    * A FILE LEFT OUT OF EVERY JOB RUNS NOWHERE, AND THAT IS GREEN. The
    * `provider` job leaves out `item-page-cost.test.ts` because the `e2e` job
    * already runs it, so the same exclusion copied to the `e2e` job would stop
-   * the measurement entirely, with every job still passing.
+   * the measurement entirely with every job still passing -- the count in
+   * `run-suite.sh` cannot see it, because the task still runs and still reports
+   * one.
    */
   it("leaves no file out of every job that runs the suite", () => {
     const runs = e2eRuns(workflow());
@@ -1100,17 +1127,94 @@ describe("the e2e files a job leaves out", () => {
    * AN EXCLUSION THAT MATCHES NOTHING IS A SAVING THAT QUIETLY WENT. Rename the
    * file and Vitest runs it again in the job that meant to leave it out, which
    * costs that job its longest file and reports nothing.
+   *
+   * AND ITS SHAPE IS ASSERTED FIRST, because the reader above splits a `run:`
+   * line on whitespace: a QUOTED glob arrives with its quotes, an ABSOLUTE one
+   * makes `cwd` inert and answers about another tree, and either would leave the
+   * row above under-reporting what a job leaves out -- silently, which the dead
+   * exclusion below at least is not.
    */
-  it("leaves out only files that are there", () => {
+  it("leaves out only files that are there, named as a relative glob", () => {
     const exclusions = e2eRuns(workflow()).flatMap(({ job, excluded }) =>
       excluded.map((glob) => ({ job, glob })),
     );
     // Not vacuous: the `provider` job leaves one file out today. Put it back
     // and this row has nothing to check, which is when to delete it.
     expect(exclusions).not.toStrictEqual([]);
+    const misshapen = exclusions
+      .filter(
+        ({ glob }) =>
+          /^["']|["']$/.test(glob) || glob.startsWith("/") || glob.split("/").includes(".."),
+      )
+      .map(
+        ({ job, glob }) =>
+          `the \`${job}\` job leaves out \`${glob}\`, which is not a relative unquoted glob, so ` +
+          `what this job runs cannot be read off it`,
+      );
+    expect(misshapen).toStrictEqual([]);
     const dead = exclusions
       .filter(({ glob }) => filesMatching(glob).length === 0)
       .map(({ job, glob }) => `the \`${job}\` job leaves out \`${glob}\`, which matches no file`);
     expect(dead).toStrictEqual([]);
+  });
+  /**
+   * AND THAT VITEST HONOURS THE FLAG AT ALL, DRIVEN RATHER THAN TRUSTED. The two
+   * rows above read `ci.yml` and would agree with a spelling Vitest had stopped
+   * taking: the file would run in the `provider` job again, both rows green and
+   * nothing saying so. Measured on the version this repository pins, so a major
+   * bump that renamed or dropped `--exclude` fails here.
+   *
+   * THE ORACLE IS A FILE THAT FAILS, not a count of files. A count says two
+   * became one, which a `--exclude` that matched the WRONG file satisfies just as
+   * well. A run that is red until the named file is left out and green once it is
+   * can only be that file -- and the third run, which leaves out the OTHER file
+   * and stays red, is what says the flag removes what it names rather than
+   * whatever it likes.
+   *
+   * AND A GREEN CANNOT BE AN EMPTY RUN. Measured on the pinned version: an
+   * exclusion matching every file exits 1 with "No test files found", so there is
+   * no way for the middle run to pass by having collected nothing.
+   *
+   * IT BORROWS THIS PACKAGE'S OWN `node_modules`, the way `run-suite.test.ts`
+   * borrows turbo: the runner under test has to be the runner CI runs, and a
+   * scratch directory cannot resolve `vitest` without it.
+   */
+  it("is a flag Vitest honours, so the named file really does not run", () => {
+    const scratch = mkdtempSync(join(tmpdir(), "canoncore-exclude-"));
+    try {
+      symlinkSync(join(import.meta.dirname, "..", "node_modules"), join(scratch, "node_modules"));
+      writeFileSync(
+        join(scratch, "kept.test.ts"),
+        'import { expect, it } from "vitest";\nit("passes", () => expect(1).toBe(1));\n',
+      );
+      writeFileSync(
+        join(scratch, "left-out.test.ts"),
+        'import { expect, it } from "vitest";\nit("fails", () => expect(1).toBe(2));\n',
+      );
+      const vitest = (args: string[]) =>
+        spawnSync(join(repoRoot, "node_modules", ".bin", "vitest"), ["run", ...args], {
+          cwd: scratch,
+          encoding: "utf8",
+        });
+
+      const both = vitest([]);
+      const withoutTheFailure = vitest(["--exclude", "left-out.test.ts"]);
+      const withoutThePass = vitest(["--exclude", "kept.test.ts"]);
+
+      // The control: the failing file is found and red while nothing leaves it
+      // out, so the green below is the flag rather than a file Vitest never
+      // collected in the first place.
+      expect(both.status, `${both.stdout}${both.stderr}`).not.toBe(0);
+      expect(
+        withoutTheFailure.status,
+        `${withoutTheFailure.stdout}${withoutTheFailure.stderr}`,
+      ).toBe(0);
+      // And the flag took the file it NAMED: leaving the other one out leaves the
+      // failure in the run, where an exclusion that dropped files indiscriminately
+      // would have gone green here too.
+      expect(withoutThePass.status, `${withoutThePass.stdout}${withoutThePass.stderr}`).not.toBe(0);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 });

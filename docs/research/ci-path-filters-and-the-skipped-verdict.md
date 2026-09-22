@@ -63,8 +63,13 @@ gives `cancelled`, so the remedy is one API call away. §10.1.
 **And the speed CNCORE-341 wants is not in the job graph at all.** One test file,
 `item-page-cost.test.ts`, is 136.6s of the 189s critical-path job, and it runs **twice** per run
 because `provider` runs the same suite. That is 274 seconds a run, half of it duplication, and
-removing the duplicate takes the slowest job from 231s to about 105s **without skipping anything**.
-§6A — this is the recommendation to act on.
+removing the duplicate takes the `provider` job from 231s to about 105s **without skipping
+anything**. §6A — this is the recommendation to act on.
+
+> **"the slowest job" was this sentence's own error, corrected 2026-09-22 by CNCORE-343**, which made
+> the change: the job it names is `provider`, measured at 118s, while the SLOWEST job is `e2e` and
+> `e2e` keeps the file. So the duplicate was worth compute rather than waiting time, and the speed
+> CNCORE-341 wants needs the second change in §9.2 as well. §6A.2 carries both measurements.
 
 ---
 
@@ -548,7 +553,7 @@ for diagnosability rather than folded for cost, and each names one thing.
 | `e2e` | the page being unreachable over real HTTP | **Nothing.** `ci.yml` says it in its own words: "every other suite passes with the app never having been served" |
 | `browser` | the drag and the wrap in a real browser | **Nothing** |
 | `credentials` | which provider credentials the run can reach, and a deleted secret on any ref but a pull request | **Nothing**, and it is deliberately ungated so it always reports |
-| `provider` | `test:e2e` against the **real** provider image | `e2e` runs the same suite against the stub, so what is lost is the real provider specifically (ADR-0139) |
+| `provider` | `test:e2e` against the **real** provider image, less the one file that never reaches a provider (CNCORE-343) | `e2e` runs the whole suite against the stub, so what is lost is the real provider specifically (ADR-0139) |
 | `contract` | `test:contract`, both providers against one contract | **Nothing. It runs nowhere else** (ADR-0139) |
 | `image` | the image builds, migrates a database, serves a page, refuses a bad ladder, and ships no `.env`, no pnpm, no dev dependencies, plus the licence | **Nothing** |
 | `image-manifest` | that a stranger can pull the published multi-architecture image | **Nothing**, and it is already ref-gated |

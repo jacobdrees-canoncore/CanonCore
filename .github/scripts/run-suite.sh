@@ -101,6 +101,15 @@ if [[ ! $task =~ ^[a-z][a-z0-9:-]*$ ]]; then
   exit 2
 fi
 
+# AND THE SAME HAZARD ONE SLOT ALONG: a flag where the package belongs is the
+# `--` left out. `run-suite.sh test:e2e --exclude <file>` would hold the run to a
+# package named `--exclude` and hand the file to pnpm as a task of its own, so it
+# is refused here rather than reported as a suite that never ran.
+if [[ $required == -* ]]; then
+  echo "::error::\`$required\` is a flag where a package name belongs. Arguments for the task follow \`--\`."
+  exit 2
+fi
+
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 

@@ -177,7 +177,13 @@ export function allSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
  * its history rather than its scope. It also takes a package as a second
  * argument, which holds a run to that package's task having appeared among the
  * ones turbo ran -- a count is not a roll call, and `test` is declared by ten
- * packages (CNCORE-190). ADR-0103 carries all of it.
+ * packages (CNCORE-190).
+ *
+ * AND WHATEVER FOLLOWS `--` IT HANDS TO THE TASK (CNCORE-343), which is how the
+ * `provider` job runs the e2e suite less the one file that never reaches a
+ * provider. So the third form is `run-suite.sh <task> [package] [-- arguments]`,
+ * and `e2eRuns` in `ci-workflow.test.ts` is what reads those arguments back.
+ * ADR-0103 carries all of it.
  */
 export const SUITE_GUARD = ".github/scripts/run-suite.sh";
 

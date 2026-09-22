@@ -350,6 +350,19 @@ describe("the guard a CI suite job runs behind", () => {
   });
 
   /**
+   * THE SAME REFUSAL ONE SLOT ALONG, which is the `--` left out rather than a
+   * package anybody meant. Held here because the guard would otherwise hold the
+   * run to a package named `--exclude` and report the suite as never having run
+   * -- a false red over a command whose only fault is a missing separator.
+   */
+  it("refuses a flag where the package belongs, rather than running it", () => {
+    declares(root, "passes");
+    const { status, output } = runGuard(root, "test", { required: "--exclude" });
+    expect(status, output).toBe(2);
+    expect(output).toContain("where a package name belongs");
+  });
+
+  /**
    * WHAT FOLLOWS `--` REACHES THE SUITE (CNCORE-343), which is how the
    * `provider` job leaves out the one e2e file that never touches a provider.
    *
@@ -524,13 +537,23 @@ function policingPackage(): string {
   return own.name;
 }
 
-/** Every invocation of the guard in the workflow, with the package it holds the run to. */
+/**
+ * Every invocation of the guard in the workflow, with the package it holds the
+ * run to.
+ *
+ * `--` IN THAT SLOT IS NO PACKAGE, which is the script's own parse and has to be
+ * this reader's too (CNCORE-343): what follows it is arguments for the task, so a
+ * reader that took it for a package would report the `provider` job as holding
+ * its run to one called `--`.
+ */
 function guardInvocations(): { job: string; task: string; required: string | undefined }[] {
   const guard = literally(SUITE_GUARD);
   const pattern = new RegExp(`(?:^|\\s)${guard}\\s+([a-z][a-z0-9:-]*)(?:[ \\t]+(\\S+))?`, "g");
   return runSteps().flatMap(({ job, run }) =>
     [...run.matchAll(pattern)].flatMap((match) =>
-      match[1] === undefined ? [] : [{ job, task: match[1], required: match[2] }],
+      match[1] === undefined
+        ? []
+        : [{ job, task: match[1], required: match[2] === "--" ? undefined : match[2] }],
     ),
   );
 }
