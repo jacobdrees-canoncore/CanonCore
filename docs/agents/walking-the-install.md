@@ -24,10 +24,10 @@ The skill walks every surface the filesystem shows, not the ones memory holds. H
 the web app's routes:
 
 ```sh
-find apps/web/src/app -name page.tsx -o -name route.ts   # 11 routes, 2026-09-20
+find apps/web/src/app -name page.tsx -o -name route.ts   # 12 on 2026-09-22: 11 pages, 1 route handler
 ```
 
-**WALK THEM LOGGED IN.** Five of eleven routes render a refusal and nothing else until a session
+**WALK THEM LOGGED IN.** On 2026-09-20 five of the eleven pages rendered a refusal and nothing else until a session
 exists; every write surface, the provider list and the account are invisible logged out.
 
 ## The throwaway, and why its own project name is not enough

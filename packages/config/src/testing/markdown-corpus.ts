@@ -110,7 +110,7 @@ export function markdownIn(directory: string, { recursive = false } = {}): strin
  * recursively; the root's own documents join them through a read that is not.
  *
  * `.claude/` IS IN, AND THAT IS THE DECISION THREE COPIES OF THIS LIST MADE BY
- * ACCIDENT (CNCORE-313). It holds the rules and skills an agent reads as
+ * ACCIDENT (CNCORE-313). It holds the rules an agent reads as
  * instructions, written and edited here like anything under `docs/`, so its
  * lines move under an edit and its citations of records can dangle -- nothing
  * about it earns the exemption `docs/research/README.md` gives history. Two of
