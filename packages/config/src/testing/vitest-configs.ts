@@ -118,6 +118,8 @@ export interface TestBlock {
   setupFiles?: string | string[];
   globalSetup?: string | string[];
   sequence?: { sequencer?: unknown };
+  /** Read by `ci-workflow.test.ts`, for every file a job could be running. */
+  include?: string[];
   /** Read by `suite-database-wiring.test.ts`, which holds ADR-0184's floor. */
   testTimeout?: number;
 }

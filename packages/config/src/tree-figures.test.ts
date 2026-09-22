@@ -565,7 +565,7 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the jobs that ask pnpm/setup for a Node major", () => {
-    expect(jobsRequestingANodeMajor()).toBe(10);
+    expect(jobsRequestingANodeMajor()).toBe(11);
   });
 
   it("counts the suites in this package that read the repository at large", () => {
