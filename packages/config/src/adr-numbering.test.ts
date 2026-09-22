@@ -118,8 +118,10 @@ const IMPLEMENTED_BY: Implementation[] = [
   },
   {
     adr: "0132",
-    file: ".claude/skills/closing-a-spec/SKILL.md",
-    holds: "the gate a project passes before it is finished",
+    file: "CLAUDE.md",
+    holds:
+      "the gate a project passes before it is finished, now that `/closing-a-spec` executes it " +
+      "from `~/.claude/skills` and this repository states rather than implements it",
   },
   {
     adr: "0134",
@@ -143,8 +145,10 @@ const IMPLEMENTED_BY: Implementation[] = [
   },
   {
     adr: "0181",
-    file: ".claude/skills/dispatch/gate.sh",
-    holds: "the head resolved and asked about by name, in place of the pull request's own rollup",
+    file: ".claude/rules/workflows.md",
+    holds:
+      "the rule that a check is evidence only for its own commit, now that the gate enforcing it " +
+      "lives in the `dispatch` skill outside this repository",
   },
   {
     adr: "0185",

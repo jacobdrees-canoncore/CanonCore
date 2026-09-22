@@ -12,7 +12,7 @@ status: accepted
 > means every worktree was seen and bound. **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: the two `terminal send`
 > channels**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
 > another agent's input box. The sentences that told a dispatcher a call's `ok: true` was evidence
-> are corrected in place in `CLAUDE.md`, `.claude/skills/dispatch/SKILL.md` and
+> are corrected in place in `CLAUDE.md`, the `dispatch` skill's `SKILL.md` and
 > `docs/agents/issue-tracker.md`. **NOT BUILT, and not ours to build: the `orca` CLI's own error
 > text**, which lives upstream.
 

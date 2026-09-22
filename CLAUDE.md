@@ -101,7 +101,7 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 - **CI tells you less than it looks.** A check is evidence only for the commit it ran against, so a
   REBASED PR shows the old head's green while nothing has run on what would merge (ADR-0181); a
   conflicted one gets no run at all; a job that dies on one word names a registry. Gate every merge
-  with `.claude/skills/dispatch/merge-if-green.sh`. The rest, with `actionlint`, in
+  with the `dispatch` skill's `merge-if-green.sh`. The rest, with `actionlint`, in
   `.claude/rules/workflows.md`.
 - **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
   `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
@@ -184,7 +184,7 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
 
 **Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` cleans up
 only a worktree it created itself and never creates one here. As the PR merges, retire it with
-`.claude/skills/dispatch/retire.sh <worktree>`, never by hand: ADR-0198 is what it refuses and why.
+the `dispatch` skill's `retire.sh <worktree>`, never by hand: ADR-0198 is what it refuses and why.
 
 Before merging any ticket branch, read `git diff <base>..<branch>` rather than trusting that
 checks passed. Parallel agents produce semantic contradictions that compile cleanly.

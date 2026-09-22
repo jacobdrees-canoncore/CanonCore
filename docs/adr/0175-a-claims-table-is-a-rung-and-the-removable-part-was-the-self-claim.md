@@ -14,7 +14,7 @@ figure stands unchecked with every test passing.
 
 ## What made it a rung, and why it did not look like one
 
-`.claude/skills/dispatch/SKILL.md` names a rung as a line on a ladder no ticket owns, and gave the
+The `dispatch` skill's `SKILL.md` names a rung as a line on a ladder no ticket owns, and gave the
 migration index, the shared fixture and a tool list. A claims table is that shape exactly:
 `packages/config/src/tree-figures.test.ts` holds one row per figure this repository states about
 itself, every ticket stating a derived figure appends to it, and ADR-0153 states how many rows it

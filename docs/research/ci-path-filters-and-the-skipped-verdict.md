@@ -3,7 +3,7 @@
 **Researched 2026-09-21**, for CNCORE-341.
 
 CNCORE-341 asks whether this pipeline should stop running all sixteen jobs on every push, and it
-identifies its own harder half correctly: `.claude/skills/dispatch/gate.sh` counts a `skipped` job
+identifies its own harder half correctly: the `dispatch` skill's `gate.sh` counts a `skipped` job
 as evidence of passing, and path filters would make that line load-bearing.
 
 **The question has been asked and answered before.** `ci-and-repo-standards.md`, 2026-09-11, put it

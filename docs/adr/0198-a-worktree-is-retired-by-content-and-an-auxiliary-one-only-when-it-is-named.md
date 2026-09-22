@@ -5,7 +5,7 @@ status: accepted
 # A worktree is retired by content, and an auxiliary one only when it is named
 
 > **ACCEPTED 2026-09-21, for CanonCore.** The mechanism is whole, which is what this status means
-> here: `retire.sh` sits beside `merge-if-green.sh` in `.claude/skills/dispatch/`, it does the
+> here: `retire.sh` sits beside `merge-if-green.sh` in the `dispatch` skill, it does the
 > comparison, the refusals, the removal, the database drop and the auxiliary scan,
 > `packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds built from a
 > real bare origin, a real linked worktree and a real squash merge, and both documents that used to
@@ -153,7 +153,7 @@ already been deleted is pruned unasked: no files, no agent, no work, nothing to 
 ## As built, under CNCORE-334
 
 **BUILT: the whole retirement, and both documents that used to state it.**
-`.claude/skills/dispatch/retire.sh` compares content, explains a difference as `main-ahead` or
+The `dispatch` skill's `retire.sh` compares content, explains a difference as `main-ahead` or
 `ticket-named` or stops on it, refuses a main checkout, refuses uncommitted and unpushed work,
 scans the registrations, removes the worktree, drops the databases where the checkout has them, and
 reports one line per file and one verdict line with a non-zero exit on everything but `RETIRED`.
