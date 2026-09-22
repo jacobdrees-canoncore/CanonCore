@@ -41,7 +41,7 @@ scope as "unspecified and free to decide": that is 5's.
 
 **A project is not finished until it has been used on the Owner's own instance**
 ([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two closed green while their own
-sentences were false. `/closing-a-spec` is that gate; `grill-with-docs` specs the next one.
+sentences were false. `/closing-a-spec` is that gate; `grill-with-docs` specs the next one, and `/verify-tickets` audits a breakdown before `/dispatch` sees it.
 
 ## Principles
 
