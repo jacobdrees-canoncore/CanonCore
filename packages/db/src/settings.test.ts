@@ -1,6 +1,7 @@
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, readProviderSettings, writeProviderSettings } from "./index";
+import { type Database, readProviderSettings, type Writer, writeProviderSettings } from "./index";
 import { settings } from "./schema";
 import { connect, theOwner } from "./testing/catalogue";
 
@@ -99,7 +100,73 @@ describe("what the owner configured", () => {
       providerAllowlist: "wiki.test, 127.0.0.0/8",
     });
   });
+
+  /**
+   * TWO WRITES AT ONCE, ONE SETTING EACH, AND BOTH SURVIVE (CNCORE-386).
+   *
+   * THE ORDER IS FORCED RATHER THAN HOPED FOR, and that is why this test can
+   * fail where the `Promise.all` race CNCORE-386 describes could not. The
+   * allowlist's write stays open in a transaction holding the row, so the
+   * provider's write reads the row as it stood before, and parks on its UPDATE
+   * until the allowlist commits. A write that puts both columns back then
+   * writes the allowlist it read, which is the allowlist from before, and the
+   * owner's edit is gone with no error anywhere.
+   */
+  it("leaves it alone when the other is saved at the same moment", async () => {
+    await anInstanceNobodyHasConfigured();
+    // A ROW TO UPDATE, because the insert race on an unconfigured instance is a
+    // different one, and `settings_single_row` already makes it loud.
+    await writeProviderSettings(db, { providerUrls: "", providerAllowlist: "" });
+
+    // Two handles, so the two writes are two connections rather than two turns
+    // on one.
+    const editing = await connect();
+    const naming = await connect();
+    try {
+      let named!: Promise<unknown>;
+      await editing.transaction(async (tx) => {
+        await writeProviderSettings(tx, { providerAllowlist: "wiki.test" });
+        named = writeProviderSettings(naming, { providerUrls: "http://wiki.test:8080" });
+        // Awaited below; this only stops a failure inside it reading as an
+        // unhandled rejection during the wait.
+        named.catch(() => {});
+        await untilSomebodyWaitsOn(tx);
+      });
+      await named;
+
+      expect(await readProviderSettings(db)).toEqual({
+        providerUrls: "http://wiki.test:8080",
+        providerAllowlist: "wiki.test",
+      });
+    } finally {
+      await editing.$client.end();
+      await naming.$client.end();
+    }
+  });
 });
+
+/**
+ * Until some backend is blocked by the one `holder` runs on.
+ *
+ * BLOCKED BY THAT ONE, NOT MERELY WAITING ON SOME LOCK. Any lock wait in the
+ * database would let the holder commit before the other write had read, and
+ * the test would then pass against the merging version too.
+ *
+ * NO LIMIT OF ITS OWN. The other write opens its connection inside this wait,
+ * and a first connection has taken 5,004ms on a busy machine (CNCORE-280), so
+ * the test's thirty-second timeout is the bound.
+ */
+async function untilSomebodyWaitsOn(holder: Writer): Promise<void> {
+  const { rows } = await holder.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+  const pid = rows[0]?.pid;
+  for (;;) {
+    const { rowCount } = await db.execute(
+      sql`select 1 from pg_stat_activity where ${pid}::int = any(pg_blocking_pids(pid))`,
+    );
+    if (rowCount !== 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
 
 /**
  * THE CEREMONY ADR-0075 ASKS OF EVERY TABLE, on the one this rung adds.
