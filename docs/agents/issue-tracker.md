@@ -106,8 +106,10 @@ orca linear create --team CNCORE --title "<title>" --state Todo \
 Pass the project its **UUID, never its name**, for the reason the batch note above gives.
 
 **Measured on CNCORE-60, 2026-09-11**: `--state` and `--label` bind on the create call.
-`--assignee me` is UNVERIFIED — the check that should have proved it read the wrong JSON key (see
-below) and a follow-up `assignee set` then masked the answer. Treat assignee as the one to read back.
+**`--assignee me` binds too, measured 2026-09-22** on nine tickets across two workspaces (CNCORE-379
+to 385, SIFT-26 and SIFT-27): each read back assigned at `.assignee.displayName`, with no
+`assignee set` after any of them. CNCORE-60's check had left it open, because it read the wrong JSON
+key (see below) and a follow-up `assignee set` masked the answer.
 
 **Read back the first ticket of any batch before filing the rest**, and read the RIGHT KEYS:
 
