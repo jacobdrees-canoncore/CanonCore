@@ -116,9 +116,12 @@ count for the night is FOUR; three are the ones above, read out of that transcri
 taken from that count rather than from a transcript this record has seen.
 
 **So attribution cannot ride in the selection.** An answer arrives looking exactly like a human's,
-which the Owner's own standing rule refuses: a dispatched agent's questions are answered by the
-dispatcher, and the record has to say so. **That message names the dispatcher AND the date**, since
-an answer with an author and no date cannot be placed against the wave that produced it. It is sent
+so nothing in it says whose it is. On 2026-09-21 the dispatcher answered these questions itself;
+the Owner ruled that out on 2026-09-22 ("dispatch should never answer another worktrees questions
+to speed things along", CNCORE-387), so the answer delivered through the widget is the Owner's,
+relayed by the dispatcher, and the record has to say so. **That message says the answer is the
+Owner's, relayed by the dispatcher, AND gives the date**, since an answer with an author and no
+date cannot be placed against the wave that produced it. It is sent
 AFTER the widget has closed,
 confirmed closed by `--screen` — and it is the one message worth interrupting a turn for.
 
