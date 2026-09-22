@@ -57,11 +57,15 @@ const SLOWEST_SECONDS: Record<string, number> = {
   "env-guard": 83,
   test: 216,
   migrations: 114,
-  e2e: 243,
+  // RE-MEASURED UNDER CNCORE-396, which moved `item-page-cost.test.ts` out of
+  // `e2e` and into `cost`: both are its runs, not the window above, so they are
+  // the thinnest figures here and the first to take again.
+  e2e: 99,
   browser: 116,
   credentials: 6,
   provider: 260,
   contract: 82,
+  cost: 213,
   // The amd64 leg, the slower of the matrix's two, on a cold build: one key
   // sets both.
   image: 413,

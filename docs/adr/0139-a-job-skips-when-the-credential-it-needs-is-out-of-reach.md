@@ -104,9 +104,9 @@ matched as text.
 **This is a real reduction in coverage on any run without the token, and it is not free.**
 
 - `Import and browse over HTTP` is skipped, so `test:e2e` does not run against the real image. The
-  `The page over HTTP` job runs the WHOLE suite against the stub and is not gated, including the
-  one file the provider job leaves out because it never reaches a provider (CNCORE-343), so what
-  is lost is the real provider specifically -- which is the half no run without a credential could
+  `The page over HTTP` job runs the suite against the stub and is not gated, and the one file it
+  and the provider job leave out, because it never reaches a provider (CNCORE-343), runs in the
+  ungated `cost` job (CNCORE-396), so what is lost is the real provider specifically -- which is the half no run without a credential could
   ever have had.
 - `One contract, both providers, no app` is skipped, and `test:contract` runs nowhere else. So a
   run without the token checks the contract NOT AT ALL.

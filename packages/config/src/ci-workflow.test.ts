@@ -27,7 +27,7 @@ import {
   workflow,
 } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
-import { namedConfig, packageScripts, testBlockOf } from "./testing/vitest-configs";
+import { namedConfig, packageScripts, resolvesInside, testBlockOf } from "./testing/vitest-configs";
 
 /**
  * The exact ref every step must use, so that the input list below cannot
@@ -1125,7 +1125,8 @@ function filesRunNowhere(parsed: Workflow, files: string[]): string[] {
   const runs = e2eRuns(parsed).map(({ excluded, filters }) => {
     const leftOut = new Set(excluded.flatMap(filesMatching));
     return (file: string) =>
-      !leftOut.has(file) && (filters.length === 0 || filters.some((f) => file.includes(f)));
+      !leftOut.has(file) &&
+      (filters.length === 0 || filters.some((filter) => filesNamedBy(filter, [file]).length > 0));
   });
   return files.filter((file) => !runs.some((runsIt) => runsIt(file)));
 }
@@ -1136,12 +1137,22 @@ function filesRunNowhere(parsed: Workflow, files: string[]): string[] {
  * less a few; a job that NAMES its files can miss one nobody left out.
  */
 async function e2eFiles(): Promise<string[]> {
+  const root = e2eRoot();
   const command = packageScripts().find(({ script }) => script === E2E_TASK)?.command ?? "";
   const config = namedConfig(command);
   if (config === undefined) throw new Error(`\`${E2E_TASK}\` names no Vitest config`);
-  const { include } = await testBlockOf(join(e2eRoot(), config));
+  // Imported, so held inside the package first: `namedConfig` says why.
+  if (!resolvesInside(root, join(root, config))) {
+    throw new Error(`\`${E2E_TASK}\` names \`${config}\`, which is not inside ${root}`);
+  }
+  const { include } = await testBlockOf(join(root, config));
   if (include === undefined) throw new Error(`\`${config}\` sets no \`include\``);
   return include.flatMap(filesMatching).sort();
+}
+
+/** The files of `files` a filter a job names matches, the way Vitest matches it. */
+function filesNamedBy(filter: string, files: string[]): string[] {
+  return files.filter((file) => file.includes(filter));
 }
 
 /** The files under the e2e root that a glob a job leaves out matches. */
@@ -1149,7 +1160,7 @@ function filesMatching(glob: string): string[] {
   return globSync(glob, { cwd: e2eRoot() });
 }
 
-describe("the e2e files a job leaves out", () => {
+describe("the e2e files a job leaves out or names", () => {
   /**
    * A FILE LEFT OUT OF EVERY JOB RUNS NOWHERE, AND THAT IS GREEN. The `e2e`
    * and `provider` jobs leave out `item-page-cost.test.ts` because the `cost`
@@ -1213,7 +1224,7 @@ describe("the e2e files a job leaves out", () => {
         job,
         glob,
         verb: "names",
-        matches: files.filter((file) => file.includes(glob)),
+        matches: filesNamedBy(glob, files),
       })),
     ]);
     // Not vacuous: the `e2e` and `provider` jobs leave one file out today, and
