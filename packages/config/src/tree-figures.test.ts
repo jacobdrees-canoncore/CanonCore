@@ -301,12 +301,6 @@ const CLAIMS: Claim[] = [
     population: "the peak connections one `pnpm test:e2e` takes",
     derive: peakConnectionsInOneE2eRun,
   },
-  {
-    file: ".claude/skills/dispatch/SKILL.md",
-    pattern: /peaking at (\d+) of 288 usable connections/g,
-    population: "the peak connections one `pnpm test:e2e` takes",
-    derive: peakConnectionsInOneE2eRun,
-  },
   /*
    * THE RECORD'S OWN FIGURES, held the same way as everything else (ADR-0153).
    * A record arguing that a count about this tree must be derived cannot be the
@@ -615,7 +609,16 @@ describe("a figure this tree states about itself", () => {
     // BRANCH IN A ROW TO MEET THAT RUNG, after CNCORE-334's and CNCORE-336's,
     // and the count below is re-derived from a red run at the rebase rather
     // than carried across it -- which is what the entry above asks for.
-    expect(suitesReadingTheRepository()).toBe(38);
+    //
+    // Thirty-five on 2026-09-22, when the dispatcher's four skills left this
+    // repository for `~/.claude/skills` and took their three suites with them:
+    // `merge-gate.test.ts`, `worktree-retirement.test.ts` and
+    // `dispatch-monitor.test.ts` each spawned a script out of
+    // `.claude/skills/dispatch/`, and a suite that spawns a script belongs in
+    // the repository holding the script. They ran there green at the move.
+    // THE FIRST COUNT HERE TO GO DOWN, and it was re-derived from the red run
+    // the move produced rather than subtracted by hand. The red run said 35.
+    expect(suitesReadingTheRepository()).toBe(35);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

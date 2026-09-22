@@ -296,20 +296,20 @@ this repository passes through is not a thing to change inside a research ticket
 ## As built, under CNCORE-288
 
 **BUILT: the gate, the fused merge command, and the rule at the three places a dispatcher reads.**
-`.claude/skills/dispatch/gate.sh` resolves `headRefOid`, `headRefName`, `mergeStateStatus` and
+The `dispatch` skill's `gate.sh` resolves `headRefOid`, `headRefName`, `mergeStateStatus` and
 `state` in one `gh pr view`, confirms that head against the branch's own ref (by `git ls-remote` as
 built here, by an authenticated `gh api` since CNCORE-319, above), reads
 `repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
 `total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
 `NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `DRAFT`,
 `MERGED`/`CLOSED` and `UNREADABLE`.
-`.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit status, with nothing
+Its `merge-if-green.sh` runs it and merges only on its exit status, with nothing
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
-`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
-twenty-four scenarios (twenty-one as built here, and CNCORE-319's three), including #210's own
+The `dispatch` skill's `merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
+twenty-four scenarios as it moved on 2026-09-22 (twenty-one as built here, and CNCORE-319's three), including #210's own
 world — the head with no runs beside the pre-rebase commit's green.
-The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
+The rule is stated in the `dispatch` skill's `SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
 
 **BUILT: adoption, and this record was owed its flip before it got one.** The dispatcher retired the

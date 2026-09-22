@@ -4,7 +4,9 @@ status: accepted
 
 # A brief is confirmed at the receiving end, not at the call that sent it
 
-> **ACCEPTED 2026-09-20, whole, in one repository.** The dispatch loop now confirms a brief where it
+> **ACCEPTED 2026-09-20, whole, in two repositories since 2026-09-22,** when the `dispatch` skill
+> and its scripts moved to the skills repository; the procedure half below stays in this one's
+> `CLAUDE.md` and `docs/agents/issue-tracker.md`. The dispatch loop now confirms a brief where it
 > lands rather than where it was sent. **BUILT AS A CHECK: the binding channel only** — `monitor.sh`
 > emits `UNBOUND` for a worktree carrying no Linear binding, in every repo the dispatcher runs since
 > [[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]] (CanonCore's alone until
@@ -12,7 +14,7 @@ status: accepted
 > means every worktree was seen and bound. **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: the two `terminal send`
 > channels**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
 > another agent's input box. The sentences that told a dispatcher a call's `ok: true` was evidence
-> are corrected in place in `CLAUDE.md`, `.claude/skills/dispatch/SKILL.md` and
+> are corrected in place in `CLAUDE.md`, the `dispatch` skill's `SKILL.md` and
 > `docs/agents/issue-tracker.md`. **NOT BUILT, and not ours to build: the `orca` CLI's own error
 > text**, which lives upstream.
 
@@ -53,7 +55,9 @@ orca worktree list --json | python3 -c 'import json,sys; [print(w["path"].split(
 
 ## Why `--current` answered `linear_no_linked_issue`, which this repository already knew
 
-**`--current` resolves from the CALLER TERMINAL, not the working directory.** That is not a new
+**`--current` resolves from the CALLER TERMINAL, not the working directory, whenever the caller has
+one.** A caller with no Orca terminal -- a plain shell -- is resolved by its working directory instead,
+measured 2026-09-22 against Sift's bound `sift-21-absent-tracks`. That is not a new
 finding: `docs/research/multi-repo.md` measured it under "The trap, which produced a false negative
 inside this research", and ruled under "The chain, measured end to end" that a null
 `linkedLinearIssueWorkspaceId` "is not a signal of anything". Checking a binding by hand from
@@ -68,7 +72,7 @@ to fake it either.
 
 Re-measured here on 2026-09-20, because a first pass had missed it and drawn the wrong conclusion:
 from a terminal belonging to `cncore-265`, standing in `cncore-281`, `--current` answered
-**CNCORE-265**. The cwd is not consulted at all.
+**CNCORE-265**. With a terminal present, the cwd is not consulted at all.
 
 **This invalidated two of this record's own first-draft measurements.** Both probe worktrees had
 been bound to CNCORE-265 — the same ticket as the terminal doing the asking — so their `--current`

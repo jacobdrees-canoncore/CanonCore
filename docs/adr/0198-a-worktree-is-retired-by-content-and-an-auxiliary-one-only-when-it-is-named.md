@@ -5,9 +5,9 @@ status: accepted
 # A worktree is retired by content, and an auxiliary one only when it is named
 
 > **ACCEPTED 2026-09-21, for CanonCore.** The mechanism is whole, which is what this status means
-> here: `retire.sh` sits beside `merge-if-green.sh` in `.claude/skills/dispatch/`, it does the
+> here: `retire.sh` sits beside `merge-if-green.sh` in the `dispatch` skill, it does the
 > comparison, the refusals, the removal, the database drop and the auxiliary scan,
-> `packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds built from a
+> the skill's `worktree-retirement.test.ts` drove it over twenty-five worlds when it moved on 2026-09-22, built from a
 > real bare origin, a real linked worktree and a real squash merge, and both documents that used to
 > state this rule now point at it. `proposed` was written here first and corrected on review:
 > [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] records that standing `proposed`
@@ -141,8 +141,10 @@ retirement and is named with its path and its HEAD's subject; `--aux <name>` is 
 who made one says so; and a `--aux` matching no registration is refused rather than passed over,
 because a typo that removes nothing while reporting `RETIRED` is an absence presenting as a pass. A
 tracked change in one stops it even when asserted, since naming a tree does not make somebody else's
-edit yours. **An auxiliary tree put inside its own worktree raises none of this**, because the
-worktree's removal takes it, and that is the habit `/dispatch` now recommends.
+edit yours. **An auxiliary tree put inside its own worktree is not spared either**: unignored it
+reads as uncommitted work and stops the retirement, and ignored it is still a registration that
+stops it as unattributed -- measured 2026-09-22, which reversed the habit this record first
+recommended. `/dispatch` now says to keep auxiliary trees outside and name each with `--aux`.
 
 The removal is `rm -rf` of the tree AND of its entry under `worktrees/`, because
 `.claude/settings.json` denies `Bash(git worktree:*)` — which covers `list`, `prune` and `remove`
@@ -153,11 +155,11 @@ already been deleted is pruned unasked: no files, no agent, no work, nothing to 
 ## As built, under CNCORE-334
 
 **BUILT: the whole retirement, and both documents that used to state it.**
-`.claude/skills/dispatch/retire.sh` compares content, explains a difference as `main-ahead` or
+The `dispatch` skill's `retire.sh` compares content, explains a difference as `main-ahead` or
 `ticket-named` or stops on it, refuses a main checkout, refuses uncommitted and unpushed work,
 scans the registrations, removes the worktree, drops the databases where the checkout has them, and
 reports one line per file and one verdict line with a non-zero exit on everything but `RETIRED`.
-`packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds at the script's
+The `dispatch` skill's `worktree-retirement.test.ts` drove it over twenty-five worlds, at the move, at the script's
 own process boundary, with `orca` and `pnpm` stubbed on `PATH`; the STOP is measured in twelve of
 them, including the world where `main` edited the file later but never took the branch's version.
 

@@ -13,8 +13,8 @@ PR merges. The agent works in them and never in a repo's main checkout, which st
 
 `monitor.sh` watches both halves where a script can. `PARKED <repo> <branch>` names a main checkout
 standing anywhere but `main`, and names one it cannot read. `UNBOUND` reads the worktrees of every
-repo in `REPOS` rather than CanonCore's alone, and prints each as `<repo>/<worktree>`.
-`packages/config/src/dispatch-monitor.test.ts` runs one pass of the real script against a stubbed
+repo the dispatch spans rather than CanonCore's alone, and prints each as `<repo>/<worktree>`.
+The `dispatch` skill's `dispatch-monitor.test.ts` runs one pass of the real script against a stubbed
 world and pins both lines.
 
 ## What happened: one problem, three answers, one wave
@@ -55,7 +55,7 @@ ticket reaches, because the wave it puts to the user names them before any workt
 needs. Each one created on request costs the round trip that CNCORE-262 and CNCORE-264 paid.
 
 A provider worktree is not one of the four agents the shared Postgres allows, since neither
-provider's suite touches that database (dispatch skill, "How full").
+provider's suite touches that database (`docs/agents/dispatching.md`, "The ceiling").
 
 An agent that finds it needs a repo nobody foresaw asks for the worktree, as it asks for any value
 it cannot find. It does not create one.

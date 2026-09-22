@@ -95,7 +95,7 @@ describe("the temporary directories this repository's suites make", () => {
     // or plausible-looking nonsense -- cannot satisfy the sweep below by having
     // no subject.
     const known = temporaryDirectoriesIn(
-      readFileSync(join(repoRoot, "packages/config/src/merge-gate.test.ts"), "utf8"),
+      readFileSync(join(repoRoot, "packages/config/src/run-suite.test.ts"), "utf8"),
     );
     expect(known.length).toBeGreaterThan(0);
     expect(known.map((site) => site.bound)).not.toContain(null);

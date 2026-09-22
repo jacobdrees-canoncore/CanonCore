@@ -4,8 +4,10 @@ status: accepted
 
 # A project is not finished until it has been used on the Owner's own instance
 
-> **ACCEPTED 2026-09-20, whole, in one repository.** The mechanism is
-> `.claude/skills/closing-a-spec/SKILL.md`. It opens on this record's own output rule -- the output
+> **ACCEPTED 2026-09-20, whole, in two repositories since 2026-09-22.** The mechanism is the
+> `closing-a-spec` skill, which moved that day from this repository to user level so that it serves
+> every project, and which reads this repository's `docs/agents/walking-the-install.md` for the
+> commands that are CanonCore's own. It opens on this record's own output rule -- the output
 > is tickets, or nothing -- and makes "Does the Owner's instance run it?" its step 1, with concrete
 > commands that compare the RUNNING install against `main` rather than against the board: the rungs
 > its database has applied, and the age of its image. It says why BOTH are needed, which is that

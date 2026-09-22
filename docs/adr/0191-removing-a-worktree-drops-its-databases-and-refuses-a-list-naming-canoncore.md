@@ -4,7 +4,7 @@ status: accepted
 
 # Removing a worktree drops its databases, and refuses a list naming canoncore
 
-`.claude/skills/dispatch/retire.sh` runs `pnpm db:drop-worktree <branch>` straight after
+The `dispatch` skill's `retire.sh` runs `pnpm db:drop-worktree <branch>` straight after
 `orca worktree rm`, naming the branch the removed worktree had checked out and taking it off that
 worktree before the removal deletes it. **Since CNCORE-334 the dispatcher does not run either by
 hand** (ADR-0198): the two were a rule in three documents with no mechanism, and the ORDER below is

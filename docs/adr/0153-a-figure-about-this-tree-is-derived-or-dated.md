@@ -59,8 +59,9 @@ date and its query where the figure is stated:
   method, and a ceiling moves by moving the window and taking the measurement again.
 - **Measurements of a running system.** The 67 connections were taken by sampling `pg_stat_activity`
   through a real run. `apps/web/e2e/global-setup.ts` is where it was taken and where its date and
-  method live; `CLAUDE.md` and the dispatch skill RESTATE it, and the check holds the restatements
-  to that one source rather than to each other.
+  method live; `CLAUDE.md` RESTATES it, and the check holds that restatement to the one source. The
+  dispatch skill restated it too until it moved to user level on 2026-09-22; it no longer states the
+  figure at all, because a copy there would be one no test in this repository could reach.
 - **Another repository's corpus.** The `Theory:Timeline` figures are `provider-wiki`'s.
   `corpus-figures.test.ts` holds them to carrying their population and their date, and says why no
   check on this side of the boundary can do more.
@@ -98,7 +99,7 @@ is the honest answer when nothing derives it.
 ## Why this stays PROPOSED
 
 **Half the mechanism landed.** The DERIVED half is built and runs: `tree-figures.test.ts` holds
-fifty-six claims across twenty-five files to counts taken from the tree, and it caught every drift
+fifty-five claims across twenty-four files to counts taken from the tree, and it caught every drift
 CNCORE-252 fixed in those populations. Those two figures are themselves claims in that table, which
 is the rule applied to the record that states it.
 

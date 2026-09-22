@@ -48,7 +48,8 @@ and what goes red instead is the reader's own rows (below).
 
 ## Why `.claude/` is in
 
-It holds the rules and skills an agent reads as instructions. They are written and edited here like
+It holds the rules an agent reads as instructions -- and held the skills too, until they moved to
+user level on 2026-09-22. They are written and edited here like
 anything under `docs/`, so their lines move under an edit, and they cite records by number and by
 slug. Nothing about them earns the history exemption: they are not research, and nobody reads them
 for what was known on an earlier date. `CLAUDE.md` itself sends its reader to
@@ -62,11 +63,11 @@ so a collision would have made `doc-line-citations` NARROWER by gaining a file. 
 `doc-line-citations` and `adr-citations` each gained exactly those eight documents, and
 `terminal-send-hazards` reads the set it read before.
 
-**WHAT IT DOES NOT HOLD.** Three of the eight are named `SKILL.md`, so a bare `SKILL.md` citation
-by line written outside the skill's own directory is ambiguous, is dropped by `byBasename`, and is
-excused as history. That is the existing rule for a shared basename, not a new one, and it is
+**WHAT IT DOES NOT HOLD.** Three of the eight were named `SKILL.md` until the skills left on
+2026-09-22, and while they were here a bare `SKILL.md` citation by line written outside the skill's own
+directory was ambiguous, was dropped by `byBasename`, and was excused as history. That is the existing rule for a shared basename, not a new one, and it is
 stated here rather than changed. `.claude/rules/docs.md` now loads its cite-by-section rule for
-`.claude/**` as well as `docs/**`, so an agent editing a skill meets the rule in its context rather
+`.claude/**` as well as `docs/**`, so an agent editing a rule there meets it in its context rather
 than first at the build.
 
 **THE CORPUS IS READ FROM THE DISK AND THE GUARD ASKS ONE WAY.** `proseIn` walks the working tree,
@@ -75,7 +76,7 @@ tracks is in the corpus, never that everything in the corpus is tracked. So an u
 under `docs/` or `.claude/` is swept on the machine that holds it and nowhere else, which is the
 exposure `docs/` has had since the first sweep. Asking the other way was refused, because it would
 redden every draft before its first commit, this record included. Nothing writes under `.claude/`
-in this repository today: the main checkout holds `rules/`, `skills/` and two settings files, and
+in this repository today: the main checkout holds `rules/` and two settings files, and
 Claude Code's own worktree isolation, which would write a checkout there, is ruled out by
 `CLAUDE.md` and denied by `.claude/settings.json`. A checkout carrying pnpm's symlinks would throw,
 naming them, rather than pass.
