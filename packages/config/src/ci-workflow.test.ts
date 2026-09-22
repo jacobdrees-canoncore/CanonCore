@@ -12,7 +12,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { data, Evaluator, Lexer, Parser } from "@actions/expressions";
@@ -1040,5 +1040,77 @@ describe("the CI workflow", () => {
       expect(output).toContain("Failed to resolve dependency");
       expect(output).not.toContain("ERR_PNPM_OUTDATED_LOCKFILE");
     });
+  });
+});
+
+/**
+ * What Vitest resolves an e2e `--exclude` against: its root, which is the one
+ * package declaring `test:e2e`.
+ */
+const E2E_ROOT = join(repoRoot, "apps", "web");
+
+/**
+ * Every run of the e2e suite through the guard, with the files it is told to
+ * leave out (CNCORE-343).
+ *
+ * READ OFF WHAT THE GUARD FORWARDS, in both spellings Vitest takes:
+ * `--exclude <glob>` and `--exclude=<glob>`. A reader that knew only one would
+ * count a job written in the other as leaving nothing out, which is the job the
+ * first row below exists to catch.
+ */
+function e2eRuns(parsed: Workflow): { job: string; excluded: string[] }[] {
+  const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const invocation = new RegExp(`(?:^|\\s)${guard}\\s+test:e2e(?![\\w:-])(.*)`, "g");
+  return Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) =>
+    (definition.steps ?? []).flatMap(({ run }) =>
+      [...(run ?? "").matchAll(invocation)].map((match) => {
+        const words = (match[1] ?? "").trim().split(/\s+/);
+        const excluded = words.flatMap((word, index) => {
+          if (word === "--exclude") return words.slice(index + 1, index + 2);
+          return word.startsWith("--exclude=") ? [word.slice("--exclude=".length)] : [];
+        });
+        return { job, excluded };
+      }),
+    ),
+  );
+}
+
+/** The files under the e2e root that a glob a job leaves out matches. */
+function filesMatching(glob: string): string[] {
+  return globSync(glob, { cwd: E2E_ROOT });
+}
+
+describe("the e2e files a job leaves out", () => {
+  /**
+   * A FILE LEFT OUT OF EVERY JOB RUNS NOWHERE, AND THAT IS GREEN. The
+   * `provider` job leaves out `item-page-cost.test.ts` because the `e2e` job
+   * already runs it, so the same exclusion copied to the `e2e` job would stop
+   * the measurement entirely, with every job still passing.
+   */
+  it("leaves no file out of every job that runs the suite", () => {
+    const runs = e2eRuns(workflow());
+    // Not vacuous: over no runs at all, nothing is left out of every one.
+    expect(runs.map(({ job }) => job)).toContain("e2e");
+    const leftOut = runs.map(({ excluded }) => new Set(excluded.flatMap(filesMatching)));
+    const nowhere = [...(leftOut[0] ?? [])].filter((file) => leftOut.every((set) => set.has(file)));
+    expect(nowhere).toStrictEqual([]);
+  });
+
+  /**
+   * AN EXCLUSION THAT MATCHES NOTHING IS A SAVING THAT QUIETLY WENT. Rename the
+   * file and Vitest runs it again in the job that meant to leave it out, which
+   * costs that job its longest file and reports nothing.
+   */
+  it("leaves out only files that are there", () => {
+    const exclusions = e2eRuns(workflow()).flatMap(({ job, excluded }) =>
+      excluded.map((glob) => ({ job, glob })),
+    );
+    // Not vacuous: the `provider` job leaves one file out today. Put it back
+    // and this row has nothing to check, which is when to delete it.
+    expect(exclusions).not.toStrictEqual([]);
+    const dead = exclusions
+      .filter(({ glob }) => filesMatching(glob).length === 0)
+      .map(({ job, glob }) => `the \`${job}\` job leaves out \`${glob}\`, which matches no file`);
+    expect(dead).toStrictEqual([]);
   });
 });

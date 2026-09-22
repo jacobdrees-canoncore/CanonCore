@@ -633,7 +633,7 @@ jobs:
     # THE GATE. Its shape, and why it is not a step, is in the `credentials`
     # job above. What it costs is stated here: with the token absent this job
     # is SKIPPED rather than run, so `test:e2e` against the real image is not
-    # checked on that run. The `e2e` job runs the same suite against the stub
+    # checked on that run. The `e2e` job runs the whole suite against the stub
     # and is not gated, so what is lost is the real provider specifically --
     # which is the half no run without a credential could ever have had.
     if: needs.credentials.outputs.tmdb == 'true'
@@ -756,19 +756,28 @@ jobs:
             exit 1
           fi
 
-      # The SAME suite the `e2e` job runs, with PROVIDER_TMDB_URL set: the
+      # The suite the `e2e` job runs, with PROVIDER_TMDB_URL set: the
       # difference between the two runs is which process answers CMPP for the
       # TMDB fixtures and nothing else, so the assertions that hold the stub to
       # the contract are the ones holding the real image to it. `global-setup`
       # imports a real film through the app, browses a real collection, searches
       # for it, and renders ADR-0036's notice off what the image declared.
       #
+      # LESS THE ONE FILE THAT DIFFERENCE CANNOT REACH (CNCORE-343).
+      # `item-page-cost.test.ts` counts the statements an item page sends the
+      # database, against a catalogue and servers of its own, and never asks a
+      # provider anything. So running it here checked nothing the `e2e` job had
+      # not, and it was the longest thing CI did: 137.1 of this job's 231
+      # seconds on run 35607303156. `ci-workflow.test.ts` fails if a file is
+      # left out of every job that runs this suite, and if what a job leaves
+      # out stops existing.
+      #
       # AND THE COUNT MATTERS MOST HERE. This job's whole difference from the
       # `e2e` job above is which process answers CMPP, so a suite that ran zero
       # tasks would leave it green having started the real image, sent it
       # nothing, and reported that nowhere -- which is CNCORE-143 exactly.
-      - name: The same suite against the real image, and a count that says it ran
-        run: .github/scripts/run-suite.sh test:e2e
+      - name: The suite against the real image, and a count that says it ran
+        run: .github/scripts/run-suite.sh test:e2e -- --exclude e2e/item-page-cost.test.ts
 
   contract:
     name: One contract, both providers, no app
