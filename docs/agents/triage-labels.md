@@ -50,9 +50,9 @@ Before adding any label, check `orca linear team labels --team CNCORE --json`. T
 ships Linear's defaults (`Bug`, `Feature`, `Improvement`); those are categorisation, unrelated to
 triage roles, and should not be repurposed.
 
-## `to-spec` and `provider-repo` are KINDS, not triage roles
+## `to-spec`, `provider-repo` and `skills-repo` are KINDS, not triage roles
 
-Two labels here answer "what is this issue" rather than "how ready is it", which is the axis
+Three labels here answer "what is this issue" rather than "how ready is it", which is the axis
 Linear's own `Bug` / `Feature` / `Improvement` sit on. They compose with a triage role rather than
 replacing one, so an issue carries one of each.
 
@@ -67,6 +67,12 @@ replacing one, so an issue carries one of each.
   reason above, and `ready-for-human` once it needs `/to-tickets` run on it, because splitting a spec
   is a human's call.
 - **`provider-repo`** — the work lands in `provider-wiki` or `provider-tmdb` rather than here.
+- **`skills-repo`** — the work lands in `jacobdrees/claude-skills`, the shared skills at
+  `~/.claude/skills` that include the `dispatch` scripts, rather than here. A ticket with a half
+  here as well carries it too, as CNCORE-342 does. `/dispatch` creates every worktree in this
+  repository unless told otherwise, so the label is how a dispatcher sees which tickets need
+  `--repo name:skills`, and the dispatch prompt has to say so. Added 2026-09-22, on CNCORE-342
+  and CNCORE-379 to 385.
 
 ## `blocked-externally` is the only other thing `Backlog` may hold
 

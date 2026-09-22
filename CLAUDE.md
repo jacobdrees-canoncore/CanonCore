@@ -121,7 +121,7 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   on writes that LANDED and `linear_no_linked_issue` on a worktree that IS bound.
   `docs/agents/issue-tracker.md`.
 - **Labelling or triaging one** — `docs/agents/triage-labels.md`. Roles are workspace labels, `wontfix`
-  is Canceled, `to-spec` / `provider-repo` are kinds not roles.
+  is Canceled, `to-spec` / `provider-repo` / `skills-repo` are kinds not roles.
 - **Adding a term or a record** — one `CONTEXT.md`, one `docs/adr/`, both at root. `docs/agents/domain.md`.
 
 ## Working substrate
