@@ -22,6 +22,12 @@ once reads zero and concludes "never". A check is evidence only for the commit i
 gate a merge on the `dispatch` skill's `gate.sh`, which resolves the head and asks about THAT
 commit, and never on the pull request's own rollup.
 
+**AND A HUNG JOB READS `cancelled`, WHICH IS ALSO WHAT A FORCE-PUSH LEAVES.** A job killed at
+ADR-0141's ceiling concludes `cancelled`, its dependents `skipped`, and so does its run — so nothing
+in the conclusions says the suite hung. What differs is that a force-push RE-RUNS the job it killed
+and a ceiling does not, which is what `gate.sh` reads, blocking as `KILLED` (ADR-0181, CNCORE-342).
+Open that run and re-run the job: waiting clears a supersession, never this.
+
 **A job that dies on one word names a registry, and only one of the three is this repo's.** `denied`
 at `Initialize containers` is GHCR, wanting the repo given Read under the package's own Manage
 Actions access, which lives outside git. `unauthorized` while booting buildkit is Docker Hub pulling
