@@ -55,7 +55,7 @@ ticket reaches, because the wave it puts to the user names them before any workt
 needs. Each one created on request costs the round trip that CNCORE-262 and CNCORE-264 paid.
 
 A provider worktree is not one of the four agents the shared Postgres allows, since neither
-provider's suite touches that database (dispatch skill, "How full").
+provider's suite touches that database (`docs/agents/dispatching.md`, "The ceiling").
 
 An agent that finds it needs a repo nobody foresaw asks for the worktree, as it asks for any value
 it cannot find. It does not create one.

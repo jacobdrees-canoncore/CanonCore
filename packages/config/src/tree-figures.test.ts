@@ -615,7 +615,7 @@ describe("a figure this tree states about itself", () => {
     // `merge-gate.test.ts`, `worktree-retirement.test.ts` and
     // `dispatch-monitor.test.ts` each spawned a script out of
     // `.claude/skills/dispatch/`, and a suite that spawns a script belongs in
-    // the repository holding the script. They run there now, 52 tests, green.
+    // the repository holding the script. They ran there green at the move.
     // THE FIRST COUNT HERE TO GO DOWN, and it was re-derived from the red run
     // the move produced rather than subtracted by hand. The red run said 35.
     expect(suitesReadingTheRepository()).toBe(35);

@@ -6,8 +6,11 @@ reads this file for the rest, so none of it sits in a file Sift also loads.
 ## The ceiling, and the prompt that carries it
 
 The skill takes a project's ceiling from the prompt that starts a dispatch, and stops if it is not
-given. CanonCore's is stated and derived in `CLAUDE.md` under "Working substrate", where a test holds
-it to the tree; pass that figure, not a remembered one.
+given. CanonCore's is stated in `CLAUDE.md` under "Working substrate", derived from the connection
+peak of one e2e run -- a figure stated there once and held to the tree by a test, so it is not
+repeated here. The ceiling itself is not test-held. Pass that
+figure, not a remembered one. A satellite's worktree is not in it: neither provider's suite touches
+the shared Postgres -- `provider-wiki` runs DuckDB fixtures and `provider-tmdb` hits the live API.
 
 Slices land on `main` behind their own pull request (ADR-0051), so `retire.sh` needs no `--base`.
 

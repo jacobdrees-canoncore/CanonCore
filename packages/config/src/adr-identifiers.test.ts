@@ -227,15 +227,15 @@ function theHistoryHeld(identifier: string): boolean {
  */
 const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
   headRefName:
-    "ADR-0181 describes the gate reading it; the gate moved to the `dispatch` skill in ~/.claude/skills",
+    "ADR-0181 describes the gate reading it; the gate moved to the `dispatch` skill, at user level",
   headRefOid:
-    "ADR-0181 describes the gate resolving it; the gate moved to the `dispatch` skill in ~/.claude/skills",
+    "ADR-0181 describes the gate resolving it; the gate moved to the `dispatch` skill, at user level",
   linkedIssue:
     "ADR-0162 names it as the GitHub field NOT to read; the monitor reading it moved to the `dispatch` skill",
   linkedLinearIssue:
     "ADR-0162 names it as the binding to read; the monitor reading it moved to the `dispatch` skill",
   mergeStateStatus:
-    "ADR-0181 describes the gate reading it; the gate moved to the `dispatch` skill in ~/.claude/skills",
+    "ADR-0181 describes the gate reading it; the gate moved to the `dispatch` skill, at user level",
   asEntry: "ADR-0124 reports CNCORE-114 renaming it, as the standing cost of the check's scope",
   catalogueEntryPublic: "ADR-0124 says CNCORE-114 'has since renamed both to `catalogueRowPublic`'",
   containerDeletedAt: "ADR-0119 says the tombstone the reads selected beside the keys is GONE",

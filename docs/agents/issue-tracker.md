@@ -300,7 +300,9 @@ orca worktree current --json
 
 ### A further way it lies: `linear_no_linked_issue` on a worktree that IS bound
 
-**`--current` ANSWERS ABOUT THE CALLER'S TERMINAL, NOT THE WORKING DIRECTORY.** It is the right tool
+**`--current` ANSWERS ABOUT THE CALLER'S TERMINAL, NOT THE WORKING DIRECTORY, WHEN THE CALLER HAS ONE;**
+a caller with no Orca terminal is resolved by its working directory instead (measured 2026-09-22,
+ADR-0162). It is the right tool
 for an agent reading its OWN ticket, and the wrong one for checking somebody else's worktree: `cd`
 into another worktree and ask, and you are told `linear_no_linked_issue` about YOUR shell's worktree
 while the one you are standing in is bound (ADR-0162). Measured from a terminal belonging to

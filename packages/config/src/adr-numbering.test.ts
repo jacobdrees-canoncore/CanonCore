@@ -121,7 +121,7 @@ const IMPLEMENTED_BY: Implementation[] = [
     file: "CLAUDE.md",
     holds:
       "the gate a project passes before it is finished, now that `/closing-a-spec` executes it " +
-      "from `~/.claude/skills` and this repository states rather than implements it",
+      "at user level and this repository states rather than implements it",
   },
   {
     adr: "0134",

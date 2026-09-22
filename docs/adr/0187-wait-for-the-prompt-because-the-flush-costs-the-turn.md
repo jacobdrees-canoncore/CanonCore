@@ -10,7 +10,10 @@ status: proposed
 > **BUILT AS A CHECK: the two sentences that carry the hazards** —
 > `packages/config/src/terminal-send-hazards.test.ts` derives from the tree every sentence that
 > hands a reader the flush recipe and fails the build on one that does not say what the flush costs,
-> and every sentence stating the parked-widget hazard that does not name this record beside it.
+> and every sentence stating the parked-widget hazard that does not name this record beside it. **That
+> tree no longer holds the `dispatch` skill's copy of these sentences:** it moved to the skills
+> repository on 2026-09-22, where no such check runs, so this record's check covers `CLAUDE.md` and
+> the records here and not the one a dispatcher reads while sending.
 > **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: whether a keystroke recipe is
 > RIGHT**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
 > another agent's widget, which is ADR-0162's own limit and unchanged by this record.
