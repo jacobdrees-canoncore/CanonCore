@@ -214,6 +214,13 @@ the run list sees a cancellation and has to open it to learn which kind. Anythin
 runs by conclusion must read that annotation rather than the conclusion, or it will count every
 timeout as somebody's click.
 
+**THIS PARAGRAPH IS WHAT CAUGHT THE MERGE GATE, ON 2026-09-22.**
+[[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] specified the opposite — that a hang
+concludes `failure` at the run and a supersession `cancelled` — on a probe whose run also held a
+STEP-level timeout, which does conclude `failure`. This run is the clean case and it says otherwise,
+so the gate separates them a third way: a supersession re-runs the job it killed, and a ceiling
+leaves no later check-run of that name. The annotation was not needed.
+
 **Which clock the ceiling runs on, this run cannot say.** The job started one second before its
 first step, so eight minutes from either lands within a second of the other, and the hang was
 cancelled thirteen seconds past the one and twelve past the other. A run with a long wait before its

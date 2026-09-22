@@ -74,10 +74,14 @@ survives GitHub adding a value, which is the only assumption worth making about 
 enum.
 
 **Each outcome is named distinctly rather than folded into "red".** `NO-RUN`, `RUNNING`, `FAILED`,
-`SUPERSEDED`, `UNREADABLE`, `PASSED`. `cancelled` is `SUPERSEDED` and not a defect: `ci.yml` sets
+`SUPERSEDED`, `KILLED`, `UNREADABLE`, `PASSED`. `cancelled` is `SUPERSEDED` and not a defect **when
+something re-ran it** — the qualifier is the section below, added 2026-09-23, and without it this
+sentence passed a suite that hung. `ci.yml` sets
 `cancel-in-progress` on a group keyed by the head ref ([[0111-ci-optimises-billed-minutes-over-named-checks]]),
 so every force-push leaves a trail of cancelled runs — #210's head carries THIRTEEN of them beside
-nineteen that ran to an answer (18 `success`, 1 `skipped`, counted 2026-09-21). Reading those as
+nineteen that ran to an answer (18 `success`, 1 `skipped`, counted 2026-09-21), **and every one of
+the thirteen was re-run by name within a minute, which is what makes them evidence of nothing rather
+than evidence of breakage**. Reading them as
 failures produced a false "genuine breakage" claim on 2026-09-20. It still BLOCKS when nothing else ran: a commit whose only runs were killed has no more
 evidence behind it than one with none.
 
@@ -240,7 +244,7 @@ all; on that measurement it arrives here as `NO-RUN` against a `mergeStateStatus
 `DIRTY` — correctly blocking, and attributed to the wrong cause. That attribution is the limit, not
 the blocking. `actionlint` before pushing is still what catches it.
 
-## A JOB KILLED BY ITS OWN CEILING READS AS PASSED, AND THAT IS NOT COVERED EITHER
+## A JOB KILLED BY ITS OWN CEILING READS AS PASSED, AND THE MISSING RE-RUN IS WHAT CATCHES IT
 
 **Measured 2026-09-21 under CNCORE-341**, on a probe branch pushed to this repository and deleted
 after reading — run `35617974088`:
@@ -258,8 +262,11 @@ killed rather than holding a pull request for six hours. It IS killed. It then c
 — which the section above tolerates by name and for a good reason, because `cancel-in-progress`
 leaves a trail of cancelled runs on every force-push and reading those as failures produced a false
 breakage claim on 2026-09-20. Its dependent concludes `skipped`, which is in the good set. **Every
-check-run on the commit is then either good or tolerated, and the gate says `PASSED` over a suite
-that hung.**
+check-run on the commit is then either good or tolerated, and the gate said `PASSED` over a suite
+that hung** — from this record's own landing on 2026-09-21 until CNCORE-342 closed it on 2026-09-23.
+**Nothing merged through the hole in those two days, and that is measured rather than assumed:** of
+the 362 merged pull requests across this repository and both providers, exactly one head carries a
+cancelled check-run at all — #210's, where every one of the thirteen was re-run (swept 2026-09-22).
 
 **`timed_out` is not the value to look for, and that is the trap.** The good set is refused by name
 above and `timed_out` sits in the BAD set — but nothing in Actions was observed to emit it. No job
@@ -267,31 +274,80 @@ in the probe run reported it, and no job in this repository's history ever has. 
 documentation never states the conclusion a ceiling produces: its workflow syntax says
 `timeout-minutes` is the maximum "before GitHub automatically **cancels** it", while its limits page
 says a job reaching the six-hour limit "is terminated and **fails**". **Two GitHub pages, two
-answers, so this record cites the measurement rather than either of them.**
+answers, so this record cites the measurement rather than either of them.** Nor is the RUN's
+`failure` the value to look for, which took a second measurement to see: below.
 
-### The remedy is the RUN, and both sides of it were measured
+### THE RUN'S CONCLUSION IS NOT THE REMEDY, AND THIS RECORD SAID IT WAS
+
+The paragraph that stood here until 2026-09-23 read: *"A hang concludes `failure` at the run; a
+supersession concludes `cancelled` … refuse a commit whose RUN concluded `failure`, whatever its
+individual check-runs say."* **It is wrong, and CNCORE-342 built it before measuring it.** The
+table it rested on compared the probe above against three superseded runs:
 
 | Case | Run conclusion | Cancelled jobs |
 |---|---|---|
-| A job killed by its own ceiling (`35617974088`) | **`failure`** | 1 |
+| The probe (`35617974088`) | **`failure`** | 1 |
 | Superseded by a newer push (`35603659236`) | **`cancelled`** | 7 |
 | Superseded (`35566260535`) | **`cancelled`** | 15 |
 | Superseded (`35566183448`) | **`cancelled`** | 7 |
 
-**A hang concludes `failure` at the run; a supersession concludes `cancelled`.** That is exactly the
-distinction the check-run conclusions cannot carry, and the measurement takes both sides rather than
-only the one that motivates the change — a discriminator tested on one case is a discriminator
-nobody has tested.
+**The probe's run failed because a job in it FAILED.** Its `step_level_timeout` job concluded
+`failure`, which the table above this one records and §10.1.2 of the research states as a rule —
+a step-level expiry reports `failure`, a job-level one `cancelled`. Attributing that run's
+conclusion to the job-level ceiling beside it was the error, and no measurement in either document
+isolated the two.
 
-**So the remedy is NOT to stop tolerating `cancelled`**, which would block every force-push and
-reinstate the defect of 2026-09-20. It is to refuse a commit whose RUN concluded `failure`, whatever
-its individual check-runs say.
+**A JOB-LEVEL HANG ALONE CONCLUDES `cancelled` AT THE RUN**, which
+[[0141-every-ci-job-stops-at-three-times-its-slowest-measured-run]] had already measured and
+written down under "The hang, demonstrated": run `35454181160` on `38fde90`, a `sleep 86400` after
+a passing suite, the job cut at its eight-minute ceiling, every other job green. Re-read from the
+API on 2026-09-22: run conclusion **`cancelled`**, jobs 14 `success`, 1 `skipped`, 1 `cancelled`.
+That record says it in as many words — *"the job, its check run and the whole workflow run all read
+`cancelled`: the same conclusion a person cancelling produces, and the one a run superseded under
+the concurrency key gets"*. **So the run's conclusion cannot separate a hang from a supersession,
+and a gate built on it would have passed `38fde90` — which it did, in the first implementation of
+CNCORE-342, before this was measured.** Across all 84 runs in this repository's history that
+concluded `failure`, none did so with no failed job, so that check would also have been close to a
+no-op.
 
-**THIS RECORD STAYS `accepted` AND THE HOLE IS NAMED RATHER THAN FIXED.** The mechanism this record
-decided — a check is evidence only for the commit it ran against — is whole and in use. This is a
-second dimension the same script is wrong in, found by a later ticket, and the half that has NOT
-landed is the run-level read. It is filed rather than built here, because the script every merge in
-this repository passes through is not a thing to change inside a research ticket.
+### WHAT SEPARATES THEM IS THE RE-RUN, AND IT IS ALREADY ON THE COMMIT
+
+**A supersession re-runs the job it killed; a ceiling does not.** `cancel-in-progress` kills the
+old run because a NEWER run for the same ref has started, and that newer run repeats every job — so
+each cancelled check-run is followed on the same commit by one of the SAME NAME that answered.
+#210's head carries thirteen cancelled check-runs and thirteen matching answers, each within a
+minute of its kill (`One image, both architectures` cancelled at 22:11:13, `skipped` at 22:13:21,
+which is an answer too). A job killed by ADR-0141's ceiling has no successor at all: nothing
+re-ran it, and its `needs:` dependents read `skipped`.
+
+**So `cancelled` stays tolerated and the gate asks a second question: was it re-run?** A cancelled
+check-run with no later check-run of its name that concluded `success`, `skipped` or `neutral` is
+`BLOCKED KILLED`, named for what happened to the job rather than for the conclusion it carries.
+Not tolerating `cancelled` at all would block every force-push and reinstate the defect of
+2026-09-20; reading the run's conclusion would catch nothing.
+
+**It needs no extra API call.** `started_at` is already on every check-run in the read this gate
+was making, which is what makes "later" answerable at all.
+
+**Three real commits, through the gate, 2026-09-22:**
+
+```
+38fde90  BLOCKED KILLED 38fde90 1 of 16 cancelled with nothing re-running it: The page over HTTP
+439cc3c  PASSED 439cc3c 19 of 32 checks passed on this commit          #210's force-push trail
+3e80458  BLOCKED FAILED 3e80458 step_level_timeout (failure)           the probe, on the failed job
+```
+
+The probe reads `FAILED` rather than `KILLED` because its step-level job failed and that outcome
+comes first — the precedence is deliberate: a failure names the check that failed.
+
+**And the rule refuses nothing that has merged.** Applied to the head of EVERY merged pull request
+in CanonCore, provider-tmdb and provider-wiki — 362 of them, 2026-09-22 — it blocks none. One head
+carries cancelled check-runs at all, #210's, and every one of those was re-run.
+
+**GitHub's own rollup agrees, and is not what the gate reads.** `statusCheckRollup` on the commit
+answered `FAILURE` for `38fde90` and `SUCCESS` for `439cc3c` (GraphQL, 2026-09-22) — the same split,
+from a field whose rules GitHub does not document and which this record already refuses to resolve a
+head from.
 
 ## As built, under CNCORE-288
 
@@ -301,13 +357,14 @@ The `dispatch` skill's `gate.sh` resolves `headRefOid`, `headRefName`, `mergeSta
 built here, by an authenticated `gh api` since CNCORE-319, above), reads
 `repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
 `total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
-`NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `DRAFT`,
-`MERGED`/`CLOSED` and `UNREADABLE`.
+`NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `KILLED` (since CNCORE-342),
+`LAGGING`, `DRAFT`, `MERGED`/`CLOSED` and `UNREADABLE`.
 Its `merge-if-green.sh` runs it and merges only on its exit status, with nothing
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
 The `dispatch` skill's `merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
-twenty-four scenarios as it moved on 2026-09-22 (twenty-one as built here, and CNCORE-319's three), including #210's own
+twenty-eight scenarios, as `npm test` counts them on 2026-09-23 (twenty-five before CNCORE-342 added
+three), including #210's own
 world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in the `dispatch` skill's `SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
@@ -318,6 +375,15 @@ action, as the paragraph this replaces asked. It stood `proposed` for the rest o
 describing a gate as not yet in use while the repository's was the only one in use; CNCORE-328
 flipped it. A status is evidence only for the moment it was written, which is this record's own
 subject in a second medium.
+
+**BUILT, UNDER CNCORE-342: the hang, refused — and not by the remedy this record specified.** The
+gate reads no workflow run. It asks whether each cancelled check-run has a later check-run of its
+own name that answered, blocks as `KILLED` when one has none, and `merge-gate.test.ts` holds three
+worlds for it: ADR-0141's hang, #210's trail with all thirteen re-runs, and a kill that lands after
+a green. The run-level read this record asked for was built first and deleted after measurement,
+which is recorded above rather than quietly dropped. `jacobdrees/claude-skills` **#5**, merged
+2026-09-23; `gate.sh` and its suite live there since 2026-09-22, and `~/.claude/skills` was pulled
+in the same action, since until that pull a merged gate is not the one any agent runs.
 
 **NOT RETIRED, AND FOUND BY CNCORE-328 RATHER THAN ASSERTED: one scratch gate outlived the pair.**
 No `gate.py` and no scratch `merge-if-green.sh` survive anywhere, so nothing in scratch can MERGE
