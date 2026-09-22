@@ -497,11 +497,12 @@ jobs:
   # nothing on a public repository (ADR-0111).
   #
   # WHAT IT BOUGHT IS SMALLER THAN THE DERIVATION SAID, and measured rather
-  # than derived: on run 35797211718 `e2e` took 99s against 234s, but this job
-  # took 213s where ~175s was expected, because the file alone ran 167s here
-  # against 137s inside the whole suite -- `global-setup.ts` stands up every
-  # file's instances whichever files run. So this job is the pole now, and the
-  # run's wall clock went 234s to 224s.
+  # than derived: on runs 35797211718 and 35797639495 `e2e` took 99s and 105s
+  # against 234s, but this job took 213s both times where ~175s was expected,
+  # because the file alone ran 167s here against 137s inside the whole suite --
+  # `global-setup.ts` stands up every file's instances whichever files run. So
+  # this job is the pole now, and the run's wall clock went from 234s to 224s
+  # and 217s.
   #
   # IT RUNS ON EVERY PULL REQUEST, AND THAT IS CHOSEN. A nightly or `main`-only
   # run would take it off the critical path entirely, but a regression on the

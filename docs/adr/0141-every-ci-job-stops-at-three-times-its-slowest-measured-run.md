@@ -81,12 +81,12 @@ check enforcing this ratio was green for eight days while the figure it multipli
 | `env-guard`: Env guard                                                  |  760 |    17s |     83s |   5 min |
 | `test`: Test                                                            |  771 |    86s |    216s |  11 min |
 | `migrations`: Migration ladder                                          |  799 |    46s |    114s |   6 min |
-| `e2e`: The page over HTTP                                               |   1² |    99s |     99s |   5 min |
+| `e2e`: The page over HTTP                                               |   2² |   102s |    105s |   5 min |
 | `browser`: The page in a browser                                        |  540 |    81s |    116s |   6 min |
 | `credentials`: Which provider credentials this run can reach            |  269 |     3s |      6s |   5 min |
 | `provider`: Import and browse over HTTP, against the real provider-tmdb |  392 |   147s |    260s |  13 min |
 | `contract`: One contract, both providers, no app                        |  741 |    42s |     82s |   5 min |
-| `cost`: What an item page costs the database                            |   1² |   213s |    213s |  11 min |
+| `cost`: What an item page costs the database                            |   2² |   213s |    213s |  11 min |
 | `image`: The image, built and run (linux/amd64, ubuntu-latest)          |  743 |   112s |    413s |  21 min |
 | `image`: The image, built and run (linux/arm64, ubuntu-24.04-arm)       |  752 |   100s |    245s |  21 min¹ |
 | `image-manifest`: One image, both architectures                         |  183 |    20s |     64s |   5 min |
@@ -101,7 +101,8 @@ disagrees with itself.
 ² RE-MEASURED UNDER CNCORE-396, which moved `item-page-cost.test.ts` out of `e2e` into a `cost`
 job of its own, so neither older figure described either job any more: `e2e` read 766 runs, a
 median of 84s and a slowest of 243s at a 13-minute ceiling while it still ran that file. These two
-rows are that ticket's own runs rather than a window, and the thinnest figures in the table.
+rows are that ticket's own two runs, 35797211718 and 35797639495, rather than a window, and the
+thinnest figures in the table.
 
 **The span is the larger of the two readings, on purpose.** A job's `started_at` can precede its
 first step by two minutes (the slowest `Test` in the first window spent 113 seconds before `Set up

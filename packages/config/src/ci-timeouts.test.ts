@@ -58,9 +58,9 @@ const SLOWEST_SECONDS: Record<string, number> = {
   test: 216,
   migrations: 114,
   // RE-MEASURED UNDER CNCORE-396, which moved `item-page-cost.test.ts` out of
-  // `e2e` and into `cost`: both are its runs, not the window above, so they are
+  // `e2e` and into `cost`: both are its two runs, not the window above, so they are
   // the thinnest figures here and the first to take again.
-  e2e: 99,
+  e2e: 105,
   browser: 116,
   credentials: 6,
   provider: 260,
