@@ -63,8 +63,13 @@ gives `cancelled`, so the remedy is one API call away. §10.1.
 **And the speed CNCORE-341 wants is not in the job graph at all.** One test file,
 `item-page-cost.test.ts`, is 136.6s of the 189s critical-path job, and it runs **twice** per run
 because `provider` runs the same suite. That is 274 seconds a run, half of it duplication, and
-removing the duplicate takes the slowest job from 231s to about 105s **without skipping anything**.
-§6A — this is the recommendation to act on.
+removing the duplicate takes the `provider` job from 231s to about 105s **without skipping
+anything**. §6A — this is the recommendation to act on.
+
+> **"the slowest job" was this sentence's own error, corrected 2026-09-22 by CNCORE-343**, which made
+> the change: the job it names is `provider`, measured at 118s, while the SLOWEST job is `e2e` and
+> `e2e` keeps the file. So the duplicate was worth compute rather than waiting time, and the speed
+> CNCORE-341 wants needs the second change in §9.2 as well. §6A.2 carries both measurements.
 
 ---
 
@@ -311,11 +316,27 @@ expensive one, correctly built, sitting on the critical path of every run.
 Both are ordinary changes to which suite runs where. Neither skips a check, neither touches
 `gate.sh`, and both speed up **100% of runs** rather than the 7.5% a path filter could reach.
 
-**A figure worth stating precisely: removing the duplicate alone takes the pipeline's slowest job
-from 231s to roughly 105s.** Derived: the suite step is 194s, of which 56.9s is overhead (build,
-server starts, seeding) and 137.1s is this file as the long pole; the longest remaining file is
-`instance.test.ts` at 11.4s, so the suite lands near 68s and the job near 105s. That is a larger latency win than every path-filtering proposal in this
-document combined, and it costs no coverage at all.
+**A figure worth stating precisely: removing the duplicate alone takes the `provider` job from 231s
+to roughly 105s.** Derived: the suite step is 194s, of which 56.9s is overhead (build, server
+starts, seeding) and 137.1s is this file as the long pole; the longest remaining file is
+`instance.test.ts` at 11.4s, so the suite lands near 68s and the job near 105s. It costs no
+coverage at all.
+
+> **THAT SENTENCE SAID "the pipeline's slowest job" AND THAT WAS WRONG, corrected here on
+> 2026-09-22 by CNCORE-343, which made the change and measured it.** The job it describes is
+> `provider`; the pipeline's SLOWEST job is `e2e`, and `e2e` is the one that goes on running this
+> file. The derivation of the job itself held up well — measured 118s and then 93s against the 105s
+> predicted, its suite step 191s to 62s and 57s — but **the pole did not move at all: `e2e` ran 231s
+> before and 234s then 228s after.** So removing the duplicate buys compute and not latency, and the
+> latency claim in §9.2 below belongs to the SECOND change rather than the first: until the
+> measurement has a job of its own, or leaves `e2e` too, something still spends 137s counting
+> statements on the critical path.
+>
+> **A RUN'S OWN TOTAL IS THE WRONG INSTRUMENT HERE, which is worth recording because this note used
+> it.** The three runs' wall clocks read 243s, 234s and 265s, and the 265s is the one where nothing
+> got slower: a run's total carries how long each job waited for a runner as well as how long it
+> took. The longest JOB is the figure that answers "how long does a pull request wait", and it is
+> what the correction above rests on. Runs 35741009637 (before), 35742473820 and 35795564409 (after).
 
 **This note does not propose the change**, because sequencing suites across jobs is not what
 CNCORE-341 asked about and the constraint in `global-setup.ts` — the counted catalogue is built for
@@ -538,7 +559,7 @@ for diagnosability rather than folded for cost, and each names one thing.
 | `e2e` | the page being unreachable over real HTTP | **Nothing.** `ci.yml` says it in its own words: "every other suite passes with the app never having been served" |
 | `browser` | the drag and the wrap in a real browser | **Nothing** |
 | `credentials` | which provider credentials the run can reach, and a deleted secret on any ref but a pull request | **Nothing**, and it is deliberately ungated so it always reports |
-| `provider` | `test:e2e` against the **real** provider image | `e2e` runs the same suite against the stub, so what is lost is the real provider specifically (ADR-0139) |
+| `provider` | `test:e2e` against the **real** provider image, less the one file that never reaches a provider (CNCORE-343) | `e2e` runs the whole suite against the stub, so what is lost is the real provider specifically (ADR-0139) |
 | `contract` | `test:contract`, both providers against one contract | **Nothing. It runs nowhere else** (ADR-0139) |
 | `image` | the image builds, migrates a database, serves a page, refuses a bad ladder, and ships no `.env`, no pnpm, no dev dependencies, plus the licence | **Nothing** |
 | `image-manifest` | that a stranger can pull the published multi-architecture image | **Nothing**, and it is already ref-gated |
@@ -711,8 +732,8 @@ asks for unless the note justifies otherwise, and for path filtering the note do
 
 | Do this | Buys | Costs |
 |---|---|---|
-| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343) | ~137s off the slowest job, on **every** run | Nothing. It counts database statements and never touches a provider (§6A) |
-| **Give the cost measurement its own job** | The remaining e2e suite drops to ~53s of work | A job, which is free here (§4) |
+| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343, done 2026-09-22) | Measured: the `provider` job 228s to 118s and 93s, on **every** run. **No latency**: the `e2e` job is the pole, keeps the file, and did not move (231s, then 234s and 228s) (§6A.2) | Nothing. It counts database statements and never touches a provider (§6A) |
+| **Give the cost measurement its own job** | The latency the row above does not buy: the `e2e` job's remaining files are ~53s of work | A job, which is free here (§4) |
 | **Make `gate.sh` refuse a commit whose RUN concluded `failure`** (CNCORE-342) | A hang stops reporting `PASSED` | One extra API call per run. Measured and ready to specify (§10.1) |
 | Path filters, in any form | ~8.5 min per ten days | A new mechanism in the merge path, and §8.1's trap |
 

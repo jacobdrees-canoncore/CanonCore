@@ -132,6 +132,24 @@ The half a suite can still hold is the other one — that `ci.yml` names the pac
 `run-suite.test.ts` holds it, because deleting the argument leaves that suite running to notice.
 The two holes are disjoint, which is what makes the pair whole.
 
+**AND THE GUARD FORWARDS WHAT FOLLOWS `--`, WHICH IS HOW ONE JOB LEAVES OUT A FILE THE OTHER RUNS
+(CNCORE-343).** `run-suite.sh test:e2e -- --exclude e2e/item-page-cost.test.ts` is the `provider`
+job's command, because that file counts the statements an item page sends the database and never
+asks a provider anything: running it there checked nothing the `e2e` job's run had not, at 136.7 of
+that job's 228 seconds. **The path was MEASURED rather than assumed, because three argument parsers
+sit between the step and Vitest and any one of them could have swallowed the flag**: pnpm 12.3.4
+keeps the `--`, turbo 2.10.13 hands what follows it to the task, and what the runner logged was
+`vitest run --config vitest.e2e.config.ts --exclude e2e/item-page-cost.test.ts`. It took the suite
+step from 191s to 62s and the job from 228s to 118s — **and the run's wall clock only from 243s to
+234s, because `e2e` goes on running that file and is the longest job either way.** Measured on runs
+35741009637 and 35742473820, 2026-09-22.
+
+**WHAT NEITHER THE COUNT NOR THE ROLL CALL CAN SEE IS A FILE LEFT OUT OF EVERY JOB**, which would
+run nowhere with every job still green — the same shape of hole as a deleted script, one level down,
+since the task still runs and still reports a count. `ci-workflow.test.ts` holds it: no e2e file may
+be left out by every job that runs the suite, and what a job leaves out must still be a file that is
+there, or the exclusion is a saving that quietly went while the file ran on.
+
 **The roll call is asked in one place and every other task is held by a suite, which is the whole
 mechanism rather than half of one.** `test @canoncore/config` is the case CNCORE-190 measured and
 closed in the script. `typecheck` is declared by TWELVE packages and had only the count, so one of
@@ -491,8 +509,9 @@ about and is not a foundation to put an invariant on.
 ## The stub and the image are one contract, and it broke silently -- under CNCORE-9
 
 `apps/web/e2e` runs twice in CI: once against stubs on loopback, and once with a provider variable
-naming a real image as a service container. THE ASSERTIONS CANNOT TELL WHICH RAN, and that is the
-whole design -- so the stub's answers have to be the image's answers.
+naming a real image as a service container -- every file of it but one, which the provider run
+leaves out because it never reaches a provider at all (CNCORE-343). THE ASSERTIONS CANNOT TELL WHICH
+RAN, and that is the whole design -- so the stub's answers have to be the image's answers.
 
 **THE SECOND RUN WAS NOT HAPPENING WHEN THIS WAS WRITTEN, AND THE VARIABLE NAMED HERE IS NO LONGER
 THE WIKI'S.** This paragraph said `PROVIDER_WIKI_URL` and the real `provider-wiki` image, and both
