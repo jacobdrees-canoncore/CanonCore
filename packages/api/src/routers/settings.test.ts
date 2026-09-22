@@ -256,7 +256,7 @@ describe("removing a provider", () => {
 /**
  * TWO CHANGES TO THE PROVIDERS AT ONCE, AND BOTH SURVIVE (CNCORE-391).
  *
- * THE ORDER IS FORCED, as in `settings.test.ts` beside the store, and for the
+ * THE ORDER IS FORCED, as in `packages/db/src/settings.test.ts`, and for the
  * same reason: a `Promise.all` of two namings would usually interleave the
  * harmless way and pass against the defect. One change is held open in a
  * transaction that has written the row; the router's change then starts, and

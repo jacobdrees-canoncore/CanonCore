@@ -35,7 +35,7 @@ export interface ProviderSettings {
  */
 const NOTHING_CONFIGURED: ProviderSettings = { providerUrls: "", providerAllowlist: "" };
 
-/** What a caller of either function below is answered: the settings, and nothing else. */
+/** What a caller of any function below is answered: the settings, and nothing else. */
 const WHAT_IS_CONFIGURED = {
   providerUrls: settings.providerUrls,
   providerAllowlist: settings.providerAllowlist,
@@ -125,6 +125,9 @@ export async function writeProviderSettings(
  * list becomes lives in `@canoncore/providers` and this package does not depend
  * on it (see `ProviderSettings`). Whatever it throws rolls the transaction back
  * and reaches the caller unchanged, so a refusal still changes nothing.
+ * What it returns is stored unread, so it must be what a parser answered: the
+ * store is validated at its only writer (ADR-0121), and this is that writer's
+ * hand, not a second one.
  *
  * NOTHING TO LOCK ON AN UNCONFIGURED INSTANCE, and that race stays the loud one
  * `writeProviderSettings` describes: two first changes both insert, and
