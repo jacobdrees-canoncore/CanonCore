@@ -1,22 +1,15 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
+import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import {
   configFilesIn,
   configFilesOnDisk,
+  isInside,
   namedConfig,
   packageScripts,
+  resolvesInside,
   runsASuite,
   suiteScripts,
   testBlockOf,
@@ -61,83 +54,6 @@ function isTestScriptName(name: string): boolean {
 // already puts under assertion.
 function isWatchScriptName(name: string): boolean {
   return /:watch$/.test(name);
-}
-
-// And whether a resolved config is a file the package actually owns. `--config`
-// is a path and a path can climb: `--config ../../elsewhere.ts` would put every
-// assertion in this file on a config the package does not own, and ADR-0103
-// refuses a shared base config precisely so that no package here has one. The
-// same rule as `isWorkspacePattern`, at the other end of the same sweep.
-//
-// IT READS THE PATH AND NOTHING ELSE, which is what keeps it a rule a table of
-// imaginary paths can hold. `resolvesInside` below is the one the sweep asks,
-// and it is this rule put to the file the path actually NAMES.
-function isInside(directory: string, file: string): boolean {
-  const from = relative(directory, file);
-  return from !== "" && !from.startsWith("..");
-}
-
-// A path with every symlink on it followed, AS FAR AS THE PATH EXISTS, and
-// whatever does not exist appended as written -- a segment that is not there
-// cannot be a symlink, so there is nothing about it left to resolve.
-//
-// THE TAIL IS WHY THIS IS NOT `realpathSync`, which throws ENOENT. A package
-// with a test script and no config of its own is the ORDINARY way to be
-// ungated: `testBlockOf` resolves an absent config to no `test` block and the
-// caller reports that suite as standing open, by name. A throw here would turn
-// a suite this sweep NAMES into a stack trace that names the sweep instead.
-//
-// EVERYTHING `existsSync` ANSWERS FALSE FOR LANDS IN THAT TAIL, which is wider
-// than absence and is the reason this is safe rather than merely tolerable. A
-// dangling link, a symlink CYCLE and a path under a directory this process
-// cannot traverse all arrive as "not there" -- `existsSync` swallows ELOOP and
-// EACCES alike and answers false -- so each is placed by its own name and then
-// reported by `testBlockOf` as a suite standing open. NONE OF THE THREE IS A
-// FILE VITEST COULD HAVE LOADED EITHER, which is what makes placing them right
-// rather than lucky: there is no config behind them for the placement to be
-// wrong about. Measured 2026-09-19 for the cycle: `existsSync` false and the
-// import refused with `ERR_MODULE_NOT_FOUND`.
-//
-// `directoriesUnder` lets ELOOP THROW instead, and the difference is that it
-// has no second reader: a throw there names the path, where here the suite is
-// named anyway. `configFilesIn` refuses a dangling CONFIG-SHAPED name for a
-// reason of its own, which ADR-0103 carries under "the climb spelled as a
-// symlink a script NAMES".
-function resolvedPath(path: string): string {
-  const missing: string[] = [];
-  let found = path;
-  while (!existsSync(found)) {
-    const parent = dirname(found);
-    if (parent === found) return path;
-    missing.unshift(basename(found));
-    found = parent;
-  }
-  return join(realpathSync(found), ...missing);
-}
-
-// And the rule the sweep actually asks: `isInside`, put to the file the path
-// NAMES rather than to the path (CNCORE-202).
-//
-// A SYMLINK IS A SPELLING OF THAT CLIMB, and the path cannot see it: it is
-// local to read and foreign to load, and Vitest loads the file it names.
-//
-// BOTH SIDES ARE RESOLVED, OR NEITHER, and that is the trap which made
-// CNCORE-201 refuse by name instead of resolving. `packages/` may itself be a
-// symlink, so a resolved FILE compared against an unresolved DIRECTORY reads
-// every config in the repository as escaping. The row below pins it.
-//
-// THE WHOLE PATH IS RESOLVED RATHER THAN THE NAME lstat-ED, because the link
-// need not be the last segment: `--config ./vendored/shared.ts` climbs out
-// through a symlinked DIRECTORY, and an lstat on the file it names reads an
-// ordinary file and lets it past. A rule that reads one spelling of a thing is
-// what CNCORE-51 already cost this sweep once.
-//
-// The measurements behind all three -- that the shape runs, that the trap
-// fires, and what an lstat misses -- are in ADR-0103 under "the climb spelled
-// as a symlink a script NAMES", and are NOT restated here: a figure kept in two
-// places is a figure that drifts in one of them.
-function resolvesInside(directory: string, file: string): boolean {
-  return isInside(resolvedPath(directory), resolvedPath(file));
 }
 
 /** One suite: a package, one of its test scripts, and the config that runs it. */

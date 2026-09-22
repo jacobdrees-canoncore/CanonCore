@@ -141,14 +141,19 @@ sit between the step and Vitest and any one of them could have swallowed the fla
 keeps the `--`, turbo 2.10.13 hands what follows it to the task, and what the runner logged was
 `vitest run --config vitest.e2e.config.ts --exclude e2e/item-page-cost.test.ts`. It took the suite
 step from 191s to 62s and the job from 228s to 118s — **and the run's wall clock only from 243s to
-234s, because `e2e` goes on running that file and is the longest job either way.** Measured on runs
-35741009637 and 35742473820, 2026-09-22.
+234s, because `e2e` went on running that file and was the longest job either way.** Measured on runs
+35741009637 and 35742473820, 2026-09-22. **CNCORE-396 then gave the file a job of its own, `cost`,
+which asks for it by name — `run-suite.sh test:e2e -- e2e/item-page-cost.test.ts` — while `e2e`
+leaves it out as `provider` does,** so the two run concurrently rather than one inside the other.
 
 **WHAT NEITHER THE COUNT NOR THE ROLL CALL CAN SEE IS A FILE LEFT OUT OF EVERY JOB**, which would
 run nowhere with every job still green — the same shape of hole as a deleted script, one level down,
 since the task still runs and still reports a count. `ci-workflow.test.ts` holds it: no e2e file may
 be left out by every job that runs the suite, and what a job leaves out must still be a file that is
-there, or the exclusion is a saving that quietly went while the file ran on.
+there, or the exclusion is a saving that quietly went while the file ran on. **A job that NAMES files
+runs only those** (CNCORE-396): Vitest reads a positional argument as a filter matched by containment
+in the path, so the rule reads it that way too, over every file the suite's `include` collects —
+read as a job leaving nothing out, `cost` would have counted as running the whole suite.
 
 **The roll call is asked in one place and every other task is held by a suite, which is the whole
 mechanism rather than half of one.** `test @canoncore/config` is the case CNCORE-190 measured and

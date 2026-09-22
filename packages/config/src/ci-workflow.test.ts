@@ -27,7 +27,7 @@ import {
   workflow,
 } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
-import { packageScripts } from "./testing/vitest-configs";
+import { namedConfig, packageScripts, resolvesInside, testBlockOf } from "./testing/vitest-configs";
 
 /**
  * The exact ref every step must use, so that the input list below cannot
@@ -1085,7 +1085,7 @@ function e2eRoot(): string {
  * exists to hold exactly that, and its header names the Shotgun Surgery a
  * private copy here would be.
  */
-function e2eRuns(parsed: Workflow): { job: string; excluded: string[] }[] {
+function e2eRuns(parsed: Workflow): { job: string; excluded: string[]; filters: string[] }[] {
   const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const invocation = new RegExp(`(?:^|\\s)${guard}\\s+${E2E_TASK}(?![\\w:-])(.*)`, "g");
   return allSteps(parsed).flatMap(({ job, step }) =>
@@ -1095,9 +1095,64 @@ function e2eRuns(parsed: Workflow): { job: string; excluded: string[] }[] {
         if (word === "--exclude") return words.slice(index + 1, index + 2);
         return word.startsWith("--exclude=") ? [word.slice("--exclude=".length)] : [];
       });
-      return { job, excluded };
+      /*
+       * AND THE FILES IT NAMES, which is how a job runs ONE file (CNCORE-396).
+       * A positional argument is a Vitest filter, and a job that has any runs
+       * only the files one of them matches. Read as a job with nothing left out,
+       * it would count as running every file -- so the row below would report a
+       * file as covered by the job that names another. Only what follows `--`
+       * reaches Vitest; before it sits at most the roll call's package.
+       */
+      const forwarded = words.slice(words.indexOf("--") + 1);
+      const filters = words.includes("--")
+        ? forwarded.filter(
+            (word, index) => !word.startsWith("-") && forwarded[index - 1] !== "--exclude",
+          )
+        : [];
+      return { job, excluded, filters };
     }),
   );
+}
+
+/**
+ * The e2e files no job runs: every job leaves each one out, or names others.
+ *
+ * A FILTER MATCHES AS VITEST'S DOES, by containment in the file's path rather
+ * than as a glob -- so `item-page` names `item-page-cost.test.ts` too. The last
+ * row of this block drives Vitest to hold it to that.
+ */
+function filesRunNowhere(parsed: Workflow, files: string[]): string[] {
+  const runs = e2eRuns(parsed).map(({ excluded, filters }) => {
+    const leftOut = new Set(excluded.flatMap(filesMatching));
+    return (file: string) =>
+      !leftOut.has(file) &&
+      (filters.length === 0 || filters.some((filter) => filesNamedBy(filter, [file]).length > 0));
+  });
+  return files.filter((file) => !runs.some((runsIt) => runsIt(file)));
+}
+
+/**
+ * Every file the suite collects, off its own config's `include` (CNCORE-396).
+ * The files some job leaves out were enough while every job ran the whole suite
+ * less a few; a job that NAMES its files can miss one nobody left out.
+ */
+async function e2eFiles(): Promise<string[]> {
+  const root = e2eRoot();
+  const command = packageScripts().find(({ script }) => script === E2E_TASK)?.command ?? "";
+  const config = namedConfig(command);
+  if (config === undefined) throw new Error(`\`${E2E_TASK}\` names no Vitest config`);
+  // Imported, so held inside the package first: `namedConfig` says why.
+  if (!resolvesInside(root, join(root, config))) {
+    throw new Error(`\`${E2E_TASK}\` names \`${config}\`, which is not inside ${root}`);
+  }
+  const { include } = await testBlockOf(join(root, config));
+  if (include === undefined) throw new Error(`\`${config}\` sets no \`include\``);
+  return include.flatMap(filesMatching).sort();
+}
+
+/** The files of `files` a filter a job names matches, the way Vitest matches it. */
+function filesNamedBy(filter: string, files: string[]): string[] {
+  return files.filter((file) => file.includes(filter));
 }
 
 /** The files under the e2e root that a glob a job leaves out matches. */
@@ -1105,22 +1160,49 @@ function filesMatching(glob: string): string[] {
   return globSync(glob, { cwd: e2eRoot() });
 }
 
-describe("the e2e files a job leaves out", () => {
+describe("the e2e files a job leaves out or names", () => {
   /**
-   * A FILE LEFT OUT OF EVERY JOB RUNS NOWHERE, AND THAT IS GREEN. The
-   * `provider` job leaves out `item-page-cost.test.ts` because the `e2e` job
-   * already runs it, so the same exclusion copied to the `e2e` job would stop
-   * the measurement entirely with every job still passing -- the count in
+   * A FILE LEFT OUT OF EVERY JOB RUNS NOWHERE, AND THAT IS GREEN. The `e2e`
+   * and `provider` jobs leave out `item-page-cost.test.ts` because the `cost`
+   * job names it, so pointing that job at another file would stop the
+   * measurement entirely with every job still passing -- the count in
    * `run-suite.sh` cannot see it, because the task still runs and still reports
    * one.
    */
-  it("leaves no file out of every job that runs the suite", () => {
-    const runs = e2eRuns(workflow());
+  it("reads a job that names its files as running those files and no others", () => {
+    const run = (argumentsForVitest: string) => ({
+      steps: [{ run: `${SUITE_GUARD} ${E2E_TASK} -- ${argumentsForVitest}` }],
+    });
+    // Real files, because an exclusion is globbed against the tree.
+    const files = ["e2e/item-page-cost.test.ts", "e2e/search.test.ts"];
+
+    const divided = {
+      jobs: {
+        e2e: run("--exclude e2e/item-page-cost.test.ts"),
+        cost: run("e2e/item-page-cost.test.ts"),
+      },
+    };
+    expect(filesRunNowhere(divided, files)).toStrictEqual([]);
+
+    // THE CASE THE FILTER EXISTS TO CATCH: the job that names one file is not a
+    // job that runs every file, so leaving a second one out of `e2e` leaves it
+    // out of the run.
+    const dropped = {
+      jobs: {
+        e2e: run("--exclude e2e/item-page-cost.test.ts --exclude e2e/search.test.ts"),
+        cost: run("e2e/item-page-cost.test.ts"),
+      },
+    };
+    expect(filesRunNowhere(dropped, files)).toStrictEqual(["e2e/search.test.ts"]);
+  });
+
+  it("leaves no file out of every job that runs the suite", async () => {
+    const parsed = workflow();
     // Not vacuous: over no runs at all, nothing is left out of every one.
-    expect(runs.map(({ job }) => job)).toContain("e2e");
-    const leftOut = runs.map(({ excluded }) => new Set(excluded.flatMap(filesMatching)));
-    const nowhere = [...(leftOut[0] ?? [])].filter((file) => leftOut.every((set) => set.has(file)));
-    expect(nowhere).toStrictEqual([]);
+    expect(e2eRuns(parsed).map(({ job }) => job)).toContain("e2e");
+    const files = await e2eFiles();
+    expect(files).toContain("e2e/item-page-cost.test.ts");
+    expect(filesRunNowhere(parsed, files)).toStrictEqual([]);
   });
 
   /**
@@ -1134,27 +1216,37 @@ describe("the e2e files a job leaves out", () => {
    * row above under-reporting what a job leaves out -- silently, which the dead
    * exclusion below at least is not.
    */
-  it("leaves out only files that are there, named as a relative glob", () => {
-    const exclusions = e2eRuns(workflow()).flatMap(({ job, excluded }) =>
-      excluded.map((glob) => ({ job, glob })),
-    );
-    // Not vacuous: the `provider` job leaves one file out today. Put it back
-    // and this row has nothing to check, which is when to delete it.
-    expect(exclusions).not.toStrictEqual([]);
-    const misshapen = exclusions
+  it("leaves out and names only files that are there, as relative globs", async () => {
+    const files = await e2eFiles();
+    const named = e2eRuns(workflow()).flatMap(({ job, excluded, filters }) => [
+      ...excluded.map((glob) => ({ job, glob, verb: "leaves out", matches: filesMatching(glob) })),
+      ...filters.map((glob) => ({
+        job,
+        glob,
+        verb: "names",
+        matches: filesNamedBy(glob, files),
+      })),
+    ]);
+    // Not vacuous: the `e2e` and `provider` jobs leave one file out today, and
+    // the `cost` job names it. Put all three back and this row has nothing to
+    // check, which is when to delete it.
+    expect(named).not.toStrictEqual([]);
+    const misshapen = named
       .filter(
         ({ glob }) =>
           /^["']|["']$/.test(glob) || glob.startsWith("/") || glob.split("/").includes(".."),
       )
       .map(
-        ({ job, glob }) =>
-          `the \`${job}\` job leaves out \`${glob}\`, which is not a relative unquoted glob, so ` +
+        ({ job, glob, verb }) =>
+          `the \`${job}\` job ${verb} \`${glob}\`, which is not a relative unquoted glob, so ` +
           `what this job runs cannot be read off it`,
       );
     expect(misshapen).toStrictEqual([]);
-    const dead = exclusions
-      .filter(({ glob }) => filesMatching(glob).length === 0)
-      .map(({ job, glob }) => `the \`${job}\` job leaves out \`${glob}\`, which matches no file`);
+    const dead = named
+      .filter(({ matches }) => matches.length === 0)
+      .map(
+        ({ job, glob, verb }) => `the \`${job}\` job ${verb} \`${glob}\`, which matches no file`,
+      );
     expect(dead).toStrictEqual([]);
   });
   /**
@@ -1213,6 +1305,13 @@ describe("the e2e files a job leaves out", () => {
       // failure in the run, where an exclusion that dropped files indiscriminately
       // would have gone green here too.
       expect(withoutThePass.status, `${withoutThePass.stdout}${withoutThePass.stderr}`).not.toBe(0);
+
+      // AND A NAMED FILE IS THE ONLY ONE RUN (CNCORE-396), matched by
+      // CONTAINMENT, which is how `filesRunNowhere` reads it: `ept` is neither
+      // a glob nor a name that matches `kept.test.ts`, only a part of its path.
+      // Green is the failing file left uncollected.
+      const onlyTheNamed = vitest(["ept"]);
+      expect(onlyTheNamed.status, `${onlyTheNamed.stdout}${onlyTheNamed.stderr}`).toBe(0);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }

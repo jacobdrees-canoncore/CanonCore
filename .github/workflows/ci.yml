@@ -457,7 +457,7 @@ jobs:
   e2e:
     name: The page over HTTP
     runs-on: ubuntu-latest
-    timeout-minutes: 13
+    timeout-minutes: 6
     services:
       # As above: a real server, matching packages/db/docker-compose.yml.
       postgres:
@@ -482,8 +482,67 @@ jobs:
       # Builds Next, starts it, and asks it for /items/<id> over real HTTP. The
       # only check in the repo that fails if the page is unreachable: every
       # other suite passes with the app never having been served.
+      #
+      # LESS THE COST MEASUREMENT, which the `cost` job below runs beside this
+      # one rather than inside it (CNCORE-396).
       - name: The page over HTTP, and a count that says a suite ran
-        run: .github/scripts/run-suite.sh test:e2e
+        run: .github/scripts/run-suite.sh test:e2e -- --exclude e2e/item-page-cost.test.ts
+
+  # WHAT AN ITEM PAGE COSTS THE DATABASE, IN A JOB OF ITS OWN (CNCORE-396).
+  # `item-page-cost.test.ts` is one file of the e2e suite and most of its time:
+  # 137 of the `e2e` job's 190 seconds of suite on run 35742473820, because each
+  # figure starts and stops a server inside the window it counts (ADR-0103). Run
+  # inside `e2e` it made that job the pipeline's longest, and nothing waited on
+  # it but the pull request, so it runs here concurrently instead. A job costs
+  # nothing on a public repository (ADR-0111).
+  #
+  # WHAT IT BOUGHT IS SMALLER THAN THE DERIVATION SAID, and measured rather
+  # than derived: on runs 35797211718 and 35797639495 `e2e` took 99s and 105s
+  # against 234s, but this job took 213s both times where ~175s was expected,
+  # because the file alone ran 167s here against 137s inside the whole suite --
+  # `global-setup.ts` stands up every file's instances whichever files run. So
+  # this job is the pole now, and the run's wall clock went from 234s to 224s
+  # and 217s.
+  #
+  # IT RUNS ON EVERY PULL REQUEST, AND THAT IS CHOSEN. A nightly or `main`-only
+  # run would take it off the critical path entirely, but a regression on the
+  # read path would then be found after its merge rather than before it; this
+  # buys what wall clock it does without trading any coverage. And it is not
+  # selected by a path filter, for the reason
+  # `docs/research/ci-path-filters-and-the-skipped-verdict.md` gives.
+  #
+  # IT IS THE SAME SUITE ASKED FOR ONE FILE, not a script of its own, so
+  # `ci-workflow.test.ts` can see it: no e2e file may be left out of every job
+  # that runs the suite, and a job that NAMES a file runs only that file.
+  cost:
+    name: What an item page costs the database
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    services:
+      # As above: a real server, matching packages/db/docker-compose.yml.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+      # `global-setup.ts` builds and stands up the whole suite's instances
+      # whichever files run, so this job pays that too.
+      - name: The item page's cost, and a count that says a suite ran
+        run: .github/scripts/run-suite.sh test:e2e -- e2e/item-page-cost.test.ts
 
   browser:
     name: The page in a browser
@@ -492,7 +551,7 @@ jobs:
     # ITS OWN JOB, WHICH IS CNCORE-73's FIRST ACCEPTANCE CRITERION, and it was
     # decided against the duplicated setup rather than against money: CNCORE-80
     # established that standard runners are free in a public repository, so the
-    # fifteen jobs this workflow runs cost $0.00 between them, split or folded
+    # sixteen jobs this workflow runs cost $0.00 between them, split or folded
     # (ADR-0111, corrected).
     #
     # WHAT IT DUPLICATES IS ONE INSTANCE, not the eleven `The page over HTTP`
@@ -772,12 +831,12 @@ jobs:
       # from 191s to 62s and 57s, and this job to 118s and 93s, on the two runs
       # after it (35742473820 and 35795564409).
       #
-      # WHAT IT DOES NOT BUY IS WALL CLOCK, and the honest half is saying so:
-      # `The page over HTTP` still runs this file and is still the pipeline's
-      # longest job, unmoved at 231s, 234s and 228s across those three runs. A
-      # run's own total is noisier than that -- 243s, 234s, 265s -- because job
-      # start times skew, which is why the pole is what this claim rests on.
-      # What is gone is a duplicate, not the pole.
+      # WHAT IT DID NOT BUY WAS WALL CLOCK: `The page over HTTP` still ran this
+      # file and stayed the pipeline's longest job, unmoved at 231s, 234s and
+      # 228s across those three runs. A run's own total is noisier than that --
+      # 243s, 234s, 265s -- because job start times skew, which is why the pole
+      # is what that claim rested on. What went was a duplicate, not the pole;
+      # CNCORE-396 gave the file the `cost` job, which is the pole now instead.
       #
       # `ci-workflow.test.ts` fails if a file is left out of every job that runs
       # this suite, and if what a job leaves out stops existing.
