@@ -767,10 +767,17 @@ jobs:
       # `item-page-cost.test.ts` counts the statements an item page sends the
       # database, against a catalogue and servers of its own, and never asks a
       # provider anything. So running it here checked nothing the `e2e` job had
-      # not, and it was the longest thing CI did: 137.1 of this job's 231
-      # seconds on run 35607303156. `ci-workflow.test.ts` fails if a file is
-      # left out of every job that runs this suite, and if what a job leaves
-      # out stops existing.
+      # not, and it was the longest thing CI did: 136.7 of this job's 228
+      # seconds, measured on run 35741009637. Leaving it out took the suite step
+      # from 191s to 62s and this job to 118s on run 35742473820.
+      #
+      # WHAT IT DOES NOT BUY IS WALL CLOCK, and the honest half is saying so:
+      # `The page over HTTP` still runs this file and is still the pipeline's
+      # longest job, so the run as a whole went 243s to 234s. What is gone is a
+      # duplicate, not the pole.
+      #
+      # `ci-workflow.test.ts` fails if a file is left out of every job that runs
+      # this suite, and if what a job leaves out stops existing.
       #
       # AND THE COUNT MATTERS MOST HERE. This job's whole difference from the
       # `e2e` job above is which process answers CMPP, so a suite that ran zero

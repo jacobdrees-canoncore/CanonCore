@@ -311,11 +311,21 @@ expensive one, correctly built, sitting on the critical path of every run.
 Both are ordinary changes to which suite runs where. Neither skips a check, neither touches
 `gate.sh`, and both speed up **100% of runs** rather than the 7.5% a path filter could reach.
 
-**A figure worth stating precisely: removing the duplicate alone takes the pipeline's slowest job
-from 231s to roughly 105s.** Derived: the suite step is 194s, of which 56.9s is overhead (build,
-server starts, seeding) and 137.1s is this file as the long pole; the longest remaining file is
-`instance.test.ts` at 11.4s, so the suite lands near 68s and the job near 105s. That is a larger latency win than every path-filtering proposal in this
-document combined, and it costs no coverage at all.
+**A figure worth stating precisely: removing the duplicate alone takes the `provider` job from 231s
+to roughly 105s.** Derived: the suite step is 194s, of which 56.9s is overhead (build, server
+starts, seeding) and 137.1s is this file as the long pole; the longest remaining file is
+`instance.test.ts` at 11.4s, so the suite lands near 68s and the job near 105s. It costs no
+coverage at all.
+
+> **THAT SENTENCE SAID "the pipeline's slowest job" AND THAT WAS WRONG, corrected here on
+> 2026-09-22 by CNCORE-343, which made the change and measured it.** The job it describes is
+> `provider`; the pipeline's SLOWEST job is `e2e`, and `e2e` is the one that goes on running this
+> file. The derivation of the job itself held up well — measured 118s against the 105s predicted,
+> the suite step 191s to 62s — but the run's wall clock moved 243s to 234s, which is noise. **So
+> removing the duplicate buys compute and not latency**, and the latency claim in §9.2 below
+> belongs to the SECOND change rather than the first: until the measurement has a job of its own,
+> or leaves `e2e` too, something still spends 137s counting statements on the critical path. Both
+> runs are on the same commit's tree, an hour apart: 35741009637 before, 35742473820 after.
 
 **This note does not propose the change**, because sequencing suites across jobs is not what
 CNCORE-341 asked about and the constraint in `global-setup.ts` — the counted catalogue is built for
@@ -711,8 +721,8 @@ asks for unless the note justifies otherwise, and for path filtering the note do
 
 | Do this | Buys | Costs |
 |---|---|---|
-| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343) | ~137s off the slowest job, on **every** run | Nothing. It counts database statements and never touches a provider (§6A) |
-| **Give the cost measurement its own job** | The remaining e2e suite drops to ~53s of work | A job, which is free here (§4) |
+| **Stop running `item-page-cost.test.ts` in the `provider` job** (CNCORE-343, done 2026-09-22) | Measured: 110s off the `provider` job, on **every** run. **No latency**: the `e2e` job is the pole and keeps the file, so the wall clock went 243s to 234s (§6A.2) | Nothing. It counts database statements and never touches a provider (§6A) |
+| **Give the cost measurement its own job** | The latency the row above does not buy: the `e2e` job's remaining files are ~53s of work | A job, which is free here (§4) |
 | **Make `gate.sh` refuse a commit whose RUN concluded `failure`** (CNCORE-342) | A hang stops reporting `PASSED` | One extra API call per run. Measured and ready to specify (§10.1) |
 | Path filters, in any form | ~8.5 min per ten days | A new mechanism in the merge path, and §8.1's trap |
 
