@@ -15,6 +15,7 @@ import {
   properties,
   sources,
   statements,
+  type Writer,
 } from "../index";
 import { MARKER } from "../worktree-database";
 
@@ -757,4 +758,32 @@ export async function emptyCatalogue(db: Database): Promise<void> {
     );
   }
   await db.execute(sql`TRUNCATE TABLE ${items}, ${placements} CASCADE`);
+}
+
+/**
+ * Until some backend is blocked by the one `holder` runs on, watched from `db`.
+ *
+ * BLOCKED BY THAT ONE, NOT MERELY WAITING ON SOME LOCK. Any lock wait in the
+ * database would let the holder commit before the other write had read, and a
+ * test forcing an interleaving would then pass against the version it exists to
+ * refuse.
+ *
+ * WATCHED FROM A SECOND HANDLE, because a backend's view of `pg_stat_activity`
+ * is fixed for the rest of its transaction once taken: asked from inside the
+ * holder, the answer would never change.
+ *
+ * NO LIMIT OF ITS OWN. The other write opens its connection inside this wait,
+ * and a first connection has taken 5,004ms on a busy machine (CNCORE-280), so
+ * the test's thirty-second timeout is the bound.
+ */
+export async function untilSomebodyWaitsOn(db: Database, holder: Writer): Promise<void> {
+  const { rows } = await holder.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+  const pid = rows[0]?.pid;
+  for (;;) {
+    const { rowCount } = await db.execute(
+      sql`select 1 from pg_stat_activity where ${pid}::int = any(pg_blocking_pids(pid))`,
+    );
+    if (rowCount !== 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }

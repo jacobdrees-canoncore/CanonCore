@@ -155,6 +155,16 @@ become is the cheap-looking repair -- a reader that splits the entries WITHOUT v
 because that is this record's "one rule in two places is two rules that drift", arriving as a
 kindness.
 
+**A WRITE THAT CHANGES THE LIST HOLDS THE ROW FROM ITS READ TO ITS WRITE (CNCORE-391).** Naming and
+removing a Provider compute the next list from the stored one, and did it as a read on the pool
+and a second statement to write, so two at once each read the list before the other wrote and one
+Provider went, with no error. `changeProviderUrls` reads the row `FOR UPDATE` inside the write's
+transaction, and takes the change as a function because the rule for what a list becomes lives in
+`@canoncore/providers`, which the store does not depend on. The one-statement alternative would
+have put that rule in SQL, as a second copy of the parser. The wholesale edits, `editProviders` and
+`editAllowlist`, read nothing and need nothing held. Two of them at once are ordinary
+last-writer-wins.
+
 **AND THE READ IS LAZY, WHICH IS NOT AN OPTIMISATION.** `createContext` reads the settings when
 something asks what this instance reaches, rather than when a request arrives. Most requests never
 ask — an item page, the catalogue, a health check, a refusal — and an eager read would have put a

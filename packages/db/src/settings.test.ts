@@ -1,9 +1,8 @@
-import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, readProviderSettings, type Writer, writeProviderSettings } from "./index";
+import { type Database, readProviderSettings, writeProviderSettings } from "./index";
 import { settings } from "./schema";
-import { connect, theOwner } from "./testing/catalogue";
+import { connect, theOwner, untilSomebodyWaitsOn } from "./testing/catalogue";
 
 let db: Database;
 
@@ -130,7 +129,7 @@ describe("what the owner configured", () => {
         // Awaited below; this only stops a failure inside it reading as an
         // unhandled rejection during the wait.
         named.catch(() => {});
-        await untilSomebodyWaitsOn(tx);
+        await untilSomebodyWaitsOn(db, tx);
       });
       await named;
 
@@ -144,29 +143,6 @@ describe("what the owner configured", () => {
     }
   });
 });
-
-/**
- * Until some backend is blocked by the one `holder` runs on.
- *
- * BLOCKED BY THAT ONE, NOT MERELY WAITING ON SOME LOCK. Any lock wait in the
- * database would let the holder commit before the other write had read, and
- * the test would then pass against the merging version too.
- *
- * NO LIMIT OF ITS OWN. The other write opens its connection inside this wait,
- * and a first connection has taken 5,004ms on a busy machine (CNCORE-280), so
- * the test's thirty-second timeout is the bound.
- */
-async function untilSomebodyWaitsOn(holder: Writer): Promise<void> {
-  const { rows } = await holder.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
-  const pid = rows[0]?.pid;
-  for (;;) {
-    const { rowCount } = await db.execute(
-      sql`select 1 from pg_stat_activity where ${pid}::int = any(pg_blocking_pids(pid))`,
-    );
-    if (rowCount !== 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-}
 
 /**
  * THE CEREMONY ADR-0075 ASKS OF EVERY TABLE, on the one this rung adds.

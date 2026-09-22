@@ -35,7 +35,7 @@ export interface ProviderSettings {
  */
 const NOTHING_CONFIGURED: ProviderSettings = { providerUrls: "", providerAllowlist: "" };
 
-/** What a caller of either function below is answered: the settings, and nothing else. */
+/** What a caller of any function below is answered: the settings, and nothing else. */
 const WHAT_IS_CONFIGURED = {
   providerUrls: settings.providerUrls,
   providerAllowlist: settings.providerAllowlist,
@@ -107,4 +107,39 @@ export async function writeProviderSettings(
 
   if (!written) throw new Error("the settings write returned no row");
   return written;
+}
+
+/**
+ * Changes the Providers setting by what it holds now, with the row held.
+ *
+ * FOR THE WRITES THAT ARE A CHANGE TO THE LIST RATHER THAN A NEW ONE (CNCORE-391).
+ * Naming a Provider and removing one each compute the next list from the list
+ * as it stands. Read on the pool and written back in a second statement, two
+ * such changes at once each read the list before the other wrote it, and the
+ * second wrote back a list that did not have the first in it: one Provider
+ * gone, with no error anywhere. The read here is `FOR UPDATE` inside the write's
+ * own transaction, so a second change waits for the first to commit and then
+ * reads the list it left.
+ *
+ * THE CHANGE IS A FUNCTION THE CALLER HANDS IN, because the rule for what a
+ * list becomes lives in `@canoncore/providers` and this package does not depend
+ * on it (see `ProviderSettings`). Whatever it throws rolls the transaction back
+ * and reaches the caller unchanged, so a refusal still changes nothing.
+ * What it returns is stored unread, so it must be what a parser answered: the
+ * store is validated at its only writer (ADR-0121), and this is that writer's
+ * hand, not a second one.
+ *
+ * NOTHING TO LOCK ON AN UNCONFIGURED INSTANCE, and that race stays the loud one
+ * `writeProviderSettings` describes: two first changes both insert, and
+ * `settings_single_row` refuses the second.
+ */
+export async function changeProviderUrls(
+  writer: Writer,
+  change: (providerUrls: string) => string,
+): Promise<ProviderSettings> {
+  return writer.transaction(async (tx) => {
+    const [row] = await tx.select(WHAT_IS_CONFIGURED).from(settings).for("update");
+    const configured = row ?? NOTHING_CONFIGURED;
+    return writeProviderSettings(tx, { providerUrls: change(configured.providerUrls) });
+  });
 }
