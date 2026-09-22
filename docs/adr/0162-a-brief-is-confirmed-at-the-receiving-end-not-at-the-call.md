@@ -4,7 +4,8 @@ status: accepted
 
 # A brief is confirmed at the receiving end, not at the call that sent it
 
-> **ACCEPTED 2026-09-20, whole, in one repository.** The dispatch loop now confirms a brief where it
+> **ACCEPTED 2026-09-20, whole, in the skills repository since 2026-09-22,** when the `dispatch`
+> skill and its scripts moved there from this one. The dispatch loop now confirms a brief where it
 > lands rather than where it was sent. **BUILT AS A CHECK: the binding channel only** — `monitor.sh`
 > emits `UNBOUND` for a worktree carrying no Linear binding, in every repo the dispatcher runs since
 > [[0192-a-cross-repo-tickets-provider-half-gets-a-worktree-of-its-own]] (CanonCore's alone until

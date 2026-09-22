@@ -306,7 +306,7 @@ built here, by an authenticated `gh api` since CNCORE-319, above), reads
 Its `merge-if-green.sh` runs it and merges only on its exit status, with nothing
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
-`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
+The `dispatch` skill's `merge-gate.test.ts` drives both through a stubbed `gh` and `git` over
 twenty-four scenarios (twenty-one as built here, and CNCORE-319's three), including #210's own
 world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in the `dispatch` skill's `SKILL.md`, `.claude/rules/workflows.md` and

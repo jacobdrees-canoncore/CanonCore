@@ -13,8 +13,8 @@ PR merges. The agent works in them and never in a repo's main checkout, which st
 
 `monitor.sh` watches both halves where a script can. `PARKED <repo> <branch>` names a main checkout
 standing anywhere but `main`, and names one it cannot read. `UNBOUND` reads the worktrees of every
-repo in `REPOS` rather than CanonCore's alone, and prints each as `<repo>/<worktree>`.
-`packages/config/src/dispatch-monitor.test.ts` runs one pass of the real script against a stubbed
+repo the dispatch spans rather than CanonCore's alone, and prints each as `<repo>/<worktree>`.
+The `dispatch` skill's `dispatch-monitor.test.ts` runs one pass of the real script against a stubbed
 world and pins both lines.
 
 ## What happened: one problem, three answers, one wave

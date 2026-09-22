@@ -14,12 +14,21 @@ docker inspect <app> --format '{{.Created}}'              # against main's newes
 ```
 
 The first asks whether the stored state is current; the second asks whether the running build is.
-**They fail apart.** A ticket carrying no migration moves the image and not the ladder, so the rungs
-agree while the app is old. On 2026-09-20 the second run of this gate read 22 rungs against 22 files
-while the image was ten minutes older than CNCORE-239's merge, which had shipped two `apps/web` files
-and no SQL. The ladder is not a proxy for the build.
+They fail apart, and the skill carries the measurement that showed it.
 
 Behind on either → the spec is not closed. Update it, then walk it.
+
+## Enumerating the surfaces
+
+The skill walks every surface the filesystem shows, not the ones memory holds. Here the surfaces are
+the web app's routes:
+
+```sh
+find apps/web/src/app -name page.tsx -o -name route.ts   # 11 routes, 2026-09-20
+```
+
+**WALK THEM LOGGED IN.** Five of eleven routes render a refusal and nothing else until a session
+exists; every write surface, the provider list and the account are invisible logged out.
 
 ## The throwaway, and why its own project name is not enough
 

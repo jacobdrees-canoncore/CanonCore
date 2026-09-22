@@ -11,7 +11,7 @@ import { blocksOf, sentencesOf } from "./testing/sentences";
 /**
  * A HAZARD SENTENCE CARRIES WHAT IT COSTS, IN THE SENTENCE ITSELF (CNCORE-306).
  *
- * `CLAUDE.md`, `.claude/skills/dispatch/SKILL.md` and ADR-0162 each tell a
+ * `CLAUDE.md`, the `dispatch` skill's `SKILL.md` and ADR-0162 each tell a
  * dispatcher that a mid-turn `orca terminal send --enter` queues and that
  * `ctrl+x ctrl+s` flushes it. All three were true and all three were
  * INCOMPLETE: none said the flush also INTERRUPTS the turn in progress, which

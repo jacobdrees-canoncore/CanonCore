@@ -7,7 +7,7 @@ status: accepted
 > **ACCEPTED 2026-09-21, for CanonCore.** The mechanism is whole, which is what this status means
 > here: `retire.sh` sits beside `merge-if-green.sh` in the `dispatch` skill, it does the
 > comparison, the refusals, the removal, the database drop and the auxiliary scan,
-> `packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds built from a
+> the skill's `worktree-retirement.test.ts` drives it over twenty-five worlds built from a
 > real bare origin, a real linked worktree and a real squash merge, and both documents that used to
 > state this rule now point at it. `proposed` was written here first and corrected on review:
 > [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] records that standing `proposed`
@@ -157,7 +157,7 @@ The `dispatch` skill's `retire.sh` compares content, explains a difference as `m
 `ticket-named` or stops on it, refuses a main checkout, refuses uncommitted and unpushed work,
 scans the registrations, removes the worktree, drops the databases where the checkout has them, and
 reports one line per file and one verdict line with a non-zero exit on everything but `RETIRED`.
-`packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds at the script's
+The `dispatch` skill's `worktree-retirement.test.ts` drives it over twenty-five worlds at the script's
 own process boundary, with `orca` and `pnpm` stubbed on `PATH`; the STOP is measured in twelve of
 them, including the world where `main` edited the file later but never took the branch's version.
 
