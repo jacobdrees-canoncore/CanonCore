@@ -96,9 +96,10 @@ function scratchWorkspace(task = "test", filter?: string): string {
 
 /**
  * What a package declares for the task: one that passes, one that fails, one
- * that passes while writing more than a pipe holds, or none at all.
+ * that passes while writing more than a pipe holds, one that says what it was
+ * handed, or none at all.
  */
-type Suite = "passes" | "fails" | "deleted" | "chatty";
+type Suite = "passes" | "fails" | "deleted" | "chatty" | "echoes";
 
 const COMMANDS: Record<Suite, string | undefined> = {
   passes: 'node --eval ""',
@@ -108,6 +109,10 @@ const COMMANDS: Record<Suite, string | undefined> = {
   // large-sounding one: 20,000 lines is well past the 64 KiB a pipe holds, and
   // the hazard the row using this is about only exists once the writer blocks.
   chatty: 'node --eval "for(let i=0;i<20000;i++)console.log(i)"',
+  // `echo` RATHER THAN `node --eval`, because node reads a flag after its
+  // script as one of its OWN options and refuses it -- so the suite would fail
+  // on the very arguments it exists to print.
+  echoes: "echo forwarded:",
 };
 
 function declares(
@@ -136,9 +141,18 @@ function declares(
 function runGuard(
   root: string,
   task = "test",
-  { env = {}, required }: { env?: Record<string, string>; required?: string } = {},
+  {
+    env = {},
+    required,
+    forwarded,
+  }: { env?: Record<string, string>; required?: string; forwarded?: string[] } = {},
 ): { status: number | null; output: string } {
-  const run = spawnSync(guard, required === undefined ? [task] : [task, required], {
+  const args = [
+    task,
+    ...(required === undefined ? [] : [required]),
+    ...(forwarded === undefined ? [] : ["--", ...forwarded]),
+  ];
+  const run = spawnSync(guard, args, {
     cwd: root,
     encoding: "utf8",
     env: { ...process.env, ...env },
@@ -334,6 +348,27 @@ describe("the guard a CI suite job runs behind", () => {
     expect(status, output).not.toBe(0);
     expect(output).not.toContain("ran no tasks at all");
   });
+
+  /**
+   * WHAT FOLLOWS `--` REACHES THE SUITE (CNCORE-343), which is how the
+   * `provider` job leaves out the one e2e file that never touches a provider.
+   *
+   * THE LINE THE SUITE PRINTED, not the command pnpm echoes before running it.
+   * Both carry the arguments, and only one of them says the suite received
+   * them, so the match is anchored where pnpm's `$ echo ...` cannot satisfy it.
+   */
+  it.each(Object.entries(OUTPUT_MODES))(
+    "hands what follows `--` to the suite, and still counts it (%s)",
+    (_mode, env) => {
+      declares(root, "echoes");
+      const { status, output } = runGuard(root, "test", {
+        env,
+        forwarded: ["--exclude", "e2e/cost.test.ts"],
+      });
+      expect(status, output).toBe(0);
+      expect(output).toMatch(/^(?:one:test: )?forwarded: --exclude e2e\/cost\.test\.ts$/m);
+    },
+  );
 });
 
 /**

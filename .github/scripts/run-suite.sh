@@ -76,12 +76,21 @@
 # script against a workspace with the test script and then without it, so the
 # red is demonstrated instead of asserted (CNCORE-160).
 #
-# Usage: .github/scripts/run-suite.sh <turbo task> [package that must have run it]
+# Usage: .github/scripts/run-suite.sh <turbo task> [package that must have run it] [-- arguments]
 
 set -euo pipefail
 
 task=${1:?run-suite.sh needs the name of a turbo task}
-required=${2-}
+shift
+
+# THE PACKAGE IS OPTIONAL, SO `--` IN ITS PLACE IS WHERE THE ARGUMENTS START
+# rather than a package called that: read as one, the roll call below would ask
+# for `--` and redden a run that was fine.
+required=
+if (($#)) && [[ $1 != -- ]]; then
+  required=$1
+  shift
+fi
 
 # ASSERTED RATHER THAN ASSUMED, for the reason `testing/turbo-dry-run.ts` gives
 # about the same hazard: a name beginning with `-` reaches pnpm's argument
@@ -103,7 +112,14 @@ stripped() { sed $'s/\033\[[0-9;]*m//g' "$log"; }
 # `pipefail` is what keeps the suite's OWN failure fatal: `tee` succeeds
 # whatever it is fed, so without it the pipeline reports tee's status and a
 # failing suite reaches the count check as a pass.
-pnpm "$task" 2>&1 | tee "$log"
+#
+# WHAT IS LEFT IS HANDED TO PNPM AS WRITTEN, THE `--` INCLUDED (CNCORE-343).
+# pnpm keeps it, and it is the separator turbo needs to pass the rest on to the
+# task, so `run-suite.sh test:e2e -- --exclude <file>` reaches Vitest as
+# `--exclude <file>`. Measured on pnpm 12.3.4 and turbo 2.10.13. A root script
+# already ending in `--`, as the `db:` ones do, would get a second one; nothing
+# forwards to those.
+pnpm "$task" "$@" 2>&1 | tee "$log"
 
 # The count turbo prints, not the exit code it does not use.
 #
