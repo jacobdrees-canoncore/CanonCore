@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, readProviderSettings, writeProviderSettings } from "./index";
+import { type Database, readProviderSettings, type Writer, writeProviderSettings } from "./index";
 import { settings } from "./schema";
 import { connect, theOwner } from "./testing/catalogue";
 
@@ -105,7 +105,7 @@ describe("what the owner configured", () => {
    * TWO WRITES AT ONCE, ONE SETTING EACH, AND BOTH SURVIVE (CNCORE-386).
    *
    * THE ORDER IS FORCED RATHER THAN HOPED FOR, and that is why this test can
-   * fail where the `Promise.all` race written under CNCORE-99 could not. The
+   * fail where the `Promise.all` race CNCORE-386 describes could not. The
    * allowlist's write stays open in a transaction holding the row, so the
    * provider's write reads the row as it stood before, and parks on its UPDATE
    * until the allowlist commits. A write that puts both columns back then
@@ -130,7 +130,7 @@ describe("what the owner configured", () => {
         // Awaited below; this only stops a failure inside it reading as an
         // unhandled rejection during the wait.
         named.catch(() => {});
-        await untilAWriteIsWaitingOnTheRow();
+        await untilSomebodyWaitsOn(tx);
       });
       await named;
 
@@ -146,19 +146,26 @@ describe("what the owner configured", () => {
 });
 
 /**
- * Until a backend in this database is parked on a lock. `fileParallelism:
- * false` is what makes one enough: no other file is writing here.
+ * Until some backend is blocked by the one `holder` runs on.
+ *
+ * BLOCKED BY THAT ONE, NOT MERELY WAITING ON SOME LOCK. Any lock wait in the
+ * database would let the holder commit before the other write had read, and
+ * the test would then pass against the merging version too.
+ *
+ * NO LIMIT OF ITS OWN. The other write opens its connection inside this wait,
+ * and a first connection has taken 5,004ms on a busy machine (CNCORE-280), so
+ * the test's thirty-second timeout is the bound.
  */
-async function untilAWriteIsWaitingOnTheRow(): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const { rows } = await db.execute<{ waiting: string }>(
-      sql`select count(*) as waiting from pg_stat_activity
-          where datname = current_database() and wait_event_type = 'Lock'`,
+async function untilSomebodyWaitsOn(holder: Writer): Promise<void> {
+  const { rows } = await holder.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+  const pid = rows[0]?.pid;
+  for (;;) {
+    const { rowCount } = await db.execute(
+      sql`select 1 from pg_stat_activity where ${pid}::int = any(pg_blocking_pids(pid))`,
     );
-    if (Number(rows[0]?.waiting ?? 0) >= 1) return;
+    if (rowCount !== 0) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error("waited for a write parked on the settings row and never saw one");
 }
 
 /**

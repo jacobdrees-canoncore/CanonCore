@@ -86,11 +86,7 @@ export async function writeProviderSettings(
    * named would lose one edit to the other's stale read, with no error
    * anywhere. A column nobody changed is now a column no statement mentions.
    *
-   * A TEST PINS IT, and the one that could not is worth knowing about before
-   * somebody writes another. Two calls raced with `Promise.all` passed against
-   * the merging version too, because nothing made one call read before the
-   * other wrote. `settings.test.ts` forces that order with a transaction
-   * holding the row, and goes red on every run without this.
+   * A TEST PINS IT, in `settings.test.ts`, and says why a plain race could not.
    *
    * `settings_single_row` IS WHAT MAKES THE OTHER RACE LOUD, and it is a
    * different one. Two writes arriving at an UNCONFIGURED instance at once
