@@ -274,10 +274,29 @@ If this team has GitHub PR automation configured, these transitions happen on th
 | Review requested or review activity | In Review |
 | PR merged | Done; a ticket with THREE OR MORE PRs has stayed In Review, three times of three (ADR-0192) |
 
-Do not set these states by hand with `orca linear status set`. Open the PR and let the automation
-fire; setting it manually hides whether the linkage actually works. The one exception is the
-ticket with three or more PRs above: the dispatcher reads its state back after the last merge, and
-sets `Done` only if the automation did not.
+These fire only in a repository Linear's GitHub integration is connected to. A merge anywhere else
+moves nothing, whatever the PR count.
+
+**The dispatcher writes `In Progress` itself, at worktree creation, in every repo.** No PR event
+covers the window between a worktree being created and its PR opening, and an unconnected repo gets
+no events at all, so without that write a dispatched ticket reads `Todo` while its agent works. The
+create block in the `dispatch` skill makes it, and reads it back.
+
+Past that, do not set these states by hand with `orca linear status set`. Open the PR and let the
+automation fire; setting it manually hides whether the linkage actually works. There are two
+exceptions, both after a merge and both read before they write: the dispatcher reads the ticket's
+state back and sets `Done` only if the automation did not.
+
+- **A ticket with three or more PRs**, after the last of them merges (the table above).
+- **A ticket whose repo is outside the connected set**, after its PR merges, because no event will
+  ever close it.
+
+**The linkage is checked on the later transitions, not the draft-PR move**, since the dispatcher's
+write has already made that one. `orca linear issue <id> --activity --json` lists each state change
+with its actor, and in a connected repo `In Progress -> In Review` and `In Review -> Done` carry
+`kind: bot`, `subType: github`. A ticket whose PR is out of draft with no such change is in a repo
+the integration does not reach. CNCORE-343 has both; CNCORE-385, in the skills repo, has neither,
+every one of its moves by a user (read 2026-09-25).
 
 Link a PR to an issue by putting the identifier in the branch name (Orca does this when a
 worktree is created with `--linear-issue`) or by a magic word in the PR body:
