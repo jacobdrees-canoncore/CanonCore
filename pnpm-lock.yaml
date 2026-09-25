@@ -168,11 +168,11 @@ catalogs:
       specifier: ^17.4.2
       version: 17.4.2
     drizzle-kit:
-      specifier: ^0.31.10
-      version: 0.31.10
+      specifier: ^0.31.11
+      version: 0.31.11
     drizzle-orm:
-      specifier: ^0.45.2
-      version: 0.45.2
+      specifier: ^0.45.3
+      version: 0.45.3
     edtf:
       specifier: ^4.11.1
       version: 4.11.1
@@ -350,7 +350,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       drizzle-orm:
         specifier: 'catalog:'
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
       playwright:
         specifier: 'catalog:'
         version: 1.63.0
@@ -399,7 +399,7 @@ importers:
         version: link:../config
       drizzle-orm:
         specifier: 'catalog:'
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -456,7 +456,7 @@ importers:
         version: 17.4.2
       drizzle-orm:
         specifier: 'catalog:'
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
       edtf:
         specifier: 'catalog:'
         version: 4.11.1
@@ -475,7 +475,7 @@ importers:
         version: 8.23.1
       drizzle-kit:
         specifier: 'catalog:'
-        version: 0.31.10
+        version: 0.31.11
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -569,7 +569,7 @@ importers:
         version: link:../config
       drizzle-orm:
         specifier: 'catalog:'
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -2411,12 +2411,12 @@ packages:
     resolution: {integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==}
     engines: {node: '>=4'}
 
-  drizzle-kit@0.31.10:
-    resolution: {integrity: sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw==}
+  drizzle-kit@0.31.11:
+    resolution: {integrity: sha512-YCYqxTLIB2OCqf6w9/Vef13baBVbwQIPcbT4Y56AfO6B9ajZhDhD8Jkveg/hJvT/iuMloKD/IYYkyMMNhr7Kqg==}
     hasBin: true
 
-  drizzle-orm@0.45.2:
-    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
+  drizzle-orm@0.45.3:
+    resolution: {integrity: sha512-CAloER21cDdcgZ1OmjrZX82EeRNsdP+y0onX/eyoYDaYzki/adrAa91lzM5jWh7zZPK4qUbw/6LGv9J+A+uizA==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -2424,6 +2424,7 @@ packages:
       '@libsql/client': '>=0.10.0'
       '@libsql/client-wasm': '>=0.10.0'
       '@neondatabase/serverless': '>=0.10.0'
+      '@netlify/db': '>=0.4.0'
       '@op-engineering/op-sqlite': '>=2'
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1.13'
@@ -2459,6 +2460,8 @@ packages:
       '@libsql/client-wasm':
         optional: true
       '@neondatabase/serverless':
+        optional: true
+      '@netlify/db':
         optional: true
       '@op-engineering/op-sqlite':
         optional: true
@@ -5308,14 +5311,14 @@ snapshots:
   drange@1.1.1:
     optional: true
 
-  drizzle-kit@0.31.10:
+  drizzle-kit@0.31.11:
     dependencies:
       '@drizzle-team/brocli': 0.10.2
       '@esbuild-kit/esm-loader': 2.6.5
       esbuild: 0.25.12
       tsx: 4.23.13
 
-  drizzle-orm@0.45.2(@types/pg@8.23.1)(pg@8.23.0):
+  drizzle-orm@0.45.3(@types/pg@8.23.1)(pg@8.23.0):
     optionalDependencies:
       '@types/pg': 8.23.1
       pg: 8.23.0
