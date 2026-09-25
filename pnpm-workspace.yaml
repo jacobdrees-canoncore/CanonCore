@@ -50,8 +50,8 @@ catalog:
 
   # Database. drizzle-orm stable has not moved since 2026-03-27 while 1.0.0 sits
   # at rc; see ADR-0102 for why this repo stays on the stable line for now.
-  drizzle-orm: ^0.45.2
-  drizzle-kit: ^0.31.10
+  drizzle-orm: ^0.45.3
+  drizzle-kit: ^0.31.11
   pg: ^8.22.0
   "@types/pg": ^8.20.0
 
