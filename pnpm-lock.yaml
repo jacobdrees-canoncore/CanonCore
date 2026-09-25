@@ -165,8 +165,8 @@ catalogs:
       specifier: ^0.3.0
       version: 0.3.0
     dotenv:
-      specifier: ^17.4.2
-      version: 17.4.2
+      specifier: ^18.0.2
+      version: 18.0.3
     drizzle-kit:
       specifier: ^0.31.10
       version: 0.31.10
@@ -237,7 +237,7 @@ importers:
         version: link:packages/env
       dotenv:
         specifier: 'catalog:'
-        version: 17.4.2
+        version: 18.0.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -310,7 +310,7 @@ importers:
         version: 1.0.0
       dotenv:
         specifier: 'catalog:'
-        version: 17.4.2
+        version: 18.0.3
       lucide-react:
         specifier: 'catalog:'
         version: 1.47.0(react@19.3.0)
@@ -453,7 +453,7 @@ importers:
         version: link:../text
       dotenv:
         specifier: 'catalog:'
-        version: 17.4.2
+        version: 18.0.3
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
@@ -493,7 +493,7 @@ importers:
         version: 0.13.11(typescript@7.0.2)(zod@4.6.5)
       dotenv:
         specifier: 'catalog:'
-        version: 17.4.2
+        version: 18.0.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -2406,6 +2406,11 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  dotenv@18.0.3:
+    resolution: {integrity: sha512-/8CJTyL817qPnfbQrJgOEcrU3fDrJkRIoXBE566wHuvIXKOCHUZhPqGPbCPi9SogjdGnreF0TlvnTgK6J/8zpA==}
+    engines: {node: '>=12'}
+    hasBin: true
 
   drange@1.1.1:
     resolution: {integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==}
@@ -5304,6 +5309,8 @@ snapshots:
       is-obj: 2.0.0
 
   dotenv@17.4.2: {}
+
+  dotenv@18.0.3: {}
 
   drange@1.1.1:
     optional: true
