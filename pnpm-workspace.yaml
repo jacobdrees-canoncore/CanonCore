@@ -43,10 +43,10 @@ catalog:
   # and formats from a place zod 4.6 no longer writes, so the OpenAPI document
   # stated none of them (CNCORE-212). The family moves together, since @orpc/zod
   # peer-requires @orpc/server and @orpc/contract at exactly its own version.
-  "@orpc/server": ^1.15.1
-  "@orpc/client": ^1.15.1
-  "@orpc/openapi": ^1.15.1
-  "@orpc/zod": ^1.15.1
+  "@orpc/server": ^1.15.3
+  "@orpc/client": ^1.15.3
+  "@orpc/openapi": ^1.15.3
+  "@orpc/zod": ^1.15.3
 
   # Database. drizzle-orm stable has not moved since 2026-03-27 while 1.0.0 sits
   # at rc; see ADR-0102 for why this repo stays on the stable line for now.
