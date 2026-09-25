@@ -80,7 +80,10 @@ is still the right shape and this was never a reason to reopen that — what was
 declaration that makes it outlive the container it is written in, **and CNCORE-164 added it**
 (`jacobdrees-canoncore/provider-wiki#31`). That repository now ships a `compose.yaml` mounting a
 named `provider_wiki_credential` volume at `/home/node/.config/canoncore`, so every case in the
-paragraph above keeps the file, the replacing ones included. A `VOLUME` line in the Dockerfile would
+paragraph above keeps the file, the replacing ones included. **That volume also makes the
+installed provider's file a SECOND COPY**, separate from the host's `~/.config/canoncore` that
+`provider-wiki`'s scripts read. CNCORE-417 decided to keep two copies, and why is under "Two copies
+of one session" below. A `VOLUME` line in the Dockerfile would
 NOT have done it: that makes an anonymous volume, which a replacement container does not re-attach
 to, so it would have survived exactly the restarts that were never the problem.
 
@@ -215,7 +218,10 @@ tells you a session has lapsed — [[0069-the-first-provider-is-the-wiki]] measu
 dead eight days after capture while its own `expires` still claimed 2027-09-03 — so a provider
 computing expiry from the cookie's stated lifetime would report `valid` about a session the wiki had
 already stopped accepting. The file therefore carries a `lapsed` marker written by whatever met the
-refusal, and `expired` is read from it. That keeps the asymmetry this record wants: nothing
+refusal, and `expired` is read from it. **Until CNCORE-417 that meant the provider alone.**
+`provider-wiki`'s scripts met the same refusal, threw a sentence, and wrote nothing. So the host's
+copy read `"lapsed": false` for five days over a cookie the wiki was refusing, measured 2026-09-25
+on that one file. They now write it through the provider's own `lapse`. That keeps the asymmetry this record wants: nothing
 DERIVES the state, everything READS it.
 
 **"When that last changed" is the file's mtime rather than a timestamp inside it**, and that is what
@@ -674,3 +680,47 @@ would be writing "be `provider-wiki`" into the contract, which is the reason the
 required either. `provider-wiki`'s `test/unlock.test.ts` holds it for a line feed and a CR LF: `400`,
 the field at fault named and no other, the value not said back, the file already on disk unchanged
 byte for byte, and `valid` still.
+
+## Two copies of one session, under CNCORE-417
+
+**An installed `provider-wiki` and the scripts beside it read two different files, and they stay
+two.** The named volume above is what carries the provider's copy across a `docker compose pull`.
+A bind mount of the host's directory would make the two one, but then the provider could only
+write its own session if a host directory existed and was writable by the container's `node` user.
+Docker creates a missing bind-mount source owned by the daemon's user, which is `root` on a Linux
+host. A file one reader could not write would be a worse defect than a second file.
+
+**Two copies need something that says whether they agree, and until this ticket nothing did.** On
+2026-09-25 `POST /unlock` had replaced the provider's copy, so the manifest said `valid`, while
+every script still held a cookie the wiki had refused since 2026-09-20. `provider-wiki`'s
+`pnpm session` reads both copies and names the stale one, with the provider's read through a
+throwaway container of its image. `pnpm session unlock` writes both from one act. It spends the
+clearance over forced IPv4 first and stores nothing on a refusal. Then it asks both readers, the
+manifest and a script's spend, because either one alone passes while the other is dead.
+
+**Nothing here widens who can spend the credential**
+([[0057-the-archive-stays-outside-the-repo]]). Both copies are on the Owner's own host.
+`pnpm session` compares the values in its own process and never prints them, and it reads them
+from the terminal, never from the command line.
+
+**Both readers take one route, IPv4, and the scripts did not before.** The provider's container
+has no IPv6 path. A clearance earned over IPv6 is refused there, which is CNCORE-206's half.
+CNCORE-417 found the other half: measured 2026-09-25 at 15:39Z on the Owner's Mac, one clearance
+answered `200` over forced IPv4 and `403` over forced IPv6 and over the default route, which was
+IPv6. So a script on the default route marked the host's copy lapsed over a session the provider
+could still spend. Every script now leaves over forced IPv4, so one clearance serves both readers
+or neither.
+
+**`networksetup -getinfo` is not a check of that route.** On 2026-09-25 on the Owner's Mac it
+printed `IPv6 IP address: none` while `en0` held two global IPv6 addresses and carried the default
+IPv6 route. `provider-wiki`'s README now checks with `curl -6` against the wiki, where any status
+means IPv6 is live.
+
+**What landed, and what is left.** The lapse-write, the comparison, the two-copy unlock and the
+IPv4 route all landed in `jacobdrees-canoncore/provider-wiki#72`. What has NOT been seen is
+`pnpm session unlock` passing end to end on the Owner's instance with a fresh clearance. Its one
+live run, at 15:39Z, stored both copies and got `valid` from the manifest. The script's spend then
+got `403`, because the scripts were still on the default route, and that result is what led to
+forcing IPv4. The same session was refused over IPv4 by 15:58:52Z, 41 minutes after it was minted
+and under [[0069-the-first-provider-is-the-wiki]]'s two-hour lower bracket. Whether presenting it
+over IPv6 revoked it is unmeasured.
