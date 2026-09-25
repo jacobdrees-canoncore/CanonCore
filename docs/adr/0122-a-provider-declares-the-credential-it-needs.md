@@ -717,7 +717,9 @@ IPv6 route. `provider-wiki`'s README now checks with `curl -6` against the wiki,
 means IPv6 is live.
 
 **What landed, and what is left.** The lapse-write, the comparison, the two-copy unlock and the
-IPv4 route all landed in `jacobdrees-canoncore/provider-wiki#72`. What has NOT been seen is
+IPv4 route are in `jacobdrees-canoncore/provider-wiki#72`, which was open when this was
+written. The IPv4 route includes `capture:live`'s `browse`, which goes through the provider's own
+client and is routed by setting the global dispatcher. What has NOT been seen is
 `pnpm session unlock` passing end to end on the Owner's instance with a fresh clearance. Its one
 live run, at 15:39Z, stored both copies and got `valid` from the manifest. The script's spend then
 got `403`, because the scripts were still on the default route, and that result is what led to
