@@ -302,8 +302,9 @@ with its actor, and in a connected repo `In Progress -> In Review` and `In Revie
 actor of `kind: bot`, `subType: github`. A ticket whose PR is out of draft with no such change is in a repo
 the integration does not reach. CNCORE-343 has both. CNCORE-385, in the skills repo, has neither,
 every one of its moves by a user, because it ran its whole life before that repo was connected.
-Since then skills PR #27 leaving draft moved CNCORE-414 and 416 `In Progress -> In Review` with
-that actor, a second after the PR was marked ready (both read 2026-09-25).
+Since then skills PR #27 has moved CNCORE-414 and 416 twice with that actor, each a second after
+its event: `In Progress -> In Review` when it left draft and `In Review -> Done` when it merged, so
+both halves fire in the skills repo (all read 2026-09-25).
 
 Link a PR to an issue by putting the identifier in the branch name (Orca does this when a
 worktree is created with `--linear-issue`) or by a magic word in the PR body:
