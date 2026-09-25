@@ -17,7 +17,7 @@ catalog:
   "@types/node": ^26.6.2
   turbo: ^2.10.13
   "@biomejs/biome": ^2.5.14
-  vitest: ^5.0.0
+  vitest: ^5.0.1
   yaml: ^2.9.1
   # GitHub's own expression parser, from actions/languageservices -- the same
   # engine the Actions runner and the workflow language server use. It is here so
