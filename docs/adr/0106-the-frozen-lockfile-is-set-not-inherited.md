@@ -6,7 +6,7 @@ status: accepted
 
 `PNPM_CONFIG_FROZEN_LOCKFILE: true` sits in the workflow-level `env:` block of `.github/workflows/ci.yml`,
 where every job inherits it. It replaces `require-lockfile: true`, which seven `pnpm/setup@v2` steps
-passed and which that action has never had as an input.
+passed and which v2 has never had as an input (v3 added one by that name; it is not passed, below).
 
 ## The defect was invisible by design
 
@@ -25,10 +25,12 @@ warning severity, and it generalises the same way: **a severity a check does not
 severity that does not exist.** The variant here is worse in one respect. Biome's warnings were at
 least about real code. This was a warning about a line that had never done anything at all.
 
-There is no `require-lockfile` anywhere in the action's history to have been renamed from. The list
-above is the whole of what `pnpm/setup@v2` accepts, read from the `inputs:` block of its own
-`action.yml` at that ref. **The action has no input for lockfile strictness of any kind**, and
-should not: that is a pnpm setting, not a setup-action one.
+There is no `require-lockfile` anywhere in v2's history to have been renamed from. The list above
+is the whole of what `pnpm/setup@v2` accepts, read from the `inputs:` block of its own `action.yml`
+at that ref. **v2 has no input for lockfile strictness of any kind.** v3 added one, under that very
+name (read at the `v3` tag on 2026-09-25, CNCORE-411), and it is still not passed: it governs only the
+install the action runs, where the variable governs every install in the file, and that is a pnpm
+setting rather than a setup-action one.
 
 ## CI was right by accident, and that was worth proving rather than assuming
 
@@ -99,8 +101,10 @@ gives: the value is written where TypeScript cannot see it. Each was proven by b
 guards and watching that test, and only that test, fail:
 
 - **No pnpm/setup step passes an input the action does not declare**, against the input list above,
-  and every step must be at `@v2` so a bump forces someone to re-read `action.yml`. Putting
-  `require-lockfile: true` back on the Build job fails it, naming Build.
+  and every step must be at the pinned major so a bump forces someone to re-read `action.yml`.
+  Putting `require-lockfile: true` back on the Build job failed it at `@v2`, naming Build; at `@v3`,
+  which declares that input, the same proof is `cache-hit: true`, one of v3's outputs, on the
+  Typecheck job, which fails it naming `typecheck` (CNCORE-411).
 - **The setting is on at workflow level.** Flipping it to `false` fails it.
 - **No job or step shadows it.** A job-level `env:` re-declaring the key fails it, and so does a
   step-level one. The step-level half is the live shape in this file: `env-guard` is a job again
@@ -161,6 +165,8 @@ question about one line. These are questions about block structure — which `wi
 ## Evidence
 
 `pnpm/setup@v2`'s `action.yml` and pnpm's own documentation on `--frozen-lockfile` and on
-`PNPM_CONFIG_*` environment variables, read 2026-09-10. Every behavioural claim above came from
+`PNPM_CONFIG_*` environment variables, read 2026-09-10; `pnpm/setup@v3`'s `action.yml` at the `v3`
+tag, read 2026-09-25, whose `require-lockfile` description is the source for what that input governs.
+Every behavioural claim above came from
 running the thing named: the two runner experiments are linked inline, and the local probes were
 `pnpm install` against throwaway projects on pnpm 12.3.4 and 11.20.0.

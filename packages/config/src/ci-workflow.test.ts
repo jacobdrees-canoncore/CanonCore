@@ -31,7 +31,7 @@ import { namedConfig, packageScripts, resolvesInside, testBlockOf } from "./test
 
 /**
  * The exact ref every step must use, so that the input list below cannot
- * silently go stale: a bump to `@v3` fails this and forces someone to re-read
+ * silently go stale: a bump to `@v4` fails this and forces someone to re-read
  * the action's `action.yml` before editing the list.
  *
  * This does constrain one reasonable future change -- pinning the action by
@@ -41,25 +41,33 @@ import { namedConfig, packageScripts, resolvesInside, testBlockOf } from "./test
  * the file it describes. Pin by SHA and this constant becomes the only place
  * recording which version was read; update both together.
  */
-const PNPM_SETUP_REF = "pnpm/setup@v2";
+const PNPM_SETUP_REF = "pnpm/setup@v3";
 
 /**
- * Every input `pnpm/setup@v2` declares, transcribed from the `inputs:` block of
- * the action's own `action.yml` at that ref on 2026-09-10. Restated here rather
+ * Every input `pnpm/setup@v3` declares, transcribed from the `inputs:` block of
+ * the action's own `action.yml` at that ref on 2026-09-25. Restated here rather
  * than fetched, so the suite needs no network -- and so that adding a key to a
  * step means editing this list and checking the vendor first.
  *
- * There is deliberately no lockfile entry. The action has no input of any kind
- * for lockfile strictness; that is pnpm's own setting, and CNCORE-13 moved it
- * to where pnpm reads it.
+ * Only the `inputs:` block. v3's `outputs:` block names `dest` again beside
+ * `bin-dest`, `runtime-name`, `runtime-version`, `runtimes` and `cache-hit`,
+ * and none of those can be passed under `with:`.
+ *
+ * `require-lockfile` is here because v3 added it; v2 never had it, which is
+ * the defect this suite was written for (CNCORE-13, ADR-0106). No step passes
+ * it: lockfile strictness stays with pnpm's own setting, below, which reaches
+ * every install in the file rather than only the one this action runs.
  */
 const PNPM_SETUP_INPUTS = new Set([
   "version",
   "dest",
   "runtime",
+  "node-version-file",
   "cache",
   "cache-dependency-path",
+  "working-directory",
   "package-json-file",
+  "require-lockfile",
   "install",
   "token",
 ]);
@@ -566,7 +574,7 @@ describe("the CI workflow", () => {
     );
     expect(undeclared).toStrictEqual([]);
 
-    // The list above describes v2 and nothing else.
+    // The list above describes v3 and nothing else.
     expect(steps.map(({ step }) => step.uses)).toStrictEqual(steps.map(() => PNPM_SETUP_REF));
   });
 
