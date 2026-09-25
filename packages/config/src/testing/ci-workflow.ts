@@ -136,8 +136,8 @@ export function workflow(): Workflow {
  *
  * MATCHED ON THE ACTION AND NOT ON THE PINNED REF, which is the one thing to
  * keep straight when reading this next to `ci-workflow.test.ts`. That suite
- * asserts every step uses `pnpm/setup@v2` exactly, and it can only do so while
- * a step bumped to `@v3` still arrives in this list. A finder that matched the
+ * asserts every step uses `pnpm/setup@v3` exactly, and it can only do so while
+ * a step bumped to `@v4` still arrives in this list. A finder that matched the
  * ref would drop the bumped step instead, and the assertion about it would pass
  * having lost its subject.
  */

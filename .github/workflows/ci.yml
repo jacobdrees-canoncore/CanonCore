@@ -205,8 +205,9 @@ jobs:
       # recommends from pnpm 11 on. The pnpm version comes from the
       # packageManager field, and `pnpm install` runs automatically. What makes
       # that install frozen is PNPM_CONFIG_FROZEN_LOCKFILE above, not anything
-      # said here: this action has no input for lockfile strictness at all.
-      - uses: pnpm/setup@v2
+      # said here. v3 did add a `require-lockfile` input, and it is not passed:
+      # it reaches only this action's own install, and the variable reaches all.
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -226,7 +227,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -248,7 +249,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -285,7 +286,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -338,7 +339,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -382,7 +383,7 @@ jobs:
         with:
           # The base commit is needed to build the ladder as it stands today.
           fetch-depth: 0
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -475,7 +476,7 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -535,7 +536,7 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -581,7 +582,7 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -783,7 +784,7 @@ jobs:
       PROVIDER_TMDB_URL: http://127.0.0.1:8081
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
@@ -893,7 +894,7 @@ jobs:
       PROVIDER_TMDB_URL: http://127.0.0.1:8081
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           runtime: node@24
           cache: true
