@@ -279,8 +279,8 @@ installations, both listed under Linear's Connections: the `jacobdrees-canoncore
 every repository selected, which covers every repo in that organisation, and the `jacobdrees`
 personal account with `claude-skills` selected, which covers the skills repo. The second was
 installed on 2026-09-25 at 14:17 UTC, and within the minute Linear attached every open skills PR to
-its ticket (CNCORE-402, 408, 410, 412), where CNCORE-385 before it got none. A merge in any other repo moves nothing, whatever
-the PR count.
+its ticket (CNCORE-402, 408, 410, 412), where CNCORE-385 before it got none. A merge in any other
+repo moves nothing, whatever the PR count.
 
 **The dispatcher writes `In Progress` itself, at worktree creation, in every repo.** No PR event
 covers the window between a worktree being created and its PR opening, and an unconnected repo gets
