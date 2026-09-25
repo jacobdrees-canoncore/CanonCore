@@ -6,7 +6,7 @@ status: accepted
 
 `PNPM_CONFIG_FROZEN_LOCKFILE: true` sits in the workflow-level `env:` block of `.github/workflows/ci.yml`,
 where every job inherits it. It replaces `require-lockfile: true`, which seven `pnpm/setup@v2` steps
-passed and which that action has never had as an input.
+passed and which v2 has never had as an input (v3 added one by that name; it is not passed, below).
 
 ## The defect was invisible by design
 
@@ -104,7 +104,7 @@ guards and watching that test, and only that test, fail:
   and every step must be at the pinned major so a bump forces someone to re-read `action.yml`.
   Putting `require-lockfile: true` back on the Build job failed it at `@v2`, naming Build; at `@v3`,
   which declares that input, the same proof is `cache-hit: true`, one of v3's outputs, on the
-  Typecheck job, which fails it naming Typecheck (CNCORE-411).
+  Typecheck job, which fails it naming `typecheck` (CNCORE-411).
 - **The setting is on at workflow level.** Flipping it to `false` fails it.
 - **No job or step shadows it.** A job-level `env:` re-declaring the key fails it, and so does a
   step-level one. The step-level half is the live shape in this file: `env-guard` is a job again
@@ -165,6 +165,8 @@ question about one line. These are questions about block structure — which `wi
 ## Evidence
 
 `pnpm/setup@v2`'s `action.yml` and pnpm's own documentation on `--frozen-lockfile` and on
-`PNPM_CONFIG_*` environment variables, read 2026-09-10. Every behavioural claim above came from
+`PNPM_CONFIG_*` environment variables, read 2026-09-10; `pnpm/setup@v3`'s `action.yml` at the `v3`
+tag, read 2026-09-25, whose `require-lockfile` description is the source for what that input governs.
+Every behavioural claim above came from
 running the thing named: the two runner experiments are linked inline, and the local probes were
 `pnpm install` against throwaway projects on pnpm 12.3.4 and 11.20.0.
