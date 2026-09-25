@@ -274,8 +274,10 @@ If this team has GitHub PR automation configured, these transitions happen on th
 | Review requested or review activity | In Review |
 | PR merged | Done; a ticket with THREE OR MORE PRs has stayed In Review, three times of three (ADR-0192) |
 
-These fire only in a repository Linear's GitHub integration is connected to. A merge anywhere else
-moves nothing, whatever the PR count.
+These fire only in a repository Linear's GitHub integration is connected to: its installation is on
+the `jacobdrees-canoncore` organisation with every repository selected, so the connected set is that
+organisation's repos, and the skills repo, which sits in a personal account, is outside it. A merge
+anywhere outside moves nothing, whatever the PR count.
 
 **The dispatcher writes `In Progress` itself, at worktree creation, in every repo.** No PR event
 covers the window between a worktree being created and its PR opening, and an unconnected repo gets
@@ -293,8 +295,8 @@ state back and sets `Done` only if the automation did not.
 
 **The linkage is checked on the later transitions, not the draft-PR move**, since the dispatcher's
 write has already made that one. `orca linear issue <id> --activity --json` lists each state change
-with its actor, and in a connected repo `In Progress -> In Review` and `In Review -> Done` carry
-`kind: bot`, `subType: github`. A ticket whose PR is out of draft with no such change is in a repo
+with its actor, and in a connected repo `In Progress -> In Review` and `In Review -> Done` carry an
+actor of `kind: bot`, `subType: github`. A ticket whose PR is out of draft with no such change is in a repo
 the integration does not reach. CNCORE-343 has both; CNCORE-385, in the skills repo, has neither,
 every one of its moves by a user (read 2026-09-25).
 
