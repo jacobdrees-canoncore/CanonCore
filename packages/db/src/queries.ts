@@ -755,8 +755,11 @@ export interface PropertyNotGiven {
  * An import asks for every property in `WHAT_AN_IMPORT_ASKS_FOR` on every
  * answer, so a Provider with no statement of one of them has answered that it
  * holds none. Said on the page, a thin source reads as thin rather than as a
- * surface that is broken -- and it is
- * said as one line, never drawn as an empty row, which is ADR-0204's thin page.
+ * surface that is broken -- and it is said as one line, never drawn as an
+ * empty row, which is ADR-0204's thin page.
+ *
+ * ONLY OF A PROPERTY THE ITEM'S KIND HAS, which the list names beside each
+ * property: a time span lacks no release date, because it could not hold one.
  *
  * ONLY A PROVIDER STILL STANDING BEHIND THE ITEM IS ASKED ABOUT: one with at
  * least one live claim inside its ceiling. What a source did not give is a claim
@@ -775,11 +778,20 @@ export async function findPropertiesNotGiven(
     .select({ property: properties.name, sourceLabel: sources.label })
     .from(given)
     .innerJoin(sources, eq(sources.id, given.sourceId))
+    .innerJoin(items, eq(items.id, given.subjectItemId))
     .innerJoin(
       properties,
       and(
         eq(properties.ownerId, given.ownerId),
-        inArray(properties.name, [...WHAT_AN_IMPORT_ASKS_FOR]),
+        // ONLY A PROPERTY THIS ITEM'S KIND HAS: a time span lacks no release
+        // date, since it could not hold one.
+        or(
+          ...Object.entries(WHAT_AN_IMPORT_ASKS_FOR).map(([name, kinds]) =>
+            kinds === null
+              ? eq(properties.name, name)
+              : and(eq(properties.name, name), inArray(items.kind, [...kinds])),
+          ),
+        ),
       ),
     )
     .where(

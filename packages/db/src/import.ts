@@ -120,8 +120,23 @@ export interface FetchedArtwork {
  * IT WAS ADDED, until that Item's Provider is asked again: its rows were written
  * when nobody asked for it. So the change that adds one re-imports what the
  * catalogue holds, as the rebuild CNCORE-365 does from empty.
+ *
+ * EACH NAMES THE KINDS IT BELONGS TO, `null` for every kind, because only an
+ * Item that could hold a value can be said to lack one. A time span has no
+ * release date, and `1814 frost fair` read "provider-wiki holds no release date
+ * for this." on the Owner's catalogue until this said so (ADR-0204). A release
+ * is an Edition's of a Work (ADR-0081), and a Container folds into `work`
+ * (ADR-0004). The import still writes whatever a Provider sends, whatever the
+ * kind: this narrows only what a page says is missing.
  */
-export const WHAT_AN_IMPORT_ASKS_FOR = ["external_id", "title", "released"] as const;
+export const WHAT_AN_IMPORT_ASKS_FOR = {
+  external_id: null,
+  title: null,
+  released: ["work"],
+} as const satisfies Record<string, readonly string[] | null>;
+
+/** A property every import asks for. */
+type AskedFor = keyof typeof WHAT_AN_IMPORT_ASKS_FOR;
 
 export interface ImportedRecord {
   itemId: string;
@@ -598,7 +613,10 @@ async function writeProvidedItem(
     // EVERY PROPERTY `WHAT_AN_IMPORT_ASKS_FOR` NAMES, and no other, held by
     // the type below: that list is also what a read says a Provider gave none
     // of (CNCORE-375).
-    claims: WHAT_AN_IMPORT_ASKS_FOR.map((property) => ({ property, values: asked[property] })),
+    claims: (Object.keys(WHAT_AN_IMPORT_ASKS_FOR) as AskedFor[]).map((property) => ({
+      property,
+      values: asked[property],
+    })),
   });
 
   await assertIdentifiers(tx, { ownerId, itemId, sourceId, identifiers: record.identifiers });
@@ -607,9 +625,7 @@ async function writeProvidedItem(
 }
 
 /** What one record answers for each property an import asks for. */
-function whatItAnswers(
-  record: ProvidedRecord,
-): Record<(typeof WHAT_AN_IMPORT_ASKS_FOR)[number], string[]> {
+function whatItAnswers(record: ProvidedRecord): Record<AskedFor, string[]> {
   return {
     // ADR-0078: the mapping that finds this item again, beside the surrogate
     // id rather than instead of it (migration 3).

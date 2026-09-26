@@ -142,10 +142,21 @@ the property was added is said to lack it until its Provider is asked again, bec
 for it when its rows were written. So that change re-imports what the catalogue holds, as the
 rebuild CNCORE-365 does from empty.
 
-**IT REACHES EVERY PROVIDER'S ITEMS, NOT ONLY EPISODES.** A wiki story with no release date says
-"provider-wiki holds no release date for this." too, which is as true of it as of an episode.
+**IT REACHES EVERY PROVIDER'S ITEMS, NOT ONLY EPISODES, BUT ONLY OF A KIND THAT HAS THE PROPERTY.**
+A wiki story with no release date says "provider-wiki holds no release date for this." too, which is
+as true of it as of an episode. A time span, a character or a place says nothing of a release date,
+because it could not hold one. Each property in `WHAT_AN_IMPORT_ASKS_FOR` names the kinds it belongs
+to: `released` is a `work`'s, since a release is an Edition's of a Work
+([[0081-release-date-means-earliest-known-release]]) and a Container folds into `work`, and `title` and the
+external id belong to every kind. As first built, the line appeared on every kind, and the dispatcher's walk of #303
+on the Owner's catalogue found `1814 frost fair`, a time span, reading "provider-wiki holds no
+release date for this." That was 595 time spans on 2026-09-26, and every entity kind after
+CNCORE-352. The import still writes whatever a Provider sends of any kind. Only what a page says is
+missing is narrowed.
 
 Asserted at the router in process ("a season's episodes", `provider.test.ts`) and in the served page
 (`item-page.test.ts`, "an episode the second Provider holds thinly"). Mutation-checked: deleting the
 ceiling predicate or the held-statement exclusion from `findPropertiesNotGiven` each turned one
-router test red, and making the page's line render nothing turned the served-page case red.
+router test red. So did widening `released` to every kind, which turned "says nothing of a property
+the Item's kind does not have" red alone. Making the page's line render nothing turned the
+served-page case red.
