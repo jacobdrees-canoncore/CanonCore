@@ -61,7 +61,8 @@ section, merged with `merge-if-green.sh --standing-decisions`.
 
 - **Check-in points**: CNCORE-367, CNCORE-365. Each rebuilds the Owner's install, so when one reaches
   Done the Owner walks it and whatever builds on it pauses until the walk is done.
-- **Held-back tickets**: none.
+- **Held-back tickets**:
+  - CNCORE-371, until CNCORE-358 is Done: both edit ADR-0015 and ADR-0073 and each adds a migration rung, and 371 likely shares `packages/db/src/import.ts` with CNCORE-360; held so the three do not move the same records at once. Given 2026-09-26.
 - **Standing permissions**:
   - Merge a dependency bump whose provider twin has merged, after the gate passes and the diff is read.
 - **Precondition checks**:
