@@ -434,14 +434,21 @@ async function writeProvidedItem(
 }
 
 /**
- * This source's Identifiers for one item, made to be exactly what it sent this
- * time (CNCORE-349).
+ * This source's Identifiers for one item, brought up to date with what it sent
+ * this time (CNCORE-349).
  *
- * A REFRESH, AS `assertClaims` IS ONE: what the source still sends is kept, what
- * it has stopped sending is withdrawn by tombstone, and what is new is written.
- * Rewriting the lot on every import would bump every row's change sequence for
- * a value nobody changed. It reaches only THIS source's rows, since a source
- * may only withdraw what it said itself.
+ * SCHEME BY SCHEME, AND A SCHEME LEFT OUT IS NOT WITHDRAWN. A value sent for a
+ * scheme replaces this source's value for it, by tombstone, and a new scheme is
+ * written. A scheme absent from this answer is left standing, because a
+ * provider's answers are not equally full: `provider-tmdb` sends `imdb` on a
+ * lookup and only `tmdb` on a browse of the collection a film sits in, and a
+ * refresh reading the browse as the full set withdrew the IMDb id the lookup
+ * had just written. CI found that against the real image. A scheme a provider
+ * truly stops sending therefore stays until that provider is purged.
+ *
+ * Unlike `assertClaims`, where every answer carries the same properties in
+ * full. It reaches only THIS source's rows, since a source may only withdraw
+ * what it said itself, and what is unchanged is not rewritten.
  */
 async function assertIdentifiers(
   tx: Transaction,
@@ -463,7 +470,9 @@ async function assertIdentifiers(
       ),
     );
 
-  const withdrawn = held.filter(({ scheme, value }) => sent[scheme] !== value).map(({ id }) => id);
+  const withdrawn = held
+    .filter(({ scheme, value }) => Object.hasOwn(sent, scheme) && sent[scheme] !== value)
+    .map(({ id }) => id);
   if (withdrawn.length > 0) {
     await tx
       .update(identifiers)

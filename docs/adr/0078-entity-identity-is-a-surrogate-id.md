@@ -122,8 +122,12 @@ it. Deciding those two are one work is matching.
 **A PROVIDER'S IDS IN OTHER ID SPACES ARE HELD NOW, BESIDE THE MAPPING AND NOT IN IT.** CMPP's
 `external_ids` carries a record's id in someone else's space, keyed by Scheme: `provider-tmdb`
 sends `{ tmdb: "603", imdb: "tt0133093" }` for The Matrix. Migration 23 writes those to a table of
-their own, `identifiers`, one row per (item, source, scheme, value), sourced like a Statement and
-withdrawn by tombstone on a refresh. `identifiers_one_value_per_scheme` holds one live value per
+their own, `identifiers`, one row per (item, source, scheme, value), sourced like a Statement. A
+refresh replaces a scheme's value by tombstone and never withdraws a scheme the answer left out,
+because a provider's answers are not equally full: `provider-tmdb` sends `imdb` on a lookup and
+only `tmdb` on a search or a browse. The first build read the browse as the full set and withdrew
+the IMDb id, which only CI's real-image job caught, since which e2e file browses first is a matter of
+ordering. `provider.test.ts` now holds it deterministically. `identifiers_one_value_per_scheme` holds one live value per
 (item, source, scheme), because `external_ids` is a map keyed by scheme and a provider gives one
 answer per scheme. `item.get` reads them back and the Item page lists them.
 

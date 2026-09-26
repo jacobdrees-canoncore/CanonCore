@@ -622,12 +622,12 @@ describe("a record's Identifiers", () => {
     expect((await call(appRouter.item.get, { id: itemId }, { context })).identifiers).toEqual([]);
   });
 
-  it("are refreshed by a second import rather than doubled, and one the provider stopped sending goes", async () => {
+  it("are refreshed by a second import rather than doubled, a new value replacing the old", async () => {
     const records: Record<string, unknown> = { "movie:603": MATRIX_WITH_IDS };
     const baseUrl = await stubProvider(records);
     await call(appRouter.provider.import, { baseUrl, recordId: "movie:603" }, { context });
 
-    records["movie:603"] = { ...MATRIX_WITH_IDS, external_ids: { tmdb: "603" } };
+    records["movie:603"] = { ...MATRIX_WITH_IDS, external_ids: { tmdb: "603", imdb: "tt9999999" } };
     const { itemId } = await call(
       appRouter.provider.import,
       { baseUrl, recordId: "movie:603" },
@@ -638,7 +638,54 @@ describe("a record's Identifiers", () => {
       (await call(appRouter.item.get, { id: itemId }, { context })).identifiers.map(
         ({ scheme, value }) => [scheme, value],
       ),
-    ).toEqual([["tmdb", "603"]]);
+    ).toEqual([
+      ["imdb", "tt9999999"],
+      ["tmdb", "603"],
+    ]);
+  });
+
+  /**
+   * A THINNER ANSWER IS NOT A WITHDRAWAL, and CI found it against the real
+   * image rather than the stand-in. `provider-tmdb` sends `imdb` on a lookup
+   * and only `tmdb` on a browse of the collection a film sits in, so a browse
+   * after the lookup read as the provider taking the IMDb id back.
+   */
+  it("keep a scheme a later, thinner answer leaves out", async () => {
+    const baseUrl = await stubProvider(
+      { "movie:603": MATRIX_WITH_IDS },
+      {
+        containers: {
+          "collection:2344": {
+            container: {
+              ...MATRIX_WITH_IDS,
+              id: "collection:2344",
+              title: "The Matrix Collection",
+              external_ids: { tmdb: "2344" },
+            },
+            ordering: [
+              { position: 1, record: { ...MATRIX_WITH_IDS, external_ids: { tmdb: "603" } } },
+            ],
+            unplaced: [],
+          },
+        },
+      },
+    );
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    await call(appRouter.provider.browse, { baseUrl, containerId: "collection:2344" }, { context });
+
+    expect(
+      (await call(appRouter.item.get, { id: itemId }, { context })).identifiers.map(
+        ({ scheme, value }) => [scheme, value],
+      ),
+    ).toEqual([
+      ["imdb", "tt0133093"],
+      ["tmdb", "603"],
+    ]);
   });
 
   it("go with the provider that said them when it is purged, from an Item the Owner keeps", async () => {
