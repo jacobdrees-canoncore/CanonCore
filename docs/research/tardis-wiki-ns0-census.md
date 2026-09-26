@@ -158,7 +158,11 @@ is worth knowing before anyone reads the raw graph and concludes the policy is d
 **`Non-DWU material` matters to the provider.** It holds licensed material the wiki does not treat
 as a valid source, and `T:TREE` names `Dr. Who and the Daleks (theatrical film)` as an example. That
 page carries a story dab term, so `isStoryPage` admits it. **The provider is importing pages the
-wiki itself classes as outside its universe**, and nothing downstream can tell.
+wiki itself classes as outside its universe**, and nothing downstream can tell. *(Corrected by
+CNCORE-350, measured 2026-09-26: `T:TREE`'s example is prose only, since the walk of the category
+does not reach `Dr. Who and the Daleks`, and the provider admitted 650 of the 2,053, not all of
+them. `Doctor Who and Crayola (TV story)` is one that is in the branch. `storyKind` now refuses the
+branch, per ADR-0205.)*
 
 ## Disambiguation pages: 1,344, and two mechanisms agree exactly
 
@@ -192,7 +196,11 @@ between the two rules, not between two measurements.
 ### `DAB_PREFIX` is too strict, and it costs about a thousand stories
 
 1,003 pages carry a story infobox (`Infobox Story SMW` 508, `Infobox Story` 495) that the dab rule
-rejects. `DAB_PREFIX` is `^[A-Z0-9]+( [A-Z0-9]+)*$`, which admits only all-caps or numeric prefixes:
+rejects. *(Corrected by CNCORE-350, measured 2026-09-26: the 1,003 are refusals for ANY reason,
+including the no-parenthetical and missing-vocabulary rows below. The prefix rule alone refused
+534 pages. 334 of those are under `Non-DWU material`, where `Unproduced sources` puts `The Hand of
+Omega (unproduced TV story)`, 156 are in-universe works now admitted, and 44 are characters and
+objects. ADR-0205 has the table.)* `DAB_PREFIX` is `^[A-Z0-9]+( [A-Z0-9]+)*$`, which admits only all-caps or numeric prefixes:
 
 | rejected title | why |
 |---|---|

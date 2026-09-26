@@ -44,8 +44,9 @@ POLICED.** The rest were kept alive by a SENTENCE, and no check reads a sentence
 - `provider-wiki/src/archive.ts` exported three symbols "for the same reason `storyDabTermSql` is:
   `scripts/measure-images.ts` and `scripts/extract-fixture.ts` have to read the RULE THIS PROVIDER
   SHIPS". CNCORE-103 deleted both scripts with the 66GB archive they read. The reason outlived its
-  consumers, and `storyDabTermSql` -- the symbol the sentence reasons by analogy FROM -- is the only
-  one of the four that still has one.
+  consumers, and `storyDabTermSql` -- the symbol the sentence reasons by analogy FROM -- was the
+  only one of the four that still had one, until CNCORE-350 deleted it with the rest of the
+  story rule's second spellings.
 - `provider-wiki/Dockerfile` opened "The image carries the fixture, BECAUSE CanonCore's CI runs this
   provider as a service container and stop condition 4's contract test calls it directly over HTTP."
 
