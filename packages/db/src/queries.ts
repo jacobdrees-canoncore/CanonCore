@@ -119,6 +119,48 @@ export interface PlacementOfItem {
 const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.id];
 
 /**
+ * WHETHER A CLAIM IS STILL INSIDE ITS SOURCE'S CACHE CEILING, which is the read
+ * that refuses one outside it (ADR-0036, CNCORE-360).
+ *
+ * `observed_at` is when the source last said it and `max_cache_age` is the
+ * longest that source lets a value be kept, off its own manifest. A source
+ * declaring none is never refused, which is the Owner and any source imposing
+ * nothing. CHECKED ON READ, so the ceiling holds whether or not anything has run
+ * since: a value nobody has touched in six months is refused by the first read
+ * after its sixth month rather than by a sweep that might not have happened.
+ *
+ * THE SOURCE'S CEILING DEFAULTS TO `sources.max_cache_age`, so a caller with
+ * `sources` joined to the claim it asks about passes the claim's moment alone.
+ * `STILL_HELD` reaches both through aliases of its own and passes both.
+ */
+function insideItsCeiling(
+  observedAt: SQLWrapper,
+  maxCacheAge: SQLWrapper = sources.maxCacheAge,
+): SQL {
+  return sql`(${maxCacheAge} is null or ${observedAt} > now() - make_interval(secs => ${maxCacheAge}))`;
+}
+
+/**
+ * A PLACEMENT A READER MAY STILL BE SHOWN: one no source stands behind at all,
+ * which the read path keeps rather than deciding the row does not exist, or one
+ * at least one standing claim still inside its source's ceiling. A placement
+ * whose every claim has expired is refused on read, because its position is
+ * then nobody's that the catalogue may still hold (ADR-0036, CNCORE-360).
+ *
+ * `placements` MUST BE UNALIASED WHERE THIS IS READ, as it is in both
+ * `whatItHolds` and `whatItSitsIn`'s every caller: `${placements.id}` renders as
+ * `"placements"."id"` and binds to the nearest relation of that name.
+ */
+const STILL_HELD = sql`(
+  not exists (select 1 from "placement_sources" claim
+    where claim."placement_id" = ${placements.id} and claim."deleted_at" is null)
+  or exists (select 1 from "placement_sources" claim
+    join "sources" claimant on claimant."id" = claim."source_id"
+    where claim."placement_id" = ${placements.id} and claim."deleted_at" is null
+      and ${insideItsCeiling(sql`claim."observed_at"`, sql`claimant."max_cache_age"`)})
+)`;
+
+/**
  * THE LIVE CLAIMS BEHIND THE PLACEMENT THIS ROW IS FOR, and the tombstone both
  * readers honour.
  *
@@ -132,6 +174,9 @@ const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.
 const standingBehindThePlacement = and(
   eq(placementSources.placementId, placements.id),
   isNull(placementSources.deletedAt),
+  // An expired claim no longer stands: a source whose ceiling has passed is not
+  // named as having placed it (ADR-0036).
+  insideItsCeiling(placementSources.observedAt),
 );
 
 /**
@@ -665,6 +710,8 @@ export async function findStatementsOfItem(
         // is the whole difference from the tombstone above.
         eq(statements.quarantined, false),
         isNotNull(statements.valueLiteral),
+        // ADR-0036: refused once older than its source's declared ceiling.
+        insideItsCeiling(statements.observedAt),
         /*
          * ADR-0045: the public read path carries NO NOTES, and this list is
          * what `itemPublic.statements` is built from -- so a note reaching here
@@ -723,7 +770,14 @@ export async function findIdentifiersOfItem(
     })
     .from(identifiers)
     .innerJoin(sources, eq(sources.id, identifiers.sourceId))
-    .where(and(eq(identifiers.itemId, itemId), isNull(identifiers.deletedAt)))
+    .where(
+      and(
+        eq(identifiers.itemId, itemId),
+        isNull(identifiers.deletedAt),
+        // ADR-0036: refused once older than its source's declared ceiling.
+        insideItsCeiling(identifiers.observedAt),
+      ),
+    )
     .orderBy(identifiers.scheme, sources.sourceOrder, identifiers.value, identifiers.id);
 }
 
@@ -2325,6 +2379,7 @@ function whatItHolds(container: Column | string, heldTombstone: SQLWrapper): SQL
   return and(
     eq(placements.containerId, container),
     isNull(placements.deletedAt),
+    STILL_HELD,
     // ADR-0075. A deleted item is gone to every reader, so a container
     // cannot go on listing a placement that reaches one.
     isNull(heldTombstone),
@@ -2388,6 +2443,7 @@ function whatItSitsIn(item: Column | string, containerTombstone: SQLWrapper): SQ
   return and(
     eq(placements.itemId, item),
     isNull(placements.deletedAt),
+    STILL_HELD,
     // ADR-0075. A deleted container is gone to every reader, so an item
     // cannot go on claiming membership of it.
     isNull(containerTombstone),

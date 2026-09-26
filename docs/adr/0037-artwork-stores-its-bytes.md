@@ -32,9 +32,11 @@ references to bytes held elsewhere, which is the arrangement this record's first
 replace.
 
 **NOT BUILT: the artwork table, the stored bytes, and all three read-time rules.** No migration
-creates an `artwork` table — ADR-0038 is where it arrives. Nothing reads `max_cache_age` outside
-the two schema declarations and the fixtures, so the read-time expiry check does not exist and
-"licence correctness never depends on a job having run" describes nothing that runs. The per-role
+creates an `artwork` table — ADR-0038 is where it arrives. `max_cache_age` is read since CNCORE-360,
+but only for a Provider's claims about an Item and its Placements
+([[0036-tmdb-licence-constraints]], "Under CNCORE-360"). For ARTWORK the read-time expiry check does
+not exist, so "licence correctness never depends on a job having run" describes nothing that runs
+on a picture. The per-role
 limit and the quality floor are declared fields nothing enforces. The seeded `image` property is
 never written.
 

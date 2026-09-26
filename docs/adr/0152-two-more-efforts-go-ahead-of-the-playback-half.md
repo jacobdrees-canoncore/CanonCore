@@ -82,8 +82,10 @@ Three constraints on it, all already recorded:
 - [[0081-release-date-means-earliest-known-release]] overrides the arbitration for one column:
   `release_date` is the EARLIEST, not whichever source wins.
 - [[0036-tmdb-licence-constraints]] forbids caching "any information" past six months, and
-  `max_cache_age` is declared at 180 days and read by nothing — compliance by absence. Fusion stores
-  values by definition, so that ceiling comes due WITH this effort rather than after it.
+  `max_cache_age` is declared at 180 days. It was read by nothing, which is compliance by absence,
+  until CNCORE-360 made a read refuse a claim past it. The projected columns are still out of its
+  reach. Fusion stores values by definition, so that ceiling came due WITH this effort rather than
+  after it.
 
 ## What this record does not settle
 

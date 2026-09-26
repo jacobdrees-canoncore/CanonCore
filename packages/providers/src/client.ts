@@ -122,7 +122,9 @@ const PATIENCE = {
   /**
    * A whole container. 2.3x the largest browse the wiki can be asked for, and a
    * fifth of undici's own 300s default -- which the sentence this replaces
-   * rightly called long enough to look like a hang.
+   * rightly called long enough to look like a hang. SIZED TO THAT ONE SOURCE and
+   * binding every provider: TMDB's slowest browse, over five of its containers on
+   * 2026-09-26, took 0.40s (ADR-0130).
    *
    * THE SINGLE-BROWSE FIGURE IS STABLE AND THE HEADROOM IS NOT. Five clean runs
    * of AHistory on 2026-09-13 gave 25.5, 25.6, 25.9, 26.1 and 26.4s -- under a

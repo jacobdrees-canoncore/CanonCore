@@ -372,7 +372,13 @@ async function browseIntoCatalogue(
  * showing none.
  */
 function providerFrom(baseUrl: string, manifest: CmppManifest) {
-  return { identity: baseUrl, label: manifest.name, attribution: manifest.attribution };
+  return {
+    identity: baseUrl,
+    label: manifest.name,
+    attribution: manifest.attribution,
+    // Read off the manifest on every import for the attribution's reason (ADR-0036).
+    maxCacheAge: manifest.max_cache_age ?? null,
+  };
 }
 
 /**
@@ -401,6 +407,8 @@ function asProvided(record: CmppRecord) {
     identifiers: record.external_ids,
     // THE CATALOGUE'S KIND, which the provider maps from its own (CNCORE-367).
     itemKind: record.item_kind,
+    // Whether the source says this record holds others (CNCORE-360).
+    isContainer: record.is_container,
   };
 }
 

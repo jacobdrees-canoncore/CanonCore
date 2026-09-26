@@ -53,6 +53,8 @@ const wikiProvider = (identity = "http://127.0.0.1:8080") => ({
   // rather than left unsaid: the field is required precisely so an import cannot
   // stay silent about a licence and blank a stored one on the way past.
   attribution: null,
+  // Thirty days, which is what `provider-wiki` declares.
+  maxCacheAge: 2592000,
 });
 
 /**
@@ -72,6 +74,8 @@ const tmdbProvider = (identity = "http://127.0.0.1:8081") => ({
       alt: "The Movie Database (TMDB). TMDB does not endorse, certify or approve this application.",
     },
   },
+  // 180 days, which is what `provider-tmdb` declares (ADR-0036).
+  maxCacheAge: 15552000,
 });
 
 /**
@@ -410,7 +414,12 @@ describe("finding a record again by the id its provider knows it by", () => {
       record,
     });
     const other = await importProvidedRecord(db, {
-      provider: { identity: "http://127.0.0.1:9205", label: "provider-other", attribution: null },
+      provider: {
+        identity: "http://127.0.0.1:9205",
+        label: "provider-other",
+        attribution: null,
+        maxCacheAge: null,
+      },
       record,
     });
 

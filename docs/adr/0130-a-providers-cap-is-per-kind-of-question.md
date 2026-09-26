@@ -65,8 +65,16 @@ out".
 
 ## Sixty seconds, and what eats it
 
-2.3x the largest browse the source can be asked for, and a fifth of undici's own 300s default —
-which the comment this replaces rightly called long enough to look like a hang.
+2.3x the largest browse ONE SOURCE can be asked for: tardis.wiki, through `provider-wiki`, measured
+on 2026-09-13. It is a fifth of undici's own 300s default, which the comment this replaces rightly
+called long enough to look like a hang. The table above is that one source's and no other, so the
+cap is sized to the wiki and binds every provider. Its sibling caps are stated with that caveat and
+this one was not, until CNCORE-360 corrected it. The SECOND source is nowhere near it. Through
+`provider-tmdb:latest` (digest `6b245ed5`) on 2026-09-26, five browses each of `tv:121`, `tv:57243`
+and `collection:2344`, and three each of `season:121:0` and `season:57243:1`, came back in at most
+**0.40s to first byte**, cold. That was `season:121:0`, at 462,900 bytes. Every warm browse took
+under 0.07s. So sixty seconds is roughly 150 times TMDB's slowest measured browse and says nothing
+about TMDB. A third provider slower than the wiki would meet a cap nobody measured it against.
 
 **THE 2.3x IS AGAINST TIME TO FIRST BYTE, WHICH IS THE ONLY THING THIS CAP BOUNDS.** The same page
 takes 43.8s to arrive END TO END through `/api/rpc`, because the placements are then written to

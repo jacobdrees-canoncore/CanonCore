@@ -1,11 +1,19 @@
 import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { type Database, items, sources, writeProviderSettings } from "@canoncore/db";
+import {
+  type Database,
+  identifiers,
+  items,
+  placementSources,
+  sources,
+  statements,
+  writeProviderSettings,
+} from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { A_NARROWING } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
@@ -220,6 +228,8 @@ async function stubProvider(
     attribution = null as typeof ATTRIBUTION | null,
     /** What the provider calls itself, for a test about what it may call itself. */
     name = MANIFEST.name,
+    /** Seconds, or `null` for a source declaring no ceiling (ADR-0036). */
+    maxCacheAge = MANIFEST.max_cache_age as number | null,
     /**
      * Every path this provider was asked for, in order, for a caller that needs
      * to assert what was NOT asked.
@@ -240,7 +250,15 @@ async function stubProvider(
     };
     const path = request.url ?? "/";
     asked.push(path);
-    if (path === "/") return json({ ...MANIFEST, name, operations, attribution });
+    if (path === "/") {
+      return json({
+        ...MANIFEST,
+        name,
+        operations,
+        attribution,
+        max_cache_age: maxCacheAge ?? undefined,
+      });
+    }
     // A PROVIDER THAT DECLINES THE OPERATION HAS NOTHING AT THIS PATH, which is
     // the `404` both real providers answer and ADR-0033 requires of a decliner.
     if (path === "/containers" && operations.includes("containers")) {
@@ -955,6 +973,237 @@ describe("a record's item kind", () => {
     // And the question "what can I watch" still leaves them out (ADR-0077).
     const works = await call(appRouter.catalogue.works, { limit: 100 }, { context });
     expect(works.rows.map((row) => row.id)).toEqual(expect.not.arrayContaining(members));
+  });
+});
+
+/**
+ * A series as `provider-tmdb` browses it: the programme, and its seasons in
+ * TMDB's own array order, specials first. Each season SAYS it is a container,
+ * which is the only way CanonCore may know one is (`CONTEXT.md`'s Container:
+ * "stored, never inferred from having members") -- its episodes are CNCORE-375's
+ * and do not arrive here, so nothing else could say it.
+ */
+const A_SERIES = {
+  container: {
+    id: "tv:57243",
+    title: "Doctor Who",
+    kind: "tv",
+    released: ["2005-03-26"],
+    writers: [],
+    series: null,
+    url: "https://www.themoviedb.org/tv/57243",
+    is_container: true,
+  },
+  ordering: [
+    {
+      position: 1,
+      record: {
+        id: "season:57243:0",
+        title: "Specials",
+        kind: "season",
+        released: ["2005-11-18"],
+        writers: [],
+        series: "Doctor Who",
+        series_id: "tv:57243",
+        url: "https://www.themoviedb.org/tv/57243/season/0",
+        is_container: true,
+      },
+    },
+    {
+      position: 2,
+      record: {
+        id: "season:57243:1",
+        title: "Series 1",
+        kind: "season",
+        released: ["2005-03-26"],
+        writers: [],
+        series: "Doctor Who",
+        series_id: "tv:57243",
+        url: "https://www.themoviedb.org/tv/57243/season/1",
+        is_container: true,
+      },
+    },
+  ],
+  unplaced: [],
+};
+
+/**
+ * CNCORE-360: the second Provider's series and its seasons arrive as their own
+ * Containers, so the Owner can descend from one to the other and browse the way
+ * the thing was published beside the way it happened (ADR-0128).
+ */
+describe("a series and its seasons", () => {
+  it("arrive as Containers, and the Owner descends from the series to a season", async () => {
+    const baseUrl = await stubProvider({}, { containers: { "tv:57243": A_SERIES } });
+
+    const { containerId } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "tv:57243" },
+      { context },
+    );
+
+    const series = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(series.isContainer).toBe(true);
+    expect(series.holds.rows.map(({ title, position }) => [title, position])).toEqual([
+      ["Specials", 1],
+      ["Series 1", 2],
+    ]);
+
+    for (const { itemId } of series.holds.rows) {
+      const season = await call(appRouter.item.get, { id: itemId }, { context });
+      expect(season.isContainer).toBe(true);
+    }
+  });
+
+  it("leaves a member that does not say it is a container a plain work", async () => {
+    const { is_container: _, ...unsaid } = A_SERIES.ordering[1]!.record;
+    const baseUrl = await stubProvider(
+      {},
+      {
+        containers: {
+          "tv:57243": { ...A_SERIES, ordering: [{ position: 1, record: unsaid }] },
+        },
+      },
+    );
+
+    const { placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "tv:57243" },
+      { context },
+    );
+
+    const member = await call(appRouter.item.get, { id: placements[0]?.itemId ?? "" }, { context });
+    expect(member.isContainer).toBe(false);
+  });
+
+  it("stays its own Container beside another Provider's ordering of the same stories", async () => {
+    // ADR-0128: two Providers' orderings are two Containers, and neither may
+    // improve the other. The wiki's timeline and TMDB's series both land, apart.
+    const wiki = await stubProvider();
+    const tmdb = await stubProvider({}, { containers: { "tv:57243": A_SERIES } });
+
+    const timeline = await call(
+      appRouter.provider.browse,
+      { baseUrl: wiki, containerId: "388305" },
+      { context },
+    );
+    const series = await call(
+      appRouter.provider.browse,
+      { baseUrl: tmdb, containerId: "tv:57243" },
+      { context },
+    );
+
+    expect(series.containerId).not.toBe(timeline.containerId);
+    const seriesPage = await call(appRouter.item.get, { id: series.containerId }, { context });
+    const timelinePage = await call(appRouter.item.get, { id: timeline.containerId }, { context });
+    expect(seriesPage.holds.rows.map(({ title }) => title)).toEqual(["Specials", "Series 1"]);
+    // Both at position 1, which ties them (ADR-0009), so their order is no claim.
+    expect(timelinePage.holds.rows.map(({ title }) => title).sort()).toEqual([
+      "Day of the Vashta Nerada (audio story)",
+      "Night of the Vashta Nerada (audio story)",
+    ]);
+  });
+});
+
+/**
+ * Everything one Provider stored, made to have been taken `days` ago.
+ *
+ * AGED RATHER THAN WAITED FOR, which is the only way a six-month ceiling is
+ * testable. It reaches the rows directly because the moment a value was taken
+ * is the thing under test, and no procedure sets it to the past.
+ */
+async function ageEverythingFrom(baseUrl: string, days: number) {
+  const [source] = await db.select().from(sources).where(eq(sources.identity, baseUrl));
+  if (!source) throw new Error(`nothing was imported from ${baseUrl}`);
+  const taken = sql`now() - make_interval(days => ${days})`;
+  await db.update(statements).set({ observedAt: taken }).where(eq(statements.sourceId, source.id));
+  await db
+    .update(identifiers)
+    .set({ observedAt: taken })
+    .where(eq(identifiers.sourceId, source.id));
+  await db
+    .update(placementSources)
+    .set({ observedAt: taken })
+    .where(eq(placementSources.sourceId, source.id));
+}
+
+/**
+ * ADR-0036: TMDB forbids caching "any information" for longer than six months,
+ * and declares it as `max_cache_age`. Until CNCORE-360 nothing read the
+ * declaration, so the ceiling was honoured by not caching. Now every stored
+ * value carries the moment it was taken, and a read refuses one older than its
+ * Provider allows.
+ */
+describe("a Provider's cache ceiling", () => {
+  // `MANIFEST` declares thirty days.
+  const record = { ...TENTH_PLANET, external_ids: { imdb: "tt0000265" } };
+
+  async function importedAndBrowsed(options: { maxCacheAge?: number | null } = {}) {
+    const baseUrl = await stubProvider({ "265": record }, options);
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+    const { containerId } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+    return { baseUrl, itemId, containerId };
+  }
+
+  const fromTheProvider = (item: { statements: { sourceKind: string }[] }) =>
+    item.statements.filter(({ sourceKind }) => sourceKind === "provider");
+
+  it("refuses on read every value stored past the age the Provider declares", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+
+    await ageEverythingFrom(baseUrl, 31);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item)).toEqual([]);
+    expect(item.identifiers).toEqual([]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toEqual([]);
+  });
+
+  it("serves what was stored inside that age", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+
+    await ageEverythingFrom(baseUrl, 29);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
+  });
+
+  it("takes a value afresh when the Provider says it again", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+    await ageEverythingFrom(baseUrl, 31);
+
+    await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+    await call(appRouter.provider.browse, { baseUrl, containerId: "388305" }, { context });
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
+  });
+
+  it("refuses nothing from a Provider that declares no ceiling", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed({ maxCacheAge: null });
+
+    await ageEverythingFrom(baseUrl, 3650);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers).toHaveLength(1);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
   });
 });
 

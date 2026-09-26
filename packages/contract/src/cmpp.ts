@@ -159,6 +159,13 @@ export const record = z.looseObject({
   item_kind: z
     .enum(["work", "person", "organisation", "place", "time_span", "character", "concept"])
     .optional(),
+  /**
+   * Whether this record HOLDS others, and so can be browsed. A season named in
+   * its series' ordering arrives without its episodes, so a consumer has no
+   * other way to know it is a container rather than a story (CNCORE-360).
+   * Jellyfin's `IsFolder`. Absent says nothing, and is conformant.
+   */
+  is_container: z.boolean().optional(),
 });
 
 export type CmppRecord = z.infer<typeof record>;

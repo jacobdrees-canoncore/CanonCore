@@ -188,6 +188,17 @@ export const sources = pgTable(
      * see the mark is precisely the one who needs that sentence as text.
      */
     attributionLogoAlt: text("attribution_logo_alt"),
+    /**
+     * ADR-0036. The longest this source lets a value it said be kept, in
+     * seconds, as its manifest declares `max_cache_age`; NULL where it declares
+     * none, which is the Owner's own claims and any source imposing no ceiling.
+     *
+     * ON THE SOURCE ROW FOR `attributionNotice`'s REASON: it is rewritten on
+     * every import, so a Provider that revises its ceiling is held to the new
+     * one, and every claim already names its source. A read refuses a claim
+     * whose `observed_at` is further back than this (CNCORE-360).
+     */
+    maxCacheAge: integer("max_cache_age"),
     ...stampColumns(),
   },
   (t) => [
@@ -685,6 +696,13 @@ export const identifiers = pgTable(
     sourceId: uuid("source_id")
       .notNull()
       .references(() => sources.id),
+    /**
+     * When this source last said it, which a statement and a placement's source
+     * already carry (ADR-0012) and an Identifier had no column for. Refreshed
+     * whenever the source says it again, and read against the source's
+     * `max_cache_age` (ADR-0036, CNCORE-360).
+     */
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
     ...stampColumns(),
   },
   (t) => [

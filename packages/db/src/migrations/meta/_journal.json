@@ -169,6 +169,13 @@
       "when": 1790435331050,
       "tag": "20260926150851_migration_23_an_item_is_known_in_other_schemes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790446783770,
+      "tag": "20260926181943_migration_24_a_value_is_kept_no_longer_than_its_source_allows",
+      "breakpoints": true
     }
   ]
 }

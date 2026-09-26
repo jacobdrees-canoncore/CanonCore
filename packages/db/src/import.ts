@@ -28,6 +28,16 @@ export interface ImportingProvider {
     notice: string;
     logo?: { data_uri: string; alt: string } | null;
   } | null;
+  /**
+   * The longest this source lets a value it said be kept, in seconds, as its
+   * manifest declares `max_cache_age`, or `null` where it declares none
+   * (ADR-0036, CNCORE-360).
+   *
+   * REQUIRED FOR `attribution`'s REASON. It is written onto the source row on
+   * every import, so a caller that could omit it would clear a stored ceiling
+   * and every value that source ever said would be kept forever on read.
+   */
+  maxCacheAge: number | null;
 }
 
 /**
@@ -55,6 +65,13 @@ export interface ProvidedRecord {
    * seven, and `items.kind`'s foreign key refuses anything else.
    */
   itemKind: string;
+  /**
+   * Whether the source says this record holds others (CNCORE-360). A season
+   * named in its series' ordering arrives without its members, so this is the
+   * only way the catalogue can store it as a Container rather than infer one.
+   * Absent says the source did not say so, and never turns one off.
+   */
+  isContainer?: boolean;
 }
 
 export interface ImportedRecord {
@@ -388,6 +405,9 @@ async function writeProvidedItem(
   }: { ownerId: string; sourceId: string; record: ProvidedRecord; container?: boolean },
 ): Promise<ImportedRecord> {
   const found = await itemWithExternalId(tx, { ownerId, sourceId, externalId: record.externalId });
+  // What was browsed is a container, and so is a member its source says holds
+  // others -- a season named in its series' ordering (CNCORE-360).
+  container ||= record.isContainer === true;
 
   // A `browse` naming an id an earlier `lookup` wrote as a plain work: it is a
   // container after all, and `CONTEXT.md`'s Container headword makes that
@@ -455,7 +475,9 @@ async function writeProvidedItem(
  *
  * Unlike `assertClaims`, where every answer carries the same properties in
  * full. It reaches only THIS source's rows, since a source may only withdraw
- * what it said itself, and what is unchanged is not rewritten.
+ * what it said itself. What is unchanged keeps its row and has only its
+ * `observed_at` moved to now, which is what a read holds against the source's
+ * declared ceiling (CNCORE-360).
  */
 async function assertIdentifiers(
   tx: Transaction,
@@ -485,6 +507,18 @@ async function assertIdentifiers(
       .update(identifiers)
       .set({ deletedAt: sql`now()` })
       .where(inArray(identifiers.id, withdrawn));
+  }
+
+  // Said again, so taken again: `observed_at` is what a read holds against the
+  // source's declared ceiling (ADR-0036, CNCORE-360).
+  const retaken = held
+    .filter(({ scheme, value }) => Object.hasOwn(sent, scheme) && sent[scheme] === value)
+    .map(({ id }) => id);
+  if (retaken.length > 0) {
+    await tx
+      .update(identifiers)
+      .set({ observedAt: sql`now()` })
+      .where(inArray(identifiers.id, retaken));
   }
 
   const fresh = Object.entries(sent).filter(
@@ -597,6 +631,8 @@ async function providerSource(
     attributionNotice: provider.attribution?.notice ?? null,
     attributionLogo: provider.attribution?.logo?.data_uri ?? null,
     attributionLogoAlt: provider.attribution?.logo?.alt ?? null,
+    // Rewritten with the notice and for its reason: a Provider may revise it.
+    maxCacheAge: provider.maxCacheAge,
   };
 
   const [existing] = await tx
