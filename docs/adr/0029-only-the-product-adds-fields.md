@@ -49,10 +49,12 @@ property a source defines beyond the contract, and two fields the contract itsel
 and `external_ids` is named and shaped there and written as the item's Identifiers (ADR-0078's
 as-built section says why a table and not a Property). Nothing is lost at parse any more.
 
-**THE DOOR AT THE IMPORT DROPS SIX OF THE CONTRACT'S TEN FIELDS, AND EVERY SOURCE-DEFINED KEY.**
+**THE DOOR AT THE IMPORT DROPS SIX OF THE CONTRACT'S ELEVEN FIELDS, AND EVERY SOURCE-DEFINED KEY.**
 Measured on 2026-09-26 against `packages/contract`'s `record`, which declares `id`, `title`, `kind`,
-`released`, `writers`, `series`, `url`, `series_id`, `images` and `external_ids`. Four reach the
-catalogue: `id` as `external_id`, `title`, `released`, and `external_ids` as Identifiers. Six do
+`released`, `writers`, `series`, `url`, `series_id`, `images`, `external_ids` and, since CNCORE-367,
+`item_kind`. Five reach the catalogue: `id` as `external_id`, `title`, `released`, `external_ids` as
+Identifiers, and `item_kind` as the Item's own kind, which is a column and a reference table's key
+rather than a Property, so it mints nothing. Six do
 not: `writers`, `series` and the provider's own finer `kind`, which `import.ts` says in as many
 words why it does not import; `series_id`, which `provider.containerOf` reads one click at a time
 and nothing stores; `url`; and `images`, which since CNCORE-349 survives the parse to be dropped

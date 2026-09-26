@@ -200,7 +200,29 @@ each attempt the moment refusals cascaded.
 be one, and this record does not add it, because the pacing belongs to a rate limit that one wiki
 chooses and that nothing in this repository can observe — `provider-wiki` already honours
 `Retry-After` where the wiki sends one, and an `ECONNRESET` carries no header to honour. Whatever
-next meets this should decide it with a figure, the way this record decided the index above.
+next meets this should decide it with a figure, the way this record decided the index above --
+**and CNCORE-367 met it, and decided to add no pacing, on the figure below.**
+
+### The first entity import, and the figure that decided it (CNCORE-367)
+
+**`provider-wiki`'s own rate, unpaced, is what the wiki tolerated over the Time span population.**
+Taken with `pnpm measure:pace 8103 203134` in `provider-wiki`, 2026-09-26 at 18:31Z, over the
+pages carrying `Infobox Event or Conflict` (8103) or `Infobox Event or Exhibition` (203134), ns 0,
+non-redirects:
+
+| | pages served | requests | seconds | a second |
+|---|---:|---:|---:|---:|
+| `Event or Conflict` | 555 of 560 | 136 | 12.1 | 11.3 |
+| `Event or Exhibition` | 40 of 40 | 6 | 0.6 | 10.2 |
+
+**All 142 answered `200`.** 91 of them are the out-of-universe walk, paid once an hour (it is why
+five of the 560 are not served), 38 are `ask` batches of sixteen, and the rest identify pages. The
+same browse, driven through CanonCore's own run into a development install, landed 555 and 40
+Placements in 15.9s end to end. So nothing is added: the provider already holds one request in
+flight, and at 142 requests this population is far below the 465-Container corpus run whose
+twelfth Container is where the storm above began. **This is a figure about THIS population and
+no other.** CNCORE-352's 39,173 pages are two orders of magnitude more `ask` batches, and it
+retakes the figure with the same command rather than inheriting this one.
 
 ## The catalogue survives a restart and a rename, measured with the corpus in it
 
