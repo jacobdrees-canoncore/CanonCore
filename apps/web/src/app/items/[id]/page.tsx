@@ -623,7 +623,13 @@ export default async function ItemPage({
       {owner && <Note itemId={item.id} note={await readNote(item.id, context)} />}
       <Artwork artwork={item.artwork} />
       <Values statements={item.statements} />
+      {/*
+        UNDER THE CLAIMS, because it is a claim about them (CNCORE-361): another
+        Provider holds this work as several instalments, and none was matched here.
+      */}
+      <InstalmentsHeldElsewhere held={item.instalmentsHeldElsewhere} />
       <Identifiers identifiers={item.identifiers} />
+      <ReviewQueue candidates={item.matchCandidates} />
       {/*
         BEFORE "Also appears in", because a container's own ordering is what a
         reader browsing into it came for, and where this item sits in OTHER
@@ -931,6 +937,81 @@ function Artwork({ artwork }: { artwork: ItemOnThePage["artwork"] }) {
                 <TheirWords>{picture.sourceLabel}</TheirWords>
               </figcaption>
             </figure>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * WHY THIS ITEM HOLDS ONE PROVIDER'S CLAIMS AND NOT THE OTHER'S (CNCORE-361).
+ * The other Provider holds the work as several instalments, and a instalment is never a
+ * story (CNCORE-368's finding), so no single one was matched. Said rather than
+ * left for a reader to wonder where the second Provider went.
+ */
+function InstalmentsHeldElsewhere({ held }: { held: ItemOnThePage["instalmentsHeldElsewhere"] }) {
+  if (held.length === 0) return null;
+  return (
+    <section className="mt-4 text-muted-foreground text-sm" aria-label="Instalments held elsewhere">
+      {held.map((one) => (
+        <p key={one.sourceLabel}>
+          <InstalmentsSentence held={one} />
+        </p>
+      ))}
+    </section>
+  );
+}
+
+/** One sentence, the same wherever it is read: under the claims and on an offered row. */
+function InstalmentsSentence({
+  held,
+}: {
+  held: ItemOnThePage["instalmentsHeldElsewhere"][number];
+}) {
+  return (
+    <>
+      <TheirWords>{held.sourceLabel}</TheirWords> holds this as {held.instalments} instalments, and
+      no single one of them was matched to this Item.
+    </>
+  );
+}
+
+/**
+ * MATCHES OFFERED RATHER THAN APPLIED (ADR-0027, CNCORE-361): each scored
+ * between the bars, with the signals that made it (ADR-0028). Confirming or
+ * rejecting one is CNCORE-363's; this only shows that the question is open.
+ *
+ * A ROW CARRIES THE OTHER ITEM'S PART SENTENCE, so a reader meets a instalment
+ * disagreement before confirming as well as after.
+ */
+function ReviewQueue({ candidates }: { candidates: ItemOnThePage["matchCandidates"] }) {
+  if (candidates.length === 0) return null;
+  return (
+    <section className="mt-8" aria-labelledby="review-queue">
+      <h2 id="review-queue" className="font-medium text-sm">
+        Review queue
+      </h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Offered as the same work, not applied: the match fell between the two bars.
+      </p>
+      <ul className="mt-2 divide-y">
+        {candidates.map((candidate) => (
+          <li key={candidate.itemId} className="py-2">
+            <span className="flex items-baseline justify-between gap-4">
+              <Link href={`/items/${candidate.itemId}`} className="hover:underline">
+                <TheirWords>{candidate.title ?? "Untitled item"}</TheirWords>
+              </Link>
+              <span className="text-muted-foreground text-sm">
+                {candidate.score.toFixed(2)}: title {candidate.signals.title}, release date{" "}
+                {candidate.signals.released}
+              </span>
+            </span>
+            {candidate.instalmentsHeldElsewhere.map((held) => (
+              <span key={held.sourceLabel} className="block text-muted-foreground text-sm">
+                <InstalmentsSentence held={held} />
+              </span>
+            ))}
           </li>
         ))}
       </ul>

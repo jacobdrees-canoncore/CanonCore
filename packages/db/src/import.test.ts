@@ -334,7 +334,8 @@ describe("importing one record from a provider", () => {
  * CNCORE-28. THE CLAIM IS IDENTITY, NOT MATCHING: "this provider's record 265 is
  * the item we already made from this provider's record 265" is one party, one
  * namespace and no judgement. Deciding that two DIFFERENT providers' records
- * describe one work is ADR-0026's operation, and it is not built.
+ * describe one work is ADR-0026's operation, which a browse performs since
+ * CNCORE-361 and this file does not reach: `importProvidedRecord` never matches.
  */
 describe("finding a record again by the id its provider knows it by", () => {
   it("refreshes the item it already wrote rather than writing a second", async () => {
@@ -396,9 +397,9 @@ describe("finding a record again by the id its provider knows it by", () => {
    * stories on a collision between two numbering schemes.
    *
    * Deciding that two DIFFERENT providers' records describe one work is
-   * ADR-0026's operation, with its own endpoint, its own score and its own
-   * review queue, and none of it is built. This ticket only claims that a
-   * provider's own id identifies its own record.
+   * ADR-0026's operation, with its own score and its own bars, which a browse
+   * performs since CNCORE-361 and a lookup never does. This ticket only claims
+   * that a provider's own id identifies its own record.
    */
   it("keeps two providers' records apart even when they share an id", async () => {
     const record = {

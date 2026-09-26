@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
+import { matchArrivingWork, recordWhatWasNotApplied } from "./matching";
 import { assertPlacement, theOwnerId } from "./placements";
 import { insideItsCeiling } from "./queries";
 import {
@@ -13,6 +14,7 @@ import {
   sources,
   statements,
 } from "./schema";
+import { instalmentsOf } from "./works-match";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {
@@ -159,8 +161,9 @@ export interface ImportedRecord {
  * reason ADR-0026 gives: "this provider's record 265 is the item we already made
  * from this provider's record 265" is one party, one namespace and no judgement,
  * where deciding that two DIFFERENT providers' records describe one work needs a
- * score, a threshold and a review queue. None of that is built, and none of it
- * is needed here.
+ * score, a threshold and a review queue. A browse does that since CNCORE-361
+ * (`matchArrivingWork`); a lookup names no Container to read a part count from,
+ * so it never matches, and needs none of it.
  */
 export async function importProvidedRecord(
   db: Database,
@@ -349,8 +352,13 @@ export async function importBrowsedContainer(
      * -- inside this transaction included -- so a repeat and a re-browse are one
      * question with one answer, rather than two mechanisms that could disagree.
      */
+    // THE TITLES THIS ORDERING SERVES, which is how a part says it is one of
+    // several (`instalmentsOf`, CNCORE-361).
+    const siblings = [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
+      (record) => record.title,
+    );
     const item = async (record: ProvidedRecord) => {
-      const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record });
+      const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record, siblings });
       quarantinedValues += writtenItem.quarantinedValues;
       return writtenItem.itemId;
     };
@@ -498,12 +506,41 @@ async function writeProvidedItem(
     sourceId,
     record,
     container = false,
-  }: { ownerId: string; sourceId: string; record: ProvidedRecord; container?: boolean },
+    siblings,
+  }: {
+    ownerId: string;
+    sourceId: string;
+    record: ProvidedRecord;
+    container?: boolean;
+    /**
+     * The titles of everything the same browse served, which a member is
+     * matched with (CNCORE-361). Absent on a `lookup` and on the container
+     * itself, and then nothing is matched: a lookup names no Container to read
+     * parts from, and ADR-0128 keeps two Providers' orderings apart.
+     */
+    siblings?: string[];
+  },
 ): Promise<ImportedRecord> {
   const found = await itemWithExternalId(tx, { ownerId, sourceId, externalId: record.externalId });
   // What was browsed is a container, and so is a member its source says holds
   // others -- a season named in its series' ordering (CNCORE-360).
   container ||= record.isContainer === true;
+
+  // ADR-0026's MATCHING, for a work this source has never sent before: an Item
+  // another Provider holds that scores above the high bar is where it lands,
+  // rather than on a second Item for the same work (CNCORE-361).
+  const matched =
+    siblings === undefined || container
+      ? undefined
+      : await matchArrivingWork(tx, {
+          ownerId,
+          sourceId,
+          arriving: {
+            title: record.title,
+            released: record.released,
+            instalments: instalmentsOf(record.title, siblings),
+          },
+        });
 
   // A `browse` naming an id an earlier `lookup` wrote as a plain work: it is a
   // container after all, and `CONTEXT.md`'s Container headword makes that
@@ -519,8 +556,22 @@ async function writeProvidedItem(
     await tx.update(items).set({ isContainer: true, isOrdered: true }).where(eq(items.id, found));
   }
 
+  // TODO(CNCORE-430): an applied match keeps neither its score nor its signals.
+  // TODO(CNCORE-429): a work found by identity is never re-scored, so works held
+  // twice before matching landed stay two Items.
   const itemId =
-    found ?? (await insertProvidedItem(tx, { ownerId, container, kind: record.itemKind }));
+    found ??
+    matched?.applyTo ??
+    (await insertProvidedItem(tx, { ownerId, container, kind: record.itemKind }));
+  if (matched !== undefined) {
+    await recordWhatWasNotApplied(tx, {
+      ownerId,
+      itemId,
+      // Found by identity, it was offered when it first arrived; only what it
+      // disagrees about is taken afresh.
+      matched: found === undefined ? matched : { ...matched, offered: [] },
+    });
+  }
 
   const quarantinedValues = await assertClaims(tx, {
     ownerId,
@@ -655,7 +706,7 @@ async function insertProvidedItem(
  * id is unique in ITS OWN namespace and nowhere else, so two providers both
  * calling something `265` are two records about two items until something
  * decides otherwise -- and deciding that is matching, which is ADR-0026's
- * operation and is not built.
+ * operation, `matchArrivingWork`'s since CNCORE-361, and not this.
  *
  * IT HONOURS THE TOMBSTONE (ADR-0075), joining `items` for no other reason. An
  * item the owner deleted is gone to every reader, so a re-import must not write

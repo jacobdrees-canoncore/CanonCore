@@ -188,6 +188,33 @@ export const identifierPublic = z.object({
 });
 
 /**
+ * A Provider that holds this Item's work as several instalments, none of which was
+ * matched to it (CNCORE-361): CNCORE-368's finding makes that a NO MATCH, and
+ * the page names the count rather than staying silent.
+ */
+export const instalmentsHeldElsewherePublic = z.object({
+  sourceLabel: z.string(),
+  instalments: z.number().int(),
+});
+
+/**
+ * A match offered rather than applied (ADR-0027, CNCORE-361): the other Item,
+ * the total, and the signals that made it (ADR-0028), with what the other
+ * Item's page says about instalments so the row says it too.
+ */
+export const matchCandidatePublic = z.object({
+  itemId: z.uuid(),
+  title: z.string().nullable(),
+  score: z.number(),
+  signals: z.object({
+    title: z.enum(["same", "subtitle", "differs"]),
+    released: z.enum(["same", "differs", "unknown"]),
+    instalments: z.enum(["agree", "disagree"]),
+  }),
+  instalmentsHeldElsewhere: z.array(instalmentsHeldElsewherePublic),
+});
+
+/**
  * One picture an item carries, and what its source said about it (ADR-0038,
  * CNCORE-358).
  *
@@ -537,6 +564,10 @@ export const itemPublic = z.object({
   identifiers: z.array(identifierPublic),
   /** The pictures this item carries, each with what its source said (CNCORE-358). */
   artwork: z.array(artworkPublic),
+  /** Providers holding this Item's work as several instalments, none matched to it (CNCORE-361). */
+  instalmentsHeldElsewhere: z.array(instalmentsHeldElsewherePublic),
+  /** Matches offered on this Item and not yet decided (ADR-0027, CNCORE-361). */
+  matchCandidates: z.array(matchCandidatePublic),
   /**
    * What this page owes for showing the above (ADR-0036).
    *

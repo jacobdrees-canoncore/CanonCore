@@ -51,6 +51,7 @@ export {
   recordContainerRefused,
   theContainerIdQuoted,
 } from "./import-runs";
+export { findInstalmentsHeldElsewhere, findMatchCandidatesOfItem } from "./matching";
 export {
   type AssertedPlacement,
   assertPlacement,
@@ -125,6 +126,7 @@ export {
   type TaskOutcome,
   type TaskRun,
 } from "./task-runs";
+export { instalmentsOf, scoreWorkMatch } from "./works-match";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**

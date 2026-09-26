@@ -174,7 +174,6 @@ function declaresItsHalves(record: AdrRecord): boolean {
  * to replace, and one record taking the bold is cheaper than a weaker check.
  */
 const SILENT_ON_PURPOSE: Readonly<Record<string, string>> = {
-  "0028": "no scorer exists, so there is no half to declare (CNCORE-247)",
   "0065": "its citation is a cross-reference justifying an omission, not a dependency (CNCORE-247)",
 };
 

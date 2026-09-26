@@ -97,9 +97,13 @@ describe("item.get", () => {
       // WHAT THIS ITEM IS KNOWN AS IN OTHER ID SPACES, with who said so
       // (CNCORE-349). Red here when it was added, the enumeration working again.
       "identifiers",
+      // How many instalments another Provider holds this work as (CNCORE-361).
+      "instalmentsHeldElsewhere",
       "isContainer",
       "isOrdered",
       "kind",
+      // MATCHES OFFERED AND NOT YET DECIDED (CNCORE-361). Red here when added.
+      "matchCandidates",
       "placements",
       "releaseDate",
       "sortName",

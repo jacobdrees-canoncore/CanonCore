@@ -20,41 +20,67 @@ evaluates overlay rules as a policy at commit.
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-jellyfin.md`, `docs/research/verify-adr-products.md`.
 
-## Not built -- and the one piece that was not really matching is now built, under CNCORE-28
+## Half built, under CNCORE-361 -- and this record stays PROPOSED
 
-Nothing matches. There is no scoring, no threshold, no review queue and no endpoint.
+**BUILT: MATCHING, FOR WORKS, ON A BROWSE.** When a browse writes a work its Provider has never
+sent before, `matchArrivingWork` (`packages/db/src/matching.ts`) scores it against every live,
+non-container Item another Provider holds that shares its day of release or could share its title,
+as that Provider titles and dates it. Each Provider is matched against the other's own claims, never
+against a merged value, which is this record's first sentence. Above ADR-0027's high bar the arriving
+record is written onto that Item, which then carries both Providers' external ids and both
+Providers' values, each still sourced; the band is handed over as a candidate pair; below the low bar
+nothing is kept. Two Items at the high bar are a question, not an answer, so both are offered and
+neither applied.
 
-What has changed is the piece this section was written to name. An item used to carry NO external
-identifier: `importProvidedRecord` took the provider's own id and dropped it, because only a
-migration may add a property (ADR-0029) and none held one -- so a second import of one record from
-one provider wrote a SECOND ITEM, and a second browse of one container wrote a second container and
-a second copy of every member, silently. Migration 3 holds the id and both imports now find or
-create against (source, external id), so a re-import refreshes rather than doubles.
+**IT FOLLOWS CNCORE-368'S FINDING, `docs/research/episode-groups-and-a-scoreable-match.md`, NOT AN
+ASSUMPTION.** That note measured the part-versus-story mismatch: 157 of the wiki's 159 1963 stories
+have several parts, and for 132 of them TMDB's part 1 carries the story's title AND its release date,
+so a title-and-date scorer accepts every one (section 3.2). A part is therefore never a story. The
+scorer reads how many INSTALMENTS each Provider holds a work as (`CONTEXT.md`'s term, since the
+glossary's Part is a file), and a disagreement scores zero whatever
+the title and date say. The count comes from TMDB's own `(n)` titles (`The Tenth Planet (1)` to `(4)`,
+`instalmentsOf`), not from the contributor-written `Story Order` group the note found and warned against
+trusting (section 2.5), and not from the wiki's `Epcount`, which `provider-wiki` does not send. The
+Item page names the count and says no single instalment was matched, under the claims and on any offered
+row.
 
-**IT IS NOT THIS RECORD'S OPERATION, WHICH IS WHY IT NEEDED SAYING HERE.** "This provider's record
-265 is the item we already made from this provider's record 265" is IDENTITY: one party, one
-namespace, no judgement, no score. This record's matching is the harder claim that two DIFFERENT
-providers' records describe one work, and its own sentence is the reason the two are separable --
-"each provider is matched independently to its own record, and agreeing identifiers between
-providers are evidence they describe the same work". The identifiers had to exist before they could
-agree, and now they do. [[0078-entity-identity-is-a-surrogate-id]] decided their shape and records
-which half of itself CNCORE-28 built.
+**WHAT THE COUNT CANNOT SEE, MEASURED:** the 1963 series' first three seasons title each part on its
+own (`An Unearthly Child`, `The Cave of Skulls`), so those stories read as one instalment. Five rows of the
+labelled set are exactly that (`An Unearthly Child`, `The Edge of Destruction`, `Planet of Giants`,
+`The Web Planet`, `The Space Museum`), and they are the scorer's only false positives there.
+ADR-0028 says how that was measured.
 
-So the mapping is built and this record's operation stays unbuilt behind it. A reader finding
-duplicate items from ONE provider should stop expecting them; a reader finding one item per provider
-for one story is looking at the thing this record has not done yet.
+**NOT BUILT, AND IT IS WHY THIS RECORD STAYS `proposed`: matching as ITS OWN ENDPOINT.** Matching runs
+inside `provider.browse`, separated from the write only at module level: `matchArrivingWork` decides
+and writes nothing, and the import writes what it decided. This record asks for more than that, so
+a later screen cannot collapse the two. There is no procedure that matches without importing, and a
+`provider.import` (a lookup) never matches at all, since it names no Container to read an instalment count
+from. APPLYING in this record's sense, meaning choosing among a matched record's values, is not built
+either: both Providers' values are kept and the projection ranks them (ADR-0014, ADR-0025). A second
+half is also missing: the wiki arriving AFTER TMDB is matched too, by the same code, but nothing
+re-scores Items that were already both held when this landed. A pair is found only when a browse
+meets it. All three halves are CNCORE-429.
 
-## Its absence is now load-bearing on a test -- under CNCORE-9
+**THE IDENTITY PIECE, UNDER CNCORE-28, IS UNCHANGED.** "This provider's record 265 is the item we
+already made from this provider's record 265" is IDENTITY: one party, one namespace, no judgement,
+no score. Migration 3 holds the id, and both imports find or create against (source, external id), so
+a re-import refreshes rather than doubles. [[0078-entity-identity-is-a-surrogate-id]] decided the
+ids' shape. A work found again by identity is never re-matched; only its instalment disagreements are
+taken afresh.
 
-**A COMMITTED TEST NOW DEPENDS ON THIS RECORD NOT BEING BUILT**, which is a thing a reader of the
-paragraph above should be warned about before they build it.
+## The test that stood in for it -- under CNCORE-9, retired under CNCORE-361
 
-`apps/web/e2e/multi-placement.test.ts` needs ONE item sitting in the wiki's ordering and TMDB's at
-once. A real browse of each gives two items -- one per provider, which is exactly the state the
-section above describes -- so the wiki's half is imported and TMDB's is RECORDED AS TMDB'S CLAIM
-against the item the wiki import already wrote. That hand step is what this record's apply operation
-would do, performed by a test because nothing else can perform it.
+`apps/web/e2e/multi-placement.test.ts` needs ONE Item sitting in the wiki's ordering and TMDB's at
+once. Until CNCORE-361 a real browse of each gave two Items, so the wiki's half was imported and
+TMDB's was RECORDED BY HAND as TMDB's claim against the Items the wiki import had written. That hand
+step did what this record's operation would do, performed by a test because nothing else could.
 
-**SO THE DAY MATCHING LANDS, THAT FILE SHOULD STOP DOING IT BY HAND** and browse TMDB for real. It is
-not a workaround to be preserved; it is the shape of a test written in front of an operation that
-does not exist. The file says so at the site, and this is the other end of that sentence.
+**IT NOW BROWSES TMDB FOR REAL**, seasons 0, 1 and 2 of `tv/57243`, and the hand-written claims are
+gone. Two things changed in what the file asserts, each because a real browse does something the hand
+step did not:
+
+- *Rose*'s control was ONE placement row in the wiki's `Series 1` carrying both sources (ADR-0017).
+  A browse puts TMDB's claim in TMDB's own season, since matching joins works and never Containers
+  (ADR-0128). The control is now one Item, first in each of two orderings, carrying both ids.
+- *Born Again* was written onto the wiki's Item. TMDB titles it `Children in Need: Born Again`, which
+  scores 0.7, between the bars, so a real browse OFFERS it. The file asserts the offer.

@@ -13,7 +13,9 @@ import {
   groupItems,
   groupProviders,
   identifiers,
+  instalmentDisagreements,
   items,
+  matchCandidates,
   owners,
   placementSources,
   placements,
@@ -265,6 +267,90 @@ describe("an Identifier, one per scheme per source", () => {
     expect(await refusal(db.insert(identifiers).values({ ...one, value: "tt0234215" }))).toBe(
       "identifiers_one_value_per_scheme",
     );
+  });
+});
+
+/**
+ * CNCORE-361. A PAIR IS OFFERED ONCE, and a source counts one work's instalments
+ * once. `recordWhatWasNotApplied` writes neither twice -- it skips a pair on
+ * conflict and refreshes a count in place -- so these indexes are what make
+ * that a fact rather than a property of the only writer there is.
+ */
+describe("what the matcher hands over, once each", () => {
+  it("refuses one pair offered twice", async () => {
+    const ownerId = await theOwner(db);
+    const pair = {
+      ownerId,
+      itemId: await anItem(db),
+      candidateItemId: await anItem(db),
+      score: 0.7,
+      titleSignal: "subtitle",
+      releasedSignal: "same",
+    };
+    await db.insert(matchCandidates).values(pair);
+
+    expect(await refusal(db.insert(matchCandidates).values(pair))).toBe(
+      "match_candidates_one_per_pair",
+    );
+  });
+
+  it("refuses a pair of one Item with itself", async () => {
+    const item = await anItem(db);
+    expect(
+      await refusal(
+        db.insert(matchCandidates).values({
+          ownerId: await theOwner(db),
+          itemId: item,
+          candidateItemId: item,
+          score: 0.7,
+          titleSignal: "subtitle",
+          releasedSignal: "same",
+        }),
+      ),
+    ).toBe("match_candidates_two_items");
+  });
+
+  it.each([
+    ["titleSignal", "match_candidates_title_signal"],
+    ["releasedSignal", "match_candidates_released_signal"],
+  ] as const)("refuses a %s that is not the scorer's word", async (signal, rule) => {
+    const pair = {
+      ownerId: await theOwner(db),
+      itemId: await anItem(db),
+      candidateItemId: await anItem(db),
+      score: 0.7,
+      titleSignal: "subtitle",
+      releasedSignal: "same",
+    };
+    expect(await refusal(db.insert(matchCandidates).values({ ...pair, [signal]: "close" }))).toBe(
+      rule,
+    );
+  });
+
+  it("refuses a count of one instalment, which is no disagreement", async () => {
+    expect(
+      await refusal(
+        db.insert(instalmentDisagreements).values({
+          ownerId: await theOwner(db),
+          itemId: await anItem(db),
+          sourceId: await aProvider(db, "http://127.0.0.1:9414"),
+          instalments: 1,
+        }),
+      ),
+    ).toBe("instalment_disagreements_several");
+  });
+
+  it("refuses a second count of one work's instalments from one source", async () => {
+    const one = {
+      ownerId: await theOwner(db),
+      itemId: await anItem(db),
+      sourceId: await aProvider(db, "http://127.0.0.1:9413"),
+    };
+    await db.insert(instalmentDisagreements).values({ ...one, instalments: 4 });
+
+    expect(
+      await refusal(db.insert(instalmentDisagreements).values({ ...one, instalments: 6 })),
+    ).toBe("instalment_disagreements_one_per_source");
   });
 });
 

@@ -111,11 +111,12 @@ the Catalogue is narrowed to each group in turn:
    in which to say so. An Owner who wants the wiki first for Doctor Who and TMDB first for Marvel,
    with both groups asking both, cannot have it. **This one holds by construction and no test
    asserts it**, because nothing in the product can yet put two providers' claims on one field of one
-   Item: an import finds or creates the Item by that provider's own id, and matching one provider's
-   record to another's Item is ADR-0026's operation, which is not built. What IS asserted is the
+   Item: an import finds or creates the Item by that provider's own id. (Matching one provider's
+   record to another's Item is ADR-0026's operation, and since CNCORE-361 a browse does put two
+   providers' titles on one Item; the test this point names is still unwritten.) What IS asserted is the
    nearest two-source case the catalogue can make, the Owner at 0 above a provider, reading the same
-   in a group that asks the provider and one that asks nobody. When matching lands, the two-provider
-   case is the test to add.
+   in a group that asks the provider and one that asks nobody. Now that matching has landed, the
+   two-provider case is the test to add.
 2. **A group filters who is ASKED, not what is READ.** A provider's claim about an Item, once in the
    catalogue, speaks for that Item in every group it sits in, ranked by this one order, including a
    group that never asks that provider. The crossover is exactly where this bites: an Item in a group

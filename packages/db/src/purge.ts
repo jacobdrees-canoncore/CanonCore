@@ -10,6 +10,7 @@ import {
   groupItems,
   groups,
   identifiers,
+  instalmentDisagreements,
   items,
   placementSources,
   placements,
@@ -167,6 +168,9 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
   await tx.delete(identifiers).where(eq(identifiers.sourceId, source.id));
   // The provider's pictures go with it: bytes it supplied are its content.
   await tx.delete(artwork).where(eq(artwork.sourceId, source.id));
+  // Its count of instalments goes too (CNCORE-361): the `(n)` titles it was read off
+  // were this provider's claim.
+  await tx.delete(instalmentDisagreements).where(eq(instalmentDisagreements.sourceId, source.id));
 
   // A PLACEMENT IS A CLAIM AND MAY HAVE SEVERAL CLAIMANTS (ADR-0017): sources
   // agreeing about where an item sits are recorded against ONE row. So a

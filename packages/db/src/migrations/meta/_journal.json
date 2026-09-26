@@ -183,6 +183,13 @@
       "when": 1790448950541,
       "tag": "20260926185550_migration_25_artwork_is_a_table",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790454585221,
+      "tag": "20260926202945_migration_26_works_match_across_providers",
+      "breakpoints": true
     }
   ]
 }

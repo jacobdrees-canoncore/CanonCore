@@ -1,10 +1,6 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb, type Database, sources } from "@canoncore/db";
-import { anItem, aStatement } from "@canoncore/db/testing/catalogue";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { beforeAll, describe, expect, inject, it } from "vitest";
 import { clientAt, logInAt } from "./document";
-import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
  * THE TEST THAT PROVES THIS IS NOT A TREE.
@@ -31,20 +27,18 @@ const SERIES_2 = "47651";
 const WIKI_SERIES_1 = { rose: 1 };
 
 /**
- * AND WHERE TMDB PUTS IT: `tv/57243` season 1, first, read the same day.
+ * AND WHERE TMDB PUTS IT: `tv/57243` season 1, first, read the same day and
+ * again on 2026-09-26.
  *
- * IT GETS NO CONTAINER OF ITS OWN, and that is the decision this row turns on.
- * TMDB's season 1 and the wiki's series 1 hold the same thirteen stories in the
- * same order, so TMDB is asserting THE SAME PLACEMENT rather than a competing
- * one -- and ADR-0017 records agreement against ONE row with a source each,
- * because the same item at the same position twice is never a deliberate
- * duplicate, it is corroboration.
- *
- * Season 2 is the opposite case and gets its own container for the opposite
- * reason: fifteen members against thirteen is not one ordering two sources
- * describe.
+ * IN TMDB'S OWN CONTAINER SINCE CNCORE-361, and that changed what this row is.
+ * It was written by hand into the WIKI's `Series 1`, as ADR-0017's one row with
+ * a source each, because TMDB's season and the wiki's series hold the same
+ * thirteen stories in the same order. A real browse cannot do that: matching
+ * joins two Providers' WORKS, and nothing matches their Containers (ADR-0128
+ * keeps two orderings apart). So TMDB's season is a Container of its own, and
+ * the control is two orderings agreeing about one Item rather than one row.
  */
-const TMDB_SEASON_1 = { rose: 1 };
+const TMDB_SEASON_1 = { id: "season:57243:1", rose: 1 };
 
 /**
  * WHERE THE WIKI PUTS THESE STORIES, hardcoded here and asserted against what a
@@ -66,14 +60,15 @@ const WIKI_SERIES_2 = {
  * WHAT TMDB SAYS ABOUT THE SAME STORIES -- `tv/57243`, at story level, one
  * episode to one wiki story.
  *
- * Read from `api.themoviedb.org/3/tv/57243/season/2` on 2026-09-11. THESE
- * NUMBERS ARE CACHED TMDB CONTENT SUBJECT TO THE PURGE DUTY (ADR-0036): a
- * committed expectation is a cache that never expires, so purging TMDB is two
- * acts rather than one, and the second is a hand edit against this file.
+ * Read from `api.themoviedb.org/3/tv/57243/season/2` on 2026-09-11 and again on
+ * 2026-09-26. THESE NUMBERS ARE CACHED TMDB CONTENT SUBJECT TO THE PURGE DUTY
+ * (ADR-0036): a committed expectation is a cache that never expires, so purging
+ * TMDB is two acts rather than one, and the second is a hand edit against this
+ * file. Since CNCORE-361 they are asserted against what a real browse answers
+ * rather than written into the catalogue, so they are expectations only.
  */
 const TMDB_SEASON_2 = {
   id: "season:57243:2",
-  title: "Series 2",
   newEarth: 1,
   fearHer: 11,
   doomsday: 13,
@@ -81,37 +76,42 @@ const TMDB_SEASON_2 = {
 
 /**
  * AND WHERE TMDB FILES THE TWO STORIES THE WIKI PUTS AT THE FRONT OF SERIES 2.
- * `tv/57243` season 0, read the same day and cached under the same duty.
+ * `tv/57243` season 0, read the same day and again on 2026-09-26, and cached
+ * under the same duty.
  *
  * THIS IS WHY FIFTEEN IS NOT THIRTEEN. The wiki folds the Children in Need
  * mini-episode and the Christmas special into the series; TMDB files both under
  * Specials. Those two members are the whole of the offset every row above
  * asserts, and they are here as members of a THIRD container rather than as an
  * explanation in a comment.
+ *
+ * *BORN AGAIN* IS TMDB's `Children in Need: Born Again`, a title the wiki does
+ * not give it. So the matcher scores it between the bars and OFFERS it rather
+ * than applying it (ADR-0027): the wiki's Item and TMDB's stay two until the
+ * Owner decides, which is CNCORE-363's.
  */
 const TMDB_SPECIALS = {
   id: "season:57243:0",
-  title: "Specials",
-  bornAgain: 1,
+  bornAgainTitle: "Children in Need: Born Again",
   christmasInvasion: 2,
 };
 
-let db: Database;
 let client: AppRouterClient;
 /** The wiki's `Series 2`, as the import wrote it. */
 let wikiSeries2: string;
-/** TMDB's `Season 2`, which is a DIFFERENT container and is never matched to it. */
+/** TMDB's `Series 2`, which is a DIFFERENT container and is never matched to it. */
 let tmdbSeason2: string;
 /** TMDB's `Specials`, where it files two of the wiki's `Series 2` members. */
 let tmdbSpecials: string;
 /** The wiki's `Series 1`, which TMDB agrees with one to one. */
 let wikiSeries1: string;
+/** TMDB's `Series 1`, holding the same stories in the same order. */
+let tmdbSeason1: string;
 let rose: string;
 /** Every member of the wiki's `Series 2`, by the title the import gave it. */
 let series2Items: Map<string, string>;
 
 beforeAll(async () => {
-  db = createDb(inject("databaseUrl"), { maxConnections: HARNESS_CONNECTIONS });
   // LOGGED IN, because a browse WRITES and writing is the owner's since
   // CNCORE-109. The cookie is the one the login page hands a browser.
   const cookie = await logInAt(inject("baseUrl"), inject("ownerPassword"));
@@ -136,82 +136,53 @@ beforeAll(async () => {
   rose = roseId;
 
   /*
-   * TMDB'S HALF, RECORDED AS TMDB'S CLAIM RATHER THAN BROWSED.
+   * AND TMDB'S HALF, BROWSED FOR REAL SINCE CNCORE-361.
    *
-   * Deciding that TMDB's record and the wiki's describe one story is MATCHING,
-   * which ADR-0026 makes its own operation with its own endpoint and which
-   * nothing has built -- so a real TMDB browse would mint its OWN `New Earth`
-   * and leave one item in one ordering, which is the shape this test exists to
-   * refuse. What is written below is what that operation's apply step would
-   * write, performed here because nothing else can perform it.
+   * These lines used to write TMDB's claims by hand onto the Items the wiki
+   * import had made, because deciding that TMDB's record and the wiki's describe
+   * one story is MATCHING and nothing did it -- a real browse minted TMDB's own
+   * `New Earth` and left one Item in one ordering. ADR-0026 said at its own site
+   * that the hand step was the shape of a test written in front of an operation
+   * that did not exist. The operation exists now: each browse below scores every
+   * episode against the Items the wiki already holds, and one scoring above the
+   * high bar lands on the wiki's Item rather than on a second.
    *
-   * THE DAY MATCHING LANDS, THIS SHOULD BROWSE TMDB FOR REAL and delete these
-   * lines. It is a test written in front of an operation that does not exist,
-   * not a workaround to preserve. ADR-0026 carries the other end of this.
+   * WIKI FIRST, THEN TMDB, which is the order the Owner's own instance meets
+   * them in: 8,052 wiki Items already there, and TMDB's spine arriving after.
    */
-  const tmdb = await tmdbSource();
-
-  // TMDB'S AGREEMENT, RECORDED AGAINST THE WIKI'S OWN CONTAINER AND POSITION.
-  // Deliberately not a container of its own: the two sources hold the same
-  // thirteen stories in the same order, so this is one ordering two sources
-  // assert rather than two orderings -- and ADR-0017 puts that on ONE row with
-  // a source each. `assertPlacement` finds the row the browse already wrote.
-  await assertPlacement(db, {
-    containerId: wikiSeries1,
-    itemId: rose,
-    position: TMDB_SEASON_1.rose,
-    sourceId: tmdb,
-  });
-
-  tmdbSeason2 = await containerClaimedBy(tmdb, TMDB_SEASON_2.id, TMDB_SEASON_2.title);
-  await placeAll(tmdbSeason2, tmdb, [
-    ["New Earth (TV story)", TMDB_SEASON_2.newEarth],
-    ["Doomsday (TV story)", TMDB_SEASON_2.doomsday],
-    ["Fear Her (TV story)", TMDB_SEASON_2.fearHer],
-  ]);
-
-  tmdbSpecials = await containerClaimedBy(tmdb, TMDB_SPECIALS.id, TMDB_SPECIALS.title);
-  await placeAll(tmdbSpecials, tmdb, [
-    ["Born Again (TV story)", TMDB_SPECIALS.bornAgain],
-    ["The Christmas Invasion (TV story)", TMDB_SPECIALS.christmasInvasion],
-  ]);
-});
-
-afterAll(async () => {
-  // `db` is unset if `beforeAll` threw before it was assigned -- a browse that
-  // could not reach the provider, most likely. Vitest reports that failure; a
-  // second throw from here would bury it under one about an undefined client.
-  await db?.$client.end();
+  const tmdb = inject("providerTmdbUrl");
+  tmdbSeason1 = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SEASON_1.id }))
+    .containerId;
+  tmdbSeason2 = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SEASON_2.id }))
+    .containerId;
+  tmdbSpecials = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SPECIALS.id }))
+    .containerId;
 });
 
 describe("two sources that agree", () => {
   /*
-   * THE CONTROL, and the row that makes every assertion above mean something.
+   * THE CONTROL, and the row that makes every assertion below mean something.
    *
-   * ONE PLACEMENT ROW CARRYING TWO SOURCES. A second row would be this product
-   * counting corroboration as a competing claim, and a reader of "Also appears
-   * in" would meet series 1 twice at position 1 with nothing to tell them apart.
-   *
-   * THE TWO HALVES ARE BOTH FALSIFIABLE THROUGH THE READ PATH. `positionIn`
-   * refuses anything but exactly one placement in that container, so a model
-   * that wrote agreement as two rows fails there. And TMDB is owed a notice on
-   * this page for exactly one reason -- a TMDB placement source sits on this
-   * item -- so a model that silently dropped the second source loses the
-   * attribution with it. Neither half can go without the test saying so.
+   * ONE ITEM, BOTH SOURCES' IDS ON IT, FIRST IN EACH ORDERING. The two are
+   * falsifiable separately through the read path: `positionIn` refuses anything
+   * but exactly one placement in a container, so a Rose that TMDB's browse had
+   * minted as a second Item fails there, having no placement in the wiki's
+   * series at all. And TMDB is owed a notice on this page for exactly one
+   * reason -- a TMDB claim sits on this Item.
    */
-  it("records Rose once in series 1, with the wiki and TMDB both behind it", async () => {
+  it("puts Rose first in the wiki's Series 1 and in TMDB's, on one Item", async () => {
     const item = await client.item.get({ id: rose });
 
-    // ONE ROW, and both sources put it at the same number. Asserted against each
-    // of them separately rather than against one: what makes this a control is
-    // that the wiki and TMDB independently say first, and a row checked against
-    // only one of them would still read as a control after the other moved.
     expect(positionIn(item, wikiSeries1)).toBe(WIKI_SERIES_1.rose);
-    expect(positionIn(item, wikiSeries1)).toBe(TMDB_SEASON_1.rose);
+    expect(positionIn(item, tmdbSeason1)).toBe(TMDB_SEASON_1.rose);
+    expect(
+      externalIdsOf(item)
+        .map(({ sourceLabel }) => sourceLabel)
+        .toSorted(),
+    ).toStrictEqual(["provider-tmdb", "provider-wiki"]);
 
-    // AND TMDB IS OWED A NOTICE HERE, which it can only be because a TMDB
-    // placement source sits on this item (ADR-0036 reads the obligation off the
-    // claims themselves). That is the second source, on the one row.
+    // AND TMDB IS OWED A NOTICE HERE (ADR-0036 reads the obligation off the
+    // claims themselves).
     expect(item.attribution.map((owed) => owed.sourceLabel)).toStrictEqual(["provider-tmdb"]);
   });
 });
@@ -257,24 +228,40 @@ describe("one item, two orderings, two positions", () => {
    * that reconciled two sources by position would read these as one placement
    * and lose the fact entirely.
    */
-  it.each([
-    [
-      "The Christmas Invasion (TV story)",
-      WIKI_SERIES_2.christmasInvasion,
-      TMDB_SPECIALS.christmasInvasion,
-    ],
-    ["Born Again (TV story)", WIKI_SERIES_2.bornAgain, TMDB_SPECIALS.bornAgain],
-  ])("files %s in Series 2 on the wiki and in Specials on TMDB", async (title, wiki, tmdb) => {
-    const item = await client.item.get({ id: story(title) });
+  it("files The Christmas Invasion in Series 2 on the wiki and in Specials on TMDB", async () => {
+    const item = await client.item.get({ id: story("The Christmas Invasion (TV story)") });
 
-    expect(positionIn(item, wikiSeries2)).toBe(wiki);
-    expect(positionIn(item, tmdbSpecials)).toBe(tmdb);
+    expect(positionIn(item, wikiSeries2)).toBe(WIKI_SERIES_2.christmasInvasion);
+    expect(positionIn(item, tmdbSpecials)).toBe(TMDB_SPECIALS.christmasInvasion);
     // AND NOWHERE IN TMDB'S SEASON 2, which is the membership difference itself
-    // rather than a consequence of it: fifteen against thirteen is these two
-    // stories, and without this line the offset above could be a renumbering.
+    // rather than a consequence of it: fifteen against thirteen is this story
+    // and Born Again, and without this line the offset above could be a
+    // renumbering.
     expect(
       item.placements.rows.filter((placement) => placement.containerId === tmdbSeason2),
     ).toStrictEqual([]);
+  });
+
+  /*
+   * THE OTHER HALF OF THE OFFSET, AND THE BAND BETWEEN THE BARS. TMDB titles
+   * this story `Children in Need: Born Again`, so the wiki's title is what
+   * follows TMDB's colon rather than the same title, and the matcher offers the
+   * pair instead of applying it (ADR-0027). It was written by hand onto the
+   * wiki's Item before CNCORE-361; what a real browse does is leave it offered.
+   */
+  it("offers TMDB's Born Again to the wiki's rather than applying it", async () => {
+    const item = await client.item.get({ id: story("Born Again (TV story)") });
+
+    expect(positionIn(item, wikiSeries2)).toBe(WIKI_SERIES_2.bornAgain);
+    expect(
+      item.placements.rows.filter((placement) => placement.containerId === tmdbSpecials),
+    ).toStrictEqual([]);
+    expect(item.matchCandidates.map(({ title, signals }) => ({ title, signals }))).toStrictEqual([
+      {
+        title: TMDB_SPECIALS.bornAgainTitle,
+        signals: { title: "subtitle", released: "same", instalments: "agree" },
+      },
+    ]);
   });
 });
 
@@ -310,8 +297,8 @@ describe("not a tree", () => {
    * Matching them would turn this into ADR-0017's POSITION DISAGREEMENT -- two
    * placement rows in ONE ordering, resolved by rank -- which is a different
    * mechanism that would leave multi-placement untested while every assertion
-   * in this file still passed. Deciding two providers' records describe one
-   * thing is ADR-0026's operation and nothing has built it.
+   * in this file still passed. ADR-0026's matching, built under CNCORE-361,
+   * joins WORKS and never Containers, and this is what holds it to that.
    *
    * Read as the id each SOURCE knows its container by (ADR-0078): one item
    * carrying both would fail here, whichever way it had been merged.
@@ -336,23 +323,6 @@ function externalIdsOf(
   return item.statements
     .filter((statement) => statement.property === "external_id")
     .map(({ sourceLabel, value }) => ({ sourceLabel, value }));
-}
-
-/**
- * Every placement one TMDB ordering asserts, against the items already here.
- *
- * `story` resolves each title to the item the WIKI's import wrote, which is the
- * whole point: these rows go onto the stories the catalogue already holds rather
- * than onto records of TMDB's own.
- */
-async function placeAll(
-  containerId: string,
-  sourceId: string,
-  rows: readonly (readonly [title: string, position: number])[],
-): Promise<void> {
-  for (const [title, position] of rows) {
-    await assertPlacement(db, { containerId, itemId: story(title), position, sourceId });
-  }
 }
 
 /**
@@ -398,42 +368,5 @@ async function itemsByTitle(placements: { itemId: string }[]): Promise<Map<strin
 function story(title: string): string {
   const id = series2Items.get(title);
   if (id === undefined) throw new Error(`the browse of Series 2 placed no ${title}`);
-  return id;
-}
-
-/** The source row `importFromTmdb` made, which a TMDB claim is recorded against. */
-async function tmdbSource(): Promise<string> {
-  const [source] = await db
-    .select({ id: sources.id })
-    .from(sources)
-    .where(eq(sources.identity, inject("providerTmdbUrl")));
-  if (!source) throw new Error("no TMDB source; the suite imports from TMDB before this runs");
-  return source.id;
-}
-
-/**
- * A container as ONE source states it: its own item, carrying that source's own
- * id for it (ADR-0078) and that source's own title for it.
- *
- * ITS OWN ITEM, NEVER THE OTHER SOURCE'S. The wiki's `Series 2` holds fifteen
- * members and TMDB's holds thirteen, so they are two containers that disagree
- * about membership rather than one container two sources describe. Matching them
- * would make this ADR-0017's POSITION DISAGREEMENT -- two placement rows in one
- * ordering, resolved by rank -- which is a different mechanism, and
- * multi-placement would go untested while every assertion here still passed.
- */
-async function containerClaimedBy(
-  sourceId: string,
-  externalId: string,
-  title: string,
-): Promise<string> {
-  const id = await anItem(db, { isContainer: true, isOrdered: true });
-  await aStatement(db, {
-    subjectItemId: id,
-    property: "external_id",
-    valueLiteral: externalId,
-    sourceId,
-  });
-  await aStatement(db, { subjectItemId: id, property: "title", valueLiteral: title, sourceId });
   return id;
 }

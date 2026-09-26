@@ -87,30 +87,41 @@ a test. A COMMITTED EXPECTATION IS A CACHE THAT NEVER EXPIRES: no read-time `max
 will ever reach a number in git, and the six-month ceiling covers "any information" rather than
 images alone, so an episode number is inside it however factual it reads.
 
-**WHAT IS ACTUALLY HELD, as built, which is more than this record first named.** It said *New Earth*,
-*Doomsday* and *The Christmas Invasion*; `apps/web/e2e/multi-placement.test.ts` holds SIX episode
-numbers across THREE containers of `tv/57243`, all read from the API on 2026-09-11:
+**WHAT IS ACTUALLY HELD, as built, which is more than this record first named and changed shape
+under CNCORE-361.** It said *New Earth*, *Doomsday* and *The Christmas Invasion*. Since CNCORE-361
+`apps/web/e2e/multi-placement.test.ts` BROWSES TMDB rather than writing its claims by hand, so the
+literals are expectations compared against what a real browse answers, never values written into the
+catalogue. Read from the API on 2026-09-11 and again on 2026-09-26, it holds:
 
-* season 1 — *Rose* at 1, the agreement row
-* season 2 — *New Earth* at 1, *Fear Her* at 11, *Doomsday* at 13
-* season 0, `Specials` — *Born Again* at 1, *The Christmas Invasion* at 2
+* THREE CONTAINER IDS, TMDB's own identifiers for its own records: `season:57243:1`,
+  `season:57243:2` and `season:57243:0`
+* FIVE EPISODE NUMBERS: *Rose* at 1 in season 1; *New Earth* at 1, *Fear Her* at 11 and *Doomsday*
+  at 13 in season 2; *The Christmas Invasion* at 2 in `Specials`
+* ONE TMDB TITLE, `Children in Need: Born Again`, which is why that story is offered rather than
+  matched
 
-**And TWO CONTAINER IDS are cached TMDB Content too**, which is the half a list of episode numbers
-hides: `season:57243:2` and `season:57243:0` are TMDB's own identifiers for its own records, written
-into the catalogue as `external_id` statements and into that file as literals. The statements carry
-their source and purge normally; the literals do not.
+The season names `Series 2` and `Specials`, and *Born Again*'s number, are no longer held: the hand
+step that needed them is gone. Season 1 is now a container of TMDB's own (ADR-0026 says why), so the
+agreement on *Rose* is two orderings rather than one row.
 
-There is no third. TMDB's season 1 holds the same thirteen stories in the same order as the wiki's
-series 1, so its claim about *Rose* is recorded against the container the wiki's import already
-wrote — agreement on one row with a source each ([[0017-placements-carry-sources-and-rank]]) rather
-than a second container. What is held of it is the episode number and nothing else.
+**AND CNCORE-361 ADDED THREE MORE FILES THAT HOLD TMDB CONTENT, each taken 2026-09-26:**
 
-**AND THE TWO SEASON NAMES, which an inventory of numbers and ids hides a third time.** `Series 2`
-and `Specials` are what TMDB calls those seasons, committed as literals beside the ids and written
-into the catalogue as `title` statements. A name is TMDB Content as squarely as a number is, and
-this record has now undercounted what is held twice — first at three episode numbers, then at the
-ids alone. The count that matters is not the tally but the rule: EVERYTHING IN THAT FILE THAT CAME
-FROM TMDB IS CACHED TMDB CONTENT, and purging TMDB means reading the file rather than a list here.
+* `apps/web/e2e/global-setup.ts`'s `TMDB_SEASONS`, the stand-in the suite uses where no real image
+  answers: four seasons' ids, names, and 38 episodes' TMDB ids, titles and air dates.
+* `apps/web/e2e/works-match.test.ts`: `season:121:4`, and that TMDB holds *The Tenth Planet* as four
+  instalments.
+* `packages/db/src/testing/works-labelled.json`, the matcher's labelled set
+  ([[0028-the-confidence-score-is-falsifiable]]): 751 rows of TMDB episode ids, titles and air dates,
+  and the titles of every season they sit in. **IT IS THE FIRST LITERAL HERE THAT ENFORCES THE CEILING
+  ITSELF**: it carries the date it was taken, and a test in `works-match.test.ts` goes red 180 days
+  after it. So that set cannot outlive the six months unnoticed, as the rest can.
+
+`packages/api/src/routers/provider.test.ts`'s stand-ins for TMDB answers (titles and air dates such as
+`The Smugglers (1)`) are TMDB content too, by the rule below.
+
+The count that matters is not the tally but the rule: EVERYTHING IN THOSE FILES THAT CAME FROM TMDB IS
+CACHED TMDB CONTENT, and purging TMDB means reading the files rather than a list here. This record has
+undercounted what is held three times now.
 
 **They are recorded here as cached TMDB Content subject to the purge duty.** That is the answer this
 record's termination clause requires, and the alternative was to derive the expectations from a
@@ -302,6 +313,8 @@ run, and a value nobody touched for six months is refused by the first read afte
 
 - `findStatementsOfItem`, the claims an Item page lists;
 - `findIdentifiersOfItem`, its ids in other schemes;
+- `findInstalmentsHeldElsewhere`, how many instalments another Provider holds an Item's work as (CNCORE-361),
+  which `provider.purge` also removes with its source;
 - `standingBehindThePlacement`, so an expired claim does not name who placed a Placement;
 - `whatItHolds` and `whatItSitsIn`, through `STILL_HELD`. A Placement whose every standing claim
   has expired is refused from a Container's Members, from an Item's orderings, and from the counts

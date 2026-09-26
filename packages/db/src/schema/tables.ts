@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -1211,4 +1212,83 @@ export const groupProviders = pgTable(
     ...lifecycleColumns(),
   },
   (t) => [unique("group_providers_group_provider").on(t.ownerId, t.groupId, t.providerIdentity)],
+);
+
+/**
+ * A MATCH OFFERED RATHER THAN APPLIED (ADR-0026, ADR-0027, CNCORE-361): two
+ * Items two Providers each minted, which the matcher scored between the bars.
+ * Confirming or rejecting one is CNCORE-363's, on CNCORE-371's list; this is
+ * only where the band is handed over.
+ *
+ * ONE ROW PER PAIR, WRITTEN ONCE, and read from either end: `item_id` is the
+ * Item the arriving record minted and `candidate_item_id` the one it was
+ * scored against. The signals are kept beside the total because ADR-0028 says
+ * a total cannot say which signal fired.
+ */
+export const matchCandidates = pgTable(
+  "match_candidates",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    candidateItemId: uuid("candidate_item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    score: doublePrecision("score").notNull(),
+    titleSignal: text("title_signal").notNull(),
+    releasedSignal: text("released_signal").notNull(),
+    ...stampColumns(),
+  },
+  (t) => [
+    // A pair is two Items, and its signals are the scorer's own words.
+    check("match_candidates_two_items", sql`${t.itemId} <> ${t.candidateItemId}`),
+    check(
+      "match_candidates_title_signal",
+      sql`${t.titleSignal} in ('same', 'subtitle', 'differs')`,
+    ),
+    check(
+      "match_candidates_released_signal",
+      sql`${t.releasedSignal} in ('same', 'differs', 'unknown')`,
+    ),
+    index("match_candidates_item").on(t.itemId),
+    index("match_candidates_candidate").on(t.candidateItemId),
+    uniqueIndex("match_candidates_one_per_pair")
+      .on(t.itemId, t.candidateItemId)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+/**
+ * A WORK ONE PROVIDER HOLDS AS ONE RECORD AND ANOTHER AS SEVERAL INSTALMENTS
+ * (CNCORE-361): what CNCORE-368's finding makes a NO MATCH, kept so the Item
+ * page can say so rather than stay silent.
+ *
+ * ON THE ONE-RECORD ITEM, naming the source that holds the instalments and how many.
+ * It is that source's claim -- its own `(n)` titles -- so it carries the source,
+ * is read against its ceiling, and goes when it is purged (ADR-0036).
+ */
+export const instalmentDisagreements = pgTable(
+  "instalment_disagreements",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    instalments: integer("instalments").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+    ...stampColumns(),
+  },
+  (t) => [
+    // One instalment is no disagreement: a work held as one record agrees.
+    check("instalment_disagreements_several", sql`${t.instalments} > 1`),
+    uniqueIndex("instalment_disagreements_one_per_source")
+      .on(t.itemId, t.sourceId)
+      .where(sql`${t.deletedAt} is null`),
+  ],
 );
