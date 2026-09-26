@@ -69,6 +69,7 @@ section, merged with `merge-if-green.sh --standing-decisions`.
   - The live wiki session: the Owner confirms it before each wave that includes a wiki-gated ticket.
     `pnpm session` in provider-wiki compares the host and provider copies but spends no request, so
     it cannot say the wiki still accepts them; until a live check exists, this is asked.
-- **Check-in pauses**: none.
+- **Check-in pauses**:
+  - CNCORE-367: NOTHING new is dispatched until the Owner has walked the rebuilt install and said the walk is done. Wider than the blocking graph, by the Owner's choice of 2026-09-26: every ticket waits, not only those behind 367. Work already running merges and retires as usual.
 
 Given by the Owner on 2026-09-26.
