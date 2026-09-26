@@ -14,7 +14,7 @@ import {
   sources,
   statements,
 } from "./schema";
-import { partsOf } from "./works-match";
+import { instalmentsOf } from "./works-match";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {
@@ -353,7 +353,7 @@ export async function importBrowsedContainer(
      * question with one answer, rather than two mechanisms that could disagree.
      */
     // THE TITLES THIS ORDERING SERVES, which is how a part says it is one of
-    // several (`partsOf`, CNCORE-361).
+    // several (`instalmentsOf`, CNCORE-361).
     const siblings = [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
       (record) => record.title,
     );
@@ -538,7 +538,7 @@ async function writeProvidedItem(
           arriving: {
             title: record.title,
             released: record.released,
-            parts: partsOf(record.title, siblings),
+            instalments: instalmentsOf(record.title, siblings),
           },
         });
 
@@ -556,6 +556,9 @@ async function writeProvidedItem(
     await tx.update(items).set({ isContainer: true, isOrdered: true }).where(eq(items.id, found));
   }
 
+  // TODO(CNCORE-430): an applied match keeps neither its score nor its signals.
+  // TODO(CNCORE-429): a work found by identity is never re-scored, so works held
+  // twice before matching landed stay two Items.
   const itemId =
     found ??
     matched?.applyTo ??

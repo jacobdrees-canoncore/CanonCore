@@ -145,9 +145,11 @@ function offends(
  * THROWS and the suite says which type it was.
  *
  * Measured against `packages/schemas` on 2026-09-12: the only types reachable are
- * the four below plus `object`, `array` and `nullable`.
+ * the four below plus `object`, `array` and `nullable`. `enum` joined them under
+ * CNCORE-361, for a match's signals: like a `literal`, what it holds are VALUES a
+ * field may take, never names of fields beneath it.
  */
-const NAMES_NOTHING = new Set(["string", "number", "boolean", "literal"]);
+const NAMES_NOTHING = new Set(["string", "number", "boolean", "literal", "enum"]);
 
 /**
  * Every name the read path emits, as `export.path.to.field`, walking into arrays

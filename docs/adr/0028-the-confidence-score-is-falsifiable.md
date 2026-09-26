@@ -50,23 +50,29 @@ file says which.
 parts TMDB titles one by one (ADR-0026 names them). The one miss is `Smith and Jones`, which TMDB
 dates a day after the wiki does.
 
-**CHECKED BY PUTTING THE DEFECT BACK.** Removing the parts veto turns the precision test red. So does
+**CHECKED BY PUTTING THE DEFECT BACK.** Removing the instalments veto turns the precision test red. So does
 halving the title-and-date score, and that also turns the recall test red.
 **IGNORING THE DATE ENTIRELY DOES NOT**, and that is a finding about the set rather than a pass: it
 holds only a handful of same-title, different-date NO MATCH rows (the finding's section 3.2 found
 three such titles). So the date signal is barely tested here. A set built to test it needs those rows
 in quantity.
 
+**NO ROW OF THE SET FALLS BETWEEN THE BARS**, so the gate measures the high bar and never the low
+one. What the band does is asserted at the router alone, in `provider.test.ts`, on stand-in answers
+(`Children in Need: Born Again`), and in `multi-placement.test.ts` on the same story as TMDB really
+serves it. A set that measures the band needs rows the scorer puts there, and there are only two
+shapes it can (ADR-0027).
+
 **THE SET IS TMDB CONTENT** (ADR-0036), so it carries the date it was taken, and a test in the same file
 goes red 180 days after that date. That is TMDB's ceiling, enforced rather than remembered.
 
 **THE SIGNALS TRAVEL BESIDE THE TOTAL, BUT ONLY WHERE A MATCH IS OFFERED.** `scoreWorkMatch` answers
-`{ title, released, parts }` with every score, a candidate pair stores the title and date signals
+`{ title, released, instalments }` with every score, a candidate pair stores the title and date signals
 beside its score, and the Item page prints them on an offered row.
 
 **NOT BUILT, AND IT IS WHY THIS RECORD STAYS `proposed`: a match APPLIED above the high bar keeps
 neither its score nor its signals.** The arriving record's claims are written onto the matched Item,
 each sourced, and nothing records that a scorer put them there or which signal carried it. So an
-applied match "cannot say which signal fired", which is this record's last sentence, unmet.
+applied match "cannot say which signal fired", which is this record's last sentence, unmet. That half is CNCORE-430.
 
 People are CNCORE-362's, on their own set. The same gate is to be pointed at them.

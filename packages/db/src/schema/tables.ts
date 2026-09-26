@@ -1242,6 +1242,16 @@ export const matchCandidates = pgTable(
     ...stampColumns(),
   },
   (t) => [
+    // A pair is two Items, and its signals are the scorer's own words.
+    check("match_candidates_two_items", sql`${t.itemId} <> ${t.candidateItemId}`),
+    check(
+      "match_candidates_title_signal",
+      sql`${t.titleSignal} in ('same', 'subtitle', 'differs')`,
+    ),
+    check(
+      "match_candidates_released_signal",
+      sql`${t.releasedSignal} in ('same', 'differs', 'unknown')`,
+    ),
     index("match_candidates_item").on(t.itemId),
     index("match_candidates_candidate").on(t.candidateItemId),
     uniqueIndex("match_candidates_one_per_pair")
@@ -1251,16 +1261,16 @@ export const matchCandidates = pgTable(
 );
 
 /**
- * A WORK ONE PROVIDER HOLDS AS ONE RECORD AND ANOTHER AS SEVERAL PARTS
+ * A WORK ONE PROVIDER HOLDS AS ONE RECORD AND ANOTHER AS SEVERAL INSTALMENTS
  * (CNCORE-361): what CNCORE-368's finding makes a NO MATCH, kept so the Item
  * page can say so rather than stay silent.
  *
- * ON THE ONE-RECORD ITEM, naming the source that holds the parts and how many.
+ * ON THE ONE-RECORD ITEM, naming the source that holds the instalments and how many.
  * It is that source's claim -- its own `(n)` titles -- so it carries the source,
  * is read against its ceiling, and goes when it is purged (ADR-0036).
  */
-export const partDisagreements = pgTable(
-  "part_disagreements",
+export const instalmentDisagreements = pgTable(
+  "instalment_disagreements",
   {
     id: idColumn(),
     ...ownedColumns(),
@@ -1270,12 +1280,14 @@ export const partDisagreements = pgTable(
     sourceId: uuid("source_id")
       .notNull()
       .references(() => sources.id),
-    parts: integer("parts").notNull(),
+    instalments: integer("instalments").notNull(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
     ...stampColumns(),
   },
   (t) => [
-    uniqueIndex("part_disagreements_one_per_source")
+    // One instalment is no disagreement: a work held as one record agrees.
+    check("instalment_disagreements_several", sql`${t.instalments} > 1`),
+    uniqueIndex("instalment_disagreements_one_per_source")
       .on(t.itemId, t.sourceId)
       .where(sql`${t.deletedAt} is null`),
   ],

@@ -36,15 +36,16 @@ neither applied.
 ASSUMPTION.** That note measured the part-versus-story mismatch: 157 of the wiki's 159 1963 stories
 have several parts, and for 132 of them TMDB's part 1 carries the story's title AND its release date,
 so a title-and-date scorer accepts every one (section 3.2). A part is therefore never a story. The
-scorer reads how many parts each Provider holds a work as, and a disagreement scores zero whatever
+scorer reads how many INSTALMENTS each Provider holds a work as (`CONTEXT.md`'s term, since the
+glossary's Part is a file), and a disagreement scores zero whatever
 the title and date say. The count comes from TMDB's own `(n)` titles (`The Tenth Planet (1)` to `(4)`,
-`partsOf`), not from the contributor-written `Story Order` group the note found and warned against
+`instalmentsOf`), not from the contributor-written `Story Order` group the note found and warned against
 trusting (section 2.5), and not from the wiki's `Epcount`, which `provider-wiki` does not send. The
-Item page names the count and says no single part was matched, under the claims and on any offered
+Item page names the count and says no single instalment was matched, under the claims and on any offered
 row.
 
 **WHAT THE COUNT CANNOT SEE, MEASURED:** the 1963 series' first three seasons title each part on its
-own (`An Unearthly Child`, `The Cave of Skulls`), so those stories read as one part. Five rows of the
+own (`An Unearthly Child`, `The Cave of Skulls`), so those stories read as one instalment. Five rows of the
 labelled set are exactly that (`An Unearthly Child`, `The Edge of Destruction`, `Planet of Giants`,
 `The Web Planet`, `The Space Museum`), and they are the scorer's only false positives there.
 ADR-0028 says how that was measured.
@@ -53,18 +54,18 @@ ADR-0028 says how that was measured.
 inside `provider.browse`, separated from the write only at module level: `matchArrivingWork` decides
 and writes nothing, and the import writes what it decided. This record asks for more than that, so
 a later screen cannot collapse the two. There is no procedure that matches without importing, and a
-`provider.import` (a lookup) never matches at all, since it names no Container to read a part count
+`provider.import` (a lookup) never matches at all, since it names no Container to read an instalment count
 from. APPLYING in this record's sense, meaning choosing among a matched record's values, is not built
 either: both Providers' values are kept and the projection ranks them (ADR-0014, ADR-0025). A second
 half is also missing: the wiki arriving AFTER TMDB is matched too, by the same code, but nothing
 re-scores Items that were already both held when this landed. A pair is found only when a browse
-meets it.
+meets it. All three halves are CNCORE-429.
 
 **THE IDENTITY PIECE, UNDER CNCORE-28, IS UNCHANGED.** "This provider's record 265 is the item we
 already made from this provider's record 265" is IDENTITY: one party, one namespace, no judgement,
 no score. Migration 3 holds the id, and both imports find or create against (source, external id), so
 a re-import refreshes rather than doubles. [[0078-entity-identity-is-a-surrogate-id]] decided the
-ids' shape. A work found again by identity is never re-matched; only its part disagreements are
+ids' shape. A work found again by identity is never re-matched; only its instalment disagreements are
 taken afresh.
 
 ## The test that stood in for it -- under CNCORE-9, retired under CNCORE-361

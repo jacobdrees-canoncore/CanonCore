@@ -1298,8 +1298,8 @@ describe("works matched across Providers", () => {
         itemId: both.tmdb[0],
         title: "Children in Need: Born Again",
         score: 0.7,
-        signals: { title: "subtitle", released: "same", parts: "agree" },
-        partsHeldElsewhere: [],
+        signals: { title: "subtitle", released: "same", instalments: "agree" },
+        instalmentsHeldElsewhere: [],
       },
     ]);
     // Offered from both ends: the pair is one question, whichever page it is met on.
@@ -1320,10 +1320,10 @@ describe("works matched across Providers", () => {
 
   /*
    * THE PART-VERSUS-STORY CASE, which CNCORE-368's finding makes a NO MATCH:
-   * TMDB's part 1 carries the story's title AND its date, so title and date
+   * TMDB's instalment 1 carries the story's title AND its date, so title and date
    * alone would apply it. TMDB's own `(n)` titles say it is one of four.
    */
-  it("matches no single part to a story the other Provider holds as several", async () => {
+  it("matches no single instalment to a story the other Provider holds as several", async () => {
     const both = await browseBoth(
       aWikiCategory("47654", [["1998", "The Smugglers (TV story)", "1966-09-10"]]),
       aTmdbSeason("season:121:4", [
@@ -1336,11 +1336,13 @@ describe("works matched across Providers", () => {
 
     expect(both.tmdb).not.toContain(both.wiki[0]);
     const story = await call(appRouter.item.get, { id: both.wiki[0] ?? "" }, { context });
-    expect(story.partsHeldElsewhere).toEqual([{ sourceLabel: "provider-tmdb", parts: 4 }]);
+    expect(story.instalmentsHeldElsewhere).toEqual([
+      { sourceLabel: "provider-tmdb", instalments: 4 },
+    ]);
     expect(story.matchCandidates).toEqual([]);
   });
 
-  it("forgets a part disagreement when the Provider holding the parts is purged", async () => {
+  it("forgets a instalment disagreement when the Provider holding the instalments is purged", async () => {
     const wiki = aWikiCategory("47656", [["2010", "The Faceless Ones (TV story)", "1967-04-08"]]);
     const tmdb = aTmdbSeason("season:121:6", [
       ["The Faceless Ones (1)", "1967-04-08"],
@@ -1362,10 +1364,10 @@ describe("works matched across Providers", () => {
     await call(appRouter.provider.purge, { baseUrl: tmdbUrl }, { context });
 
     const story = await call(appRouter.item.get, { id: placements[0]?.itemId ?? "" }, { context });
-    expect(story.partsHeldElsewhere).toEqual([]);
+    expect(story.instalmentsHeldElsewhere).toEqual([]);
   });
 
-  it("carries the part disagreement on a row that offers a candidate", async () => {
+  it("carries the instalment disagreement on a row that offers a candidate", async () => {
     const both = await browseBoth(
       aWikiCategory("47655", [["2001", "The Moonbase (TV story)", "1967-02-11"]]),
       aTmdbSeason("season:121:5", [
@@ -1379,7 +1381,7 @@ describe("works matched across Providers", () => {
     expect(offered.matchCandidates).toEqual([
       expect.objectContaining({
         itemId: both.wiki[0],
-        partsHeldElsewhere: [{ sourceLabel: "provider-tmdb", parts: 2 }],
+        instalmentsHeldElsewhere: [{ sourceLabel: "provider-tmdb", instalments: 2 }],
       }),
     ]);
   });

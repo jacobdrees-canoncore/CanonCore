@@ -109,7 +109,7 @@ agreement on *Rose* is two orderings rather than one row.
 * `apps/web/e2e/global-setup.ts`'s `TMDB_SEASONS`, the stand-in the suite uses where no real image
   answers: four seasons' ids, names, and 38 episodes' TMDB ids, titles and air dates.
 * `apps/web/e2e/works-match.test.ts`: `season:121:4`, and that TMDB holds *The Tenth Planet* as four
-  parts.
+  instalments.
 * `packages/db/src/testing/works-labelled.json`, the matcher's labelled set
   ([[0028-the-confidence-score-is-falsifiable]]): 751 rows of TMDB episode ids, titles and air dates,
   and the titles of every season they sit in. **IT IS THE FIRST LITERAL HERE THAT ENFORCES THE CEILING
@@ -313,7 +313,7 @@ run, and a value nobody touched for six months is refused by the first read afte
 
 - `findStatementsOfItem`, the claims an Item page lists;
 - `findIdentifiersOfItem`, its ids in other schemes;
-- `findPartsHeldElsewhere`, how many parts another Provider holds an Item's work as (CNCORE-361),
+- `findInstalmentsHeldElsewhere`, how many instalments another Provider holds an Item's work as (CNCORE-361),
   which `provider.purge` also removes with its source;
 - `standingBehindThePlacement`, so an expired claim does not name who placed a Placement;
 - `whatItHolds` and `whatItSitsIn`, through `STILL_HELD`. A Placement whose every standing claim

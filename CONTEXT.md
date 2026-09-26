@@ -256,6 +256,13 @@ the work's own size, which is extent.
 How many parts a work has in total, independent of any edition. Unknown far more often than it is
 known.
 
+**Instalment**:
+One of several records a Provider holds a single work as, where another Provider holds that work
+as one: TMDB's `The Tenth Planet (1)` to `(4)` are four instalments of the one story the wiki holds.
+A Provider's claim about how it divides a work, and never a Part, which is a FILE continuing an
+edition. No single instalment is ever matched to the whole work (CNCORE-361).
+_Avoid_: part, episode — part is a file, and episode is one Provider's word for a record
+
 **File**:
 Bytes on disk, attached to an item or an edition. Its identity comes from its content, so its path
 is location rather than identity.

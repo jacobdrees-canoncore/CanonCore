@@ -1,5 +1,5 @@
 {
-  "id": "e59e7e9e-e036-4077-af52-3c4f066369fc",
+  "id": "6d00d66f-ab2f-4a3b-bfdc-695eff663ae8",
   "prevId": "0dceeca7-333a-41ad-98b9-e945f8076090",
   "version": "7",
   "dialect": "postgresql",
@@ -1271,6 +1271,171 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.instalment_disagreements": {
+      "name": "instalment_disagreements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instalments": {
+          "name": "instalments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "instalment_disagreements_one_per_source": {
+          "name": "instalment_disagreements_one_per_source",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"instalment_disagreements\".\"deleted_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "instalment_disagreements_owner_id_owners_id_fk": {
+          "name": "instalment_disagreements_owner_id_owners_id_fk",
+          "tableFrom": "instalment_disagreements",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "instalment_disagreements_item_id_items_id_fk": {
+          "name": "instalment_disagreements_item_id_items_id_fk",
+          "tableFrom": "instalment_disagreements",
+          "tableTo": "items",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "instalment_disagreements_source_id_sources_id_fk": {
+          "name": "instalment_disagreements_source_id_sources_id_fk",
+          "tableFrom": "instalment_disagreements",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "instalment_disagreements_merge_id_merges_id_fk": {
+          "name": "instalment_disagreements_merge_id_merges_id_fk",
+          "tableFrom": "instalment_disagreements",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "instalment_disagreements_several": {
+          "name": "instalment_disagreements_several",
+          "value": "\"instalment_disagreements\".\"instalments\" > 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.items": {
       "name": "items",
       "schema": "",
@@ -1665,7 +1830,20 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "match_candidates_two_items": {
+          "name": "match_candidates_two_items",
+          "value": "\"match_candidates\".\"item_id\" <> \"match_candidates\".\"candidate_item_id\""
+        },
+        "match_candidates_title_signal": {
+          "name": "match_candidates_title_signal",
+          "value": "\"match_candidates\".\"title_signal\" in ('same', 'subtitle', 'differs')"
+        },
+        "match_candidates_released_signal": {
+          "name": "match_candidates_released_signal",
+          "value": "\"match_candidates\".\"released_signal\" in ('same', 'differs', 'unknown')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.merges": {
@@ -1805,166 +1983,6 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.part_disagreements": {
-      "name": "part_disagreements",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "item_id": {
-          "name": "item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "parts": {
-          "name": "parts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "observed_at": {
-          "name": "observed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "change_sequence": {
-          "name": "change_sequence",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "nextval('change_sequence')"
-        },
-        "merge_id": {
-          "name": "merge_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "part_disagreements_one_per_source": {
-          "name": "part_disagreements_one_per_source",
-          "columns": [
-            {
-              "expression": "item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "source_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"part_disagreements\".\"deleted_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "part_disagreements_owner_id_owners_id_fk": {
-          "name": "part_disagreements_owner_id_owners_id_fk",
-          "tableFrom": "part_disagreements",
-          "tableTo": "owners",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "part_disagreements_item_id_items_id_fk": {
-          "name": "part_disagreements_item_id_items_id_fk",
-          "tableFrom": "part_disagreements",
-          "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "part_disagreements_source_id_sources_id_fk": {
-          "name": "part_disagreements_source_id_sources_id_fk",
-          "tableFrom": "part_disagreements",
-          "tableTo": "sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "part_disagreements_merge_id_merges_id_fk": {
-          "name": "part_disagreements_merge_id_merges_id_fk",
-          "tableFrom": "part_disagreements",
-          "tableTo": "merges",
-          "columnsFrom": [
-            "merge_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

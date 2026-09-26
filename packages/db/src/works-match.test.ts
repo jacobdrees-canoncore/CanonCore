@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { partsOf, scoreWorkMatch } from "./index";
+import { instalmentsOf, scoreWorkMatch } from "./index";
 import labelled from "./testing/works-labelled.json";
 
 /**
@@ -48,11 +48,11 @@ function siblingsOf(episodeId: string): string[] {
 function applies([storyTitle, storyReleased, episodeId, episodeTitle, episodeReleased]: Row) {
   return (
     scoreWorkMatch(
-      { title: storyTitle, released: storyReleased ? [storyReleased] : [], parts: 1 },
+      { title: storyTitle, released: storyReleased ? [storyReleased] : [], instalments: 1 },
       {
         title: episodeTitle,
         released: episodeReleased ? [episodeReleased] : [],
-        parts: partsOf(episodeTitle, siblingsOf(episodeId)),
+        instalments: instalmentsOf(episodeTitle, siblingsOf(episodeId)),
       },
     ).verdict === "apply"
   );

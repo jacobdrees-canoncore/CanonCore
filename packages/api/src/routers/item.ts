@@ -5,11 +5,11 @@ import {
   findAttributionOwed,
   findGroupsOfItem,
   findIdentifiersOfItem,
+  findInstalmentsHeldElsewhere,
   findItem,
   findItemKinds,
   findMatchCandidatesOfItem,
   findNoteOfItem,
-  findPartsHeldElsewhere,
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
@@ -383,7 +383,7 @@ export const item = {
         identifiers,
         artwork,
         attribution,
-        partsHeldElsewhere,
+        instalmentsHeldElsewhere,
         matchCandidates,
       ] = await Promise.all([
         /*
@@ -430,7 +430,7 @@ export const item = {
         findArtworkOfItem(context.db, found.id),
         findAttributionOwed(context.db, found.id),
         // ADR-0026's matcher, as it left this Item (CNCORE-361).
-        findPartsHeldElsewhere(context.db, found.id),
+        findInstalmentsHeldElsewhere(context.db, found.id),
         findMatchCandidatesOfItem(context.db, found.id),
       ]);
 
@@ -530,19 +530,21 @@ export const item = {
           notice: owed.notice,
           logo: owed.logo,
         })),
-        partsHeldElsewhere: partsHeldElsewhere.map(({ sourceLabel, parts }) => ({
+        instalmentsHeldElsewhere: instalmentsHeldElsewhere.map(({ sourceLabel, instalments }) => ({
           sourceLabel,
-          parts,
+          instalments,
         })),
         matchCandidates: matchCandidates.map((candidate) => ({
           itemId: candidate.itemId,
           title: candidate.title,
           score: candidate.score,
           signals: candidate.signals,
-          partsHeldElsewhere: candidate.partsHeldElsewhere.map(({ sourceLabel, parts }) => ({
-            sourceLabel,
-            parts,
-          })),
+          instalmentsHeldElsewhere: candidate.instalmentsHeldElsewhere.map(
+            ({ sourceLabel, instalments }) => ({
+              sourceLabel,
+              instalments,
+            }),
+          ),
         })),
       };
     }),

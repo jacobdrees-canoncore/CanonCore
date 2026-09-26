@@ -188,19 +188,19 @@ export const identifierPublic = z.object({
 });
 
 /**
- * A Provider that holds this Item's work as several parts, none of which was
+ * A Provider that holds this Item's work as several instalments, none of which was
  * matched to it (CNCORE-361): CNCORE-368's finding makes that a NO MATCH, and
  * the page names the count rather than staying silent.
  */
-export const partsHeldElsewherePublic = z.object({
+export const instalmentsHeldElsewherePublic = z.object({
   sourceLabel: z.string(),
-  parts: z.number().int(),
+  instalments: z.number().int(),
 });
 
 /**
  * A match offered rather than applied (ADR-0027, CNCORE-361): the other Item,
  * the total, and the signals that made it (ADR-0028), with what the other
- * Item's page says about parts so the row says it too.
+ * Item's page says about instalments so the row says it too.
  */
 export const matchCandidatePublic = z.object({
   itemId: z.uuid(),
@@ -209,9 +209,9 @@ export const matchCandidatePublic = z.object({
   signals: z.object({
     title: z.enum(["same", "subtitle", "differs"]),
     released: z.enum(["same", "differs", "unknown"]),
-    parts: z.enum(["agree", "disagree"]),
+    instalments: z.enum(["agree", "disagree"]),
   }),
-  partsHeldElsewhere: z.array(partsHeldElsewherePublic),
+  instalmentsHeldElsewhere: z.array(instalmentsHeldElsewherePublic),
 });
 
 /**
@@ -564,8 +564,8 @@ export const itemPublic = z.object({
   identifiers: z.array(identifierPublic),
   /** The pictures this item carries, each with what its source said (CNCORE-358). */
   artwork: z.array(artworkPublic),
-  /** Providers holding this Item's work as several parts, none matched to it (CNCORE-361). */
-  partsHeldElsewhere: z.array(partsHeldElsewherePublic),
+  /** Providers holding this Item's work as several instalments, none matched to it (CNCORE-361). */
+  instalmentsHeldElsewhere: z.array(instalmentsHeldElsewherePublic),
   /** Matches offered on this Item and not yet decided (ADR-0027, CNCORE-361). */
   matchCandidates: z.array(matchCandidatePublic),
   /**

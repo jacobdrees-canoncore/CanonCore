@@ -625,9 +625,9 @@ export default async function ItemPage({
       <Values statements={item.statements} />
       {/*
         UNDER THE CLAIMS, because it is a claim about them (CNCORE-361): another
-        Provider holds this work as several parts, and none was matched here.
+        Provider holds this work as several instalments, and none was matched here.
       */}
-      <PartsHeldElsewhere held={item.partsHeldElsewhere} />
+      <InstalmentsHeldElsewhere held={item.instalmentsHeldElsewhere} />
       <Identifiers identifiers={item.identifiers} />
       <ReviewQueue candidates={item.matchCandidates} />
       {/*
@@ -946,17 +946,17 @@ function Artwork({ artwork }: { artwork: ItemOnThePage["artwork"] }) {
 
 /**
  * WHY THIS ITEM HOLDS ONE PROVIDER'S CLAIMS AND NOT THE OTHER'S (CNCORE-361).
- * The other Provider holds the work as several parts, and a part is never a
+ * The other Provider holds the work as several instalments, and a instalment is never a
  * story (CNCORE-368's finding), so no single one was matched. Said rather than
  * left for a reader to wonder where the second Provider went.
  */
-function PartsHeldElsewhere({ held }: { held: ItemOnThePage["partsHeldElsewhere"] }) {
+function InstalmentsHeldElsewhere({ held }: { held: ItemOnThePage["instalmentsHeldElsewhere"] }) {
   if (held.length === 0) return null;
   return (
-    <section className="mt-4 text-muted-foreground text-sm" aria-label="Parts held elsewhere">
+    <section className="mt-4 text-muted-foreground text-sm" aria-label="Instalments held elsewhere">
       {held.map((one) => (
         <p key={one.sourceLabel}>
-          <PartsSentence held={one} />
+          <InstalmentsSentence held={one} />
         </p>
       ))}
     </section>
@@ -964,11 +964,15 @@ function PartsHeldElsewhere({ held }: { held: ItemOnThePage["partsHeldElsewhere"
 }
 
 /** One sentence, the same wherever it is read: under the claims and on an offered row. */
-function PartsSentence({ held }: { held: ItemOnThePage["partsHeldElsewhere"][number] }) {
+function InstalmentsSentence({
+  held,
+}: {
+  held: ItemOnThePage["instalmentsHeldElsewhere"][number];
+}) {
   return (
     <>
-      <TheirWords>{held.sourceLabel}</TheirWords> holds this as {held.parts} parts, and no single
-      one of them was matched to this Item.
+      <TheirWords>{held.sourceLabel}</TheirWords> holds this as {held.instalments} instalments, and
+      no single one of them was matched to this Item.
     </>
   );
 }
@@ -978,7 +982,7 @@ function PartsSentence({ held }: { held: ItemOnThePage["partsHeldElsewhere"][num
  * between the bars, with the signals that made it (ADR-0028). Confirming or
  * rejecting one is CNCORE-363's; this only shows that the question is open.
  *
- * A ROW CARRIES THE OTHER ITEM'S PART SENTENCE, so a reader meets a part
+ * A ROW CARRIES THE OTHER ITEM'S PART SENTENCE, so a reader meets a instalment
  * disagreement before confirming as well as after.
  */
 function ReviewQueue({ candidates }: { candidates: ItemOnThePage["matchCandidates"] }) {
@@ -1003,9 +1007,9 @@ function ReviewQueue({ candidates }: { candidates: ItemOnThePage["matchCandidate
                 {candidate.signals.released}
               </span>
             </span>
-            {candidate.partsHeldElsewhere.map((held) => (
+            {candidate.instalmentsHeldElsewhere.map((held) => (
               <span key={held.sourceLabel} className="block text-muted-foreground text-sm">
-                <PartsSentence held={held} />
+                <InstalmentsSentence held={held} />
               </span>
             ))}
           </li>

@@ -33,7 +33,7 @@ and each assertion was checked by deleting the behaviour it names.
 
 **THE BARS ARE SET AGAINST A FIXED TABLE OF SCORES, NOT TUNED.** Each combination of title signal and
 date signal scores one number: the same title on the same day 1, what follows a colon on the same day
-0.7, the same title with no date 0.6, the same title on another day 0.3, and a part-count
+0.7, the same title with no date 0.6, the same title on another day 0.3, and an instalment-count
 disagreement always 0. The bars sit where [[0028-the-confidence-score-is-falsifiable]]'s gate holds
 over the labelled set. So the band holds exactly two shapes today: a subtitle on the same day
 (`Children in Need: Born Again`), and the same title with no date to compare. The bars should move

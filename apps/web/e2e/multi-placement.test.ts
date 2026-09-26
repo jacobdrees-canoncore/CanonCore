@@ -259,7 +259,7 @@ describe("one item, two orderings, two positions", () => {
     expect(item.matchCandidates.map(({ title, signals }) => ({ title, signals }))).toStrictEqual([
       {
         title: TMDB_SPECIALS.bornAgainTitle,
-        signals: { title: "subtitle", released: "same", parts: "agree" },
+        signals: { title: "subtitle", released: "same", instalments: "agree" },
       },
     ]);
   });

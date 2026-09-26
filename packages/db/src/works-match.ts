@@ -8,7 +8,7 @@
  *
  * THE COMPONENT SIGNALS ARE RETURNED BESIDE THE TOTAL, because ADR-0028 says a
  * 0.8 cannot say which signal fired. A reader offered a candidate sees which
- * of title, date and parts carried it.
+ * of title, date and instalments carried it.
  */
 
 /** What one side says about a work, as the catalogue holds it. */
@@ -19,9 +19,9 @@ export interface WorkEvidence {
   /**
    * How many of its own records this Provider holds the work as: 1 for a
    * story or a single episode, 4 for `The Tenth Planet (1)` to `(4)`. See
-   * `partsOf`.
+   * `instalmentsOf`.
    */
-  parts: number;
+  instalments: number;
 }
 
 export interface WorkMatchSignals {
@@ -34,12 +34,12 @@ export interface WorkMatchSignals {
   /** `unknown` where either side states no date to the day. */
   released: "same" | "differs" | "unknown";
   /**
-   * `disagree` where one side holds the work as several parts and the other
+   * `disagree` where one side holds the work as several instalments and the other
    * as one record. That is never a match, whatever the title and date say
-   * (CNCORE-368's finding, section 3.2): part 1 of a story usually carries the
+   * (CNCORE-368's finding, section 3.2): instalment 1 of a story usually carries the
    * story's title and its date.
    */
-  parts: "agree" | "disagree";
+  instalments: "agree" | "disagree";
 }
 
 export type WorkMatchVerdict = "apply" | "offer" | "discard";
@@ -60,7 +60,7 @@ export interface WorkMatchScore {
  */
 export const WORK_MATCH_BARS = { high: 0.9, low: 0.5 } as const;
 
-/** Every combination of title and date, scored. `parts: disagree` is always 0. */
+/** Every combination of title and date, scored. `instalments: disagree` is always 0. */
 const SCORES: Record<WorkMatchSignals["title"], Record<WorkMatchSignals["released"], number>> = {
   same: { same: 1, unknown: 0.6, differs: 0.3 },
   subtitle: { same: 0.7, unknown: 0.3, differs: 0 },
@@ -71,9 +71,9 @@ export function scoreWorkMatch(one: WorkEvidence, other: WorkEvidence): WorkMatc
   const signals: WorkMatchSignals = {
     title: titleSignal(one.title, other.title),
     released: releasedSignal(one.released, other.released),
-    parts: one.parts === other.parts ? "agree" : "disagree",
+    instalments: one.instalments === other.instalments ? "agree" : "disagree",
   };
-  const score = signals.parts === "disagree" ? 0 : SCORES[signals.title][signals.released];
+  const score = signals.instalments === "disagree" ? 0 : SCORES[signals.title][signals.released];
   return { score, signals, verdict: verdictOf(score) };
 }
 
@@ -84,31 +84,34 @@ function verdictOf(score: number): WorkMatchVerdict {
 }
 
 /**
- * How many parts a Provider holds this record's work as, read off its own
+ * How many instalments a Provider holds this record's work as, read off its own
  * titles: the siblings it serves in the same Container that carry the same
  * title once a trailing `(n)` is set aside.
  *
  * TMDB'S OWN CONVENTION, MEASURED rather than assumed: `tv/121` season 4 is
  * `The Smugglers (1)` to `(4)`, then `The Tenth Planet (1)` to `(4)` (read
- * 2026-09-26). A title with no `(n)` is one part. So `Army of Ghosts (1)` and
- * `Doomsday (2)`, which the wiki holds as two stories, are one part each.
+ * 2026-09-26). A title with no `(n)` is one instalment. So `Army of Ghosts (1)` and
+ * `Doomsday (2)`, which the wiki holds as two stories, are one instalment each.
  *
- * WHAT IT CANNOT SEE: the 1963 series' first three seasons title each part on
+ * WHAT IT CANNOT SEE: the 1963 series' first three seasons title each instalment on
  * its own (`An Unearthly Child`, `The Cave of Skulls`), so a story from them
- * reads as one part. The labelled set holds those rows and the gate measures
+ * reads as one instalment. The labelled set holds those rows and the gate measures
  * the cost rather than this comment arguing it away.
  */
-export function partsOf(title: string, siblings: readonly string[]): number {
-  const numbered = PART_NUMBER.exec(title);
+export function instalmentsOf(title: string, siblings: readonly string[]): number {
+  const numbered = INSTALMENT_NUMBER.exec(title);
   if (numbered === null) return 1;
   const story = numbered[1];
   // At least the record itself, which a Provider that placed it nowhere does
   // not list beside it.
-  return Math.max(1, siblings.filter((sibling) => PART_NUMBER.exec(sibling)?.[1] === story).length);
+  return Math.max(
+    1,
+    siblings.filter((sibling) => INSTALMENT_NUMBER.exec(sibling)?.[1] === story).length,
+  );
 }
 
-/** `The Tenth Planet (1)`: the story's title, then a part number in brackets. */
-const PART_NUMBER = /^(.*\S)\s*\(\d+\)$/;
+/** `The Tenth Planet (1)`: the story's title, then a instalment number in brackets. */
+const INSTALMENT_NUMBER = /^(.*\S)\s*\(\d+\)$/;
 
 function titleSignal(one: string, other: string): WorkMatchSignals["title"] {
   const a = normalised(one);

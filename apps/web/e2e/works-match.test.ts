@@ -6,19 +6,19 @@ import { clientAt, documentAt, logInAt, textOf } from "./document";
 import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
- * WHAT THE ITEM PAGE SAYS WHEN TWO PROVIDERS DISAGREE ABOUT PARTS (CNCORE-361),
+ * WHAT THE ITEM PAGE SAYS WHEN TWO PROVIDERS DISAGREE ABOUT INSTALMENTS (CNCORE-361),
  * read out of the served bytes rather than out of the absence of a wrong match.
  *
- * The wiki holds *The Tenth Planet* as one story; TMDB holds it as four parts,
+ * The wiki holds *The Tenth Planet* as one story; TMDB holds it as four instalments,
  * `The Tenth Planet (1)` to `(4)` in `tv/121` season 4 (read 2026-09-26, and
- * cached TMDB content under ADR-0036 for that reason). Part 1 carries the
+ * cached TMDB content under ADR-0036 for that reason). Instalment 1 carries the
  * story's title AND its date, so title and date alone would match it.
  * CNCORE-368's finding makes it a NO MATCH, and the page has to say why TMDB's
  * claims are not on this Item.
  */
 const TMDB_SEASON_4 = "season:121:4";
-const PARTS = 4;
-const SENTENCE = `provider-tmdb holds this as ${PARTS} parts, and no single one of them was matched to this Item.`;
+const INSTALMENTS = 4;
+const SENTENCE = `provider-tmdb holds this as ${INSTALMENTS} instalments, and no single one of them was matched to this Item.`;
 
 const imported = inject("imported");
 
@@ -33,7 +33,7 @@ beforeAll(async () => {
   });
 });
 
-describe("a story one Provider holds as several of the other's parts", () => {
+describe("a story one Provider holds as several of the other's instalments", () => {
   it("says so where the Item lists each Provider's claims", async () => {
     const { status, text } = await documentAt(`/items/${imported.id}`);
 
@@ -48,7 +48,7 @@ describe("a story one Provider holds as several of the other's parts", () => {
    * THE PAIR IS WRITTEN BY HAND, and for a measured reason rather than for
    * convenience: no real pair has both halves. Over every wiki story of the
    * 1963 and 2005 series against every TMDB episode of `tv/121` and
-   * `tv/57243`, Specials included, no story that TMDB holds as parts also
+   * `tv/57243`, Specials included, no story that TMDB holds as instalments also
    * scores between the bars against a single episode (measured 2026-09-26). So
    * this Item offers the story by hand, exactly as `recordWhatWasNotApplied`
    * would write it, and what is asserted is what the page then says.

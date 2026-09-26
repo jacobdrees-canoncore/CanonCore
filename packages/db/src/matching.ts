@@ -3,10 +3,10 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
 import { insideItsCeiling } from "./queries";
-import { matchCandidates, partDisagreements, sources } from "./schema";
+import { instalmentDisagreements, matchCandidates, sources } from "./schema";
 import {
   daysOf,
-  partsOf,
+  instalmentsOf,
   scoreWorkMatch,
   titlePatterns,
   type WorkEvidence,
@@ -20,8 +20,10 @@ import {
  *
  * IT DECIDES AND WRITES NOTHING. Applying is `importBrowsedContainer`'s, which
  * writes the arriving record onto the Item this names; handing over the band
- * and the part disagreements is `recordWhatWasNotApplied`'s. ADR-0026 keeps the
+ * and the instalment disagreements is `recordWhatWasNotApplied`'s. ADR-0026 keeps the
  * two apart so that no screen can collapse them.
+ *
+ * TODO(CNCORE-429): it has no procedure of its own, and a lookup never reaches it.
  */
 export interface Matched {
   /** The one Item the work lands on, where exactly one scored above the high bar. */
@@ -29,10 +31,16 @@ export interface Matched {
   /** Every Item scored between the bars, and any tied above the high one. */
   offered: { itemId: string; score: WorkMatchScore }[];
   /**
-   * Items that agree on the title and differ in parts, each with which side
-   * holds the parts and how many (CNCORE-368's NO MATCH).
+   * Items that agree on the title and differ in instalments, each with which side
+   * holds the instalments and how many (CNCORE-368's NO MATCH).
    */
-  partsDisagree: { itemId: string; sourceId: string; parts: number; heldHere: boolean }[];
+  instalmentsDisagree: {
+    itemId: string;
+    sourceId: string;
+    instalments: number;
+    /** Whether the ARRIVING work is the one held as one record, and so carries it. */
+    onTheArrivingWork: boolean;
+  }[];
 }
 
 /** One Item another Provider holds, as that Provider describes it. */
@@ -77,27 +85,36 @@ export async function matchArrivingWork(
     // the scorer's to guess, so both are offered and neither applied.
     applyTo: applies.length === 1 ? (applies[0]?.candidate.itemId ?? null) : null,
     offered: scored
-      .filter(({ score }) => score.verdict === "offer" || applies.length > 1)
-      .filter(({ score }) => score.verdict !== "discard")
+      .filter(
+        ({ score }) =>
+          score.verdict === "offer" || (score.verdict === "apply" && applies.length > 1),
+      )
       .map(({ candidate, score }) => ({ itemId: candidate.itemId, score })),
-    partsDisagree: scored
-      .filter(({ score }) => score.signals.title === "same" && score.signals.parts === "disagree")
+    instalmentsDisagree: scored
+      .filter(
+        ({ score }) => score.signals.title === "same" && score.signals.instalments === "disagree",
+      )
       .map(({ candidate, evidence }) =>
-        arriving.parts > evidence.parts
-          ? { itemId: candidate.itemId, sourceId, parts: arriving.parts, heldHere: false }
+        arriving.instalments > evidence.instalments
+          ? {
+              itemId: candidate.itemId,
+              sourceId,
+              instalments: arriving.instalments,
+              onTheArrivingWork: false,
+            }
           : {
               itemId: candidate.itemId,
               sourceId: candidate.sourceId,
-              parts: evidence.parts,
-              heldHere: true,
+              instalments: evidence.instalments,
+              onTheArrivingWork: true,
             },
       ),
   };
 }
 
 /**
- * Hands over what matching did not apply: the band as candidate pairs, and a
- * part disagreement onto whichever Item holds the work as one record.
+ * Hands over what matching did not apply: the band as candidate pairs, and an
+ * instalment disagreement onto whichever Item holds the work as one record.
  *
  * `itemId` IS THE ITEM THE ARRIVING WORK NOW IS, minted or found. A pair is
  * written once and never refreshed; a disagreement is taken afresh each time
@@ -123,27 +140,27 @@ export async function recordWhatWasNotApplied(
       .onConflictDoNothing();
   }
 
-  for (const disagreement of matched.partsDisagree) {
-    // The one-record side: the candidate when the parts arrived, the arriving
-    // work when the candidate is the one held as parts.
-    const onItem = disagreement.heldHere ? itemId : disagreement.itemId;
+  for (const disagreement of matched.instalmentsDisagree) {
+    // The one-record side: the candidate when the instalments arrived, the arriving
+    // work when the candidate is the one held as instalments.
+    const onItem = disagreement.onTheArrivingWork ? itemId : disagreement.itemId;
     const refreshed = await tx
-      .update(partDisagreements)
-      .set({ parts: disagreement.parts, observedAt: sql`now()` })
+      .update(instalmentDisagreements)
+      .set({ instalments: disagreement.instalments, observedAt: sql`now()` })
       .where(
         and(
-          eq(partDisagreements.itemId, onItem),
-          eq(partDisagreements.sourceId, disagreement.sourceId),
-          isNull(partDisagreements.deletedAt),
+          eq(instalmentDisagreements.itemId, onItem),
+          eq(instalmentDisagreements.sourceId, disagreement.sourceId),
+          isNull(instalmentDisagreements.deletedAt),
         ),
       )
-      .returning({ id: partDisagreements.id });
+      .returning({ id: instalmentDisagreements.id });
     if (refreshed.length === 0) {
-      await tx.insert(partDisagreements).values({
+      await tx.insert(instalmentDisagreements).values({
         ownerId,
         itemId: onItem,
         sourceId: disagreement.sourceId,
-        parts: disagreement.parts,
+        instalments: disagreement.instalments,
       });
     }
   }
@@ -178,9 +195,8 @@ async function candidatesFor(
   const titled = patterns.map((pattern) => sql`title.value_literal ilike ${pattern}`);
   const dated =
     days.length === 0
-      ? []
-      : [
-          sql`exists (
+      ? sql`false`
+      : sql`exists (
             select 1 from statements dated
             where dated.subject_item_id = title.subject_item_id
               and dated.source_id = title.source_id
@@ -190,8 +206,7 @@ async function candidatesFor(
                 days.map((day) => sql`${day}`),
                 sql`, `,
               )})
-          )`,
-        ];
+          )`;
 
   const found = await tx.execute<{ item_id: string; source_id: string; title: string }>(sql`
     select title.subject_item_id as item_id, title.source_id, title.value_literal as title
@@ -211,7 +226,19 @@ async function candidatesFor(
           and mine.source_id = ${sourceId}
           and mine.deleted_at is null
       )
-      and (${sql.join([...titled, ...dated], sql` or `)})
+      and (${sql.join([...titled, dated], sql` or `)})
+    -- WHICH FIFTY, where more qualify: a shared day first, then the titles
+    -- nearest the arriving one in length, then a fixed order. Unordered, a common
+    -- word handed back an arbitrary fifty and could cut the true match.
+    order by ${sql.join(
+      [
+        // A bare `false` is a constant Postgres refuses to order by.
+        ...(days.length === 0 ? [] : [sql`${dated} desc`]),
+        sql`abs(length(title.value_literal) - ${arriving.title.length})`,
+        sql`title.subject_item_id`,
+      ],
+      sql`, `,
+    )}
     limit ${CANDIDATE_LIMIT}
   `);
   return found.rows.map((row) => ({
@@ -222,9 +249,9 @@ async function candidatesFor(
 }
 
 /**
- * What the candidate's own Provider says of it: its dates, and how many parts
+ * What the candidate's own Provider says of it: its dates, and how many instalments
  * it holds the work as, read off the titles that Provider gives the Items it
- * placed beside this one (`partsOf`).
+ * placed beside this one (`instalmentsOf`).
  */
 async function evidenceOf(
   tx: Transaction,
@@ -259,56 +286,56 @@ async function evidenceOf(
   return {
     title: candidate.title,
     released: released.rows.map((row) => row.value),
-    parts: partsOf(
+    instalments: instalmentsOf(
       candidate.title,
       siblings.rows.map((row) => row.title),
     ),
   };
 }
 
-/** How many parts another Provider holds one Item's work as (CNCORE-361). */
-export interface PartsHeldElsewhere {
+/** How many instalments another Provider holds one Item's work as (CNCORE-361). */
+export interface InstalmentsHeldElsewhere {
   sourceLabel: string;
-  parts: number;
+  instalments: number;
 }
 
 /**
- * Every Provider that holds this Item's work as several parts, none of which
+ * Every Provider that holds this Item's work as several instalments, none of which
  * was matched to it. Read against each source's ceiling, since the count is
  * that source's claim (ADR-0036).
  */
-export async function findPartsHeldElsewhere(
+export async function findInstalmentsHeldElsewhere(
   db: Database,
   itemId: string,
-): Promise<PartsHeldElsewhere[]> {
-  return (await partsHeldBy(db, [itemId])).get(itemId) ?? [];
+): Promise<InstalmentsHeldElsewhere[]> {
+  return (await instalmentsHeldBy(db, [itemId])).get(itemId) ?? [];
 }
 
 /** The same read for several Items at once, keyed by Item. */
-async function partsHeldBy(
+async function instalmentsHeldBy(
   db: Database,
   itemIds: string[],
-): Promise<Map<string, PartsHeldElsewhere[]>> {
-  const held = new Map<string, PartsHeldElsewhere[]>();
+): Promise<Map<string, InstalmentsHeldElsewhere[]>> {
+  const held = new Map<string, InstalmentsHeldElsewhere[]>();
   if (itemIds.length === 0) return held;
   const rows = await db
     .select({
-      itemId: partDisagreements.itemId,
+      itemId: instalmentDisagreements.itemId,
       sourceLabel: sources.label,
-      parts: partDisagreements.parts,
+      instalments: instalmentDisagreements.instalments,
     })
-    .from(partDisagreements)
-    .innerJoin(sources, eq(sources.id, partDisagreements.sourceId))
+    .from(instalmentDisagreements)
+    .innerJoin(sources, eq(sources.id, instalmentDisagreements.sourceId))
     .where(
       and(
-        inArray(partDisagreements.itemId, itemIds),
-        isNull(partDisagreements.deletedAt),
-        insideItsCeiling(partDisagreements.observedAt),
+        inArray(instalmentDisagreements.itemId, itemIds),
+        isNull(instalmentDisagreements.deletedAt),
+        insideItsCeiling(instalmentDisagreements.observedAt),
       ),
     )
     .orderBy(sources.sourceOrder);
-  for (const { itemId, sourceLabel, parts } of rows) {
-    held.set(itemId, [...(held.get(itemId) ?? []), { sourceLabel, parts }]);
+  for (const { itemId, sourceLabel, instalments } of rows) {
+    held.set(itemId, [...(held.get(itemId) ?? []), { sourceLabel, instalments }]);
   }
   return held;
 }
@@ -319,8 +346,8 @@ export interface MatchCandidateOfItem {
   title: string | null;
   score: number;
   signals: WorkMatchSignals;
-  /** The other Item's part disagreements, so the row says what its page says. */
-  partsHeldElsewhere: PartsHeldElsewhere[];
+  /** The other Item's instalment disagreements, so the row says what its page says. */
+  instalmentsHeldElsewhere: InstalmentsHeldElsewhere[];
 }
 
 /**
@@ -352,8 +379,8 @@ export async function findMatchCandidatesOfItem(
       and other.deleted_at is null
     order by pair.score desc, other.id
   `);
-  // ONE READ FOR EVERY ROW'S PARTS, never one per row.
-  const held = await partsHeldBy(
+  // ONE READ FOR EVERY ROW'S INSTALMENTS, never one per row.
+  const held = await instalmentsHeldBy(
     db,
     found.rows.map((row) => row.other),
   );
@@ -361,8 +388,12 @@ export async function findMatchCandidatesOfItem(
     itemId: row.other,
     title: row.title,
     score: row.score,
-    // An offered pair never disagrees about parts: that is a zero, discarded.
-    signals: { title: row.title_signal, released: row.released_signal, parts: "agree" as const },
-    partsHeldElsewhere: held.get(row.other) ?? [],
+    // An offered pair never disagrees about instalments: that is a zero, discarded.
+    signals: {
+      title: row.title_signal,
+      released: row.released_signal,
+      instalments: "agree" as const,
+    },
+    instalmentsHeldElsewhere: held.get(row.other) ?? [],
   }));
 }

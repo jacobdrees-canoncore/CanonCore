@@ -51,12 +51,7 @@ export {
   recordContainerRefused,
   theContainerIdQuoted,
 } from "./import-runs";
-export {
-  findMatchCandidatesOfItem,
-  findPartsHeldElsewhere,
-  type MatchCandidateOfItem,
-  type PartsHeldElsewhere,
-} from "./matching";
+export { findInstalmentsHeldElsewhere, findMatchCandidatesOfItem } from "./matching";
 export {
   type AssertedPlacement,
   assertPlacement,
@@ -131,15 +126,7 @@ export {
   type TaskOutcome,
   type TaskRun,
 } from "./task-runs";
-export {
-  partsOf,
-  scoreWorkMatch,
-  WORK_MATCH_BARS,
-  type WorkEvidence,
-  type WorkMatchScore,
-  type WorkMatchSignals,
-  type WorkMatchVerdict,
-} from "./works-match";
+export { instalmentsOf, scoreWorkMatch } from "./works-match";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**
