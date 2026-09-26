@@ -226,5 +226,13 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
       limit: 10,
     });
     expect(found.rows.map((row) => row.title)).toEqual([]);
+    // THE SAME QUESTION ANSWERS A TIME SPAN THAT IS ONE, so the empty list above is the
+    // mapping's answer and not a search that answers nothing (ADR-0168).
+    const control = await client.catalogue.search({
+      query: "Battle of Canary Wharf",
+      kind: "time_span",
+      limit: 10,
+    });
+    expect(control.rows.map((row) => row.title)).toEqual(["Battle of Canary Wharf"]);
   });
 });

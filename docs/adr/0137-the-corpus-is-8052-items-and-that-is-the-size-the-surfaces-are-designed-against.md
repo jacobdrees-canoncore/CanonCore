@@ -253,9 +253,11 @@ answer to a storm rather than something this retires.
 Exhibition` is the wiki's infobox for "live, non-fictional events", by its own documentation, and
 none of its 40 pages sits under `Category:Non-DWU material`, so the out-of-universe check the
 entity path already made refused none of them. `provider-wiki` no longer maps it. A kind freezes
-at creation (migration 11), so a re-import could not correct the rows: on 2026-09-26 at 21:26Z,
+at creation (migration 11), so a re-import could not correct the rows: on 2026-09-26,
 after a dump, the 40 Items, their 40 Placements and the infobox's own Container Item were
-tombstoned in one transaction. The 40 were placed nowhere else.
+tombstoned in one transaction, at 21:25:48Z. The 40 were placed nowhere else. **THEY LEFT THE
+CATALOGUE RATHER THAN CHANGING KIND**, since no provider serves them any more and a relabel would
+have meant dropping the freeze.
 
 | counted on the Owner's install | before | after |
 |---|---:|---:|
