@@ -754,8 +754,8 @@ export interface PropertyNotGiven {
  *
  * An import asks for every property in `WHAT_AN_IMPORT_ASKS_FOR` on every
  * answer, so a Provider with no statement of one of them has answered that it
- * holds none. Said on the page, a field the source fills on a quarter of its
- * episodes reads as thin rather than as a surface that is broken -- and it is
+ * holds none. Said on the page, a thin source reads as thin rather than as a
+ * surface that is broken -- and it is
  * said as one line, never drawn as an empty row, which is ADR-0204's thin page.
  *
  * ONLY A PROVIDER STILL STANDING BEHIND THE ITEM IS ASKED ABOUT: one with at

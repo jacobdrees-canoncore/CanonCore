@@ -828,8 +828,8 @@ async function Groups({
 
 /**
  * WHAT EACH PROVIDER WAS ASKED FOR AND GAVE NONE OF, one quiet line each
- * (CNCORE-375). A field TMDB fills on a quarter of its episodes has to read as
- * the source being thin, not as this page being broken, and an empty Values row
+ * (CNCORE-375). A field TMDB leaves thin at episode depth (ADR-0128) has to read
+ * as the source being thin, not as this page being broken, and an empty Values row
  * would read as the second. So nothing is drawn for the value: the line says
  * whose it is not (ADR-0204's thin page).
  */
@@ -838,8 +838,9 @@ function NotGiven({ notGiven }: { notGiven: ItemOnThePage["notGiven"] }) {
 
   return (
     <ul className="mt-2 text-muted-foreground text-sm">
-      {notGiven.map(({ property, sourceLabel }) => (
-        <li key={`${property}:${sourceLabel}`}>
+      {/* THE PLACE IN THE KEY, because two instances of one Provider share a label (CNCORE-130). */}
+      {notGiven.map(({ property, sourceLabel }, at) => (
+        <li key={`${property}:${sourceLabel}:${at}`}>
           <TheirWords>{sourceLabel}</TheirWords> holds no {whatIsNotHeld(property)} for this.
         </li>
       ))}

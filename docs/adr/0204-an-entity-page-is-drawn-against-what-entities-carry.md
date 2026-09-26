@@ -137,7 +137,13 @@ and `item.get` answers it as `notGiven`. A Provider whose every claim has passed
 asked about ([[0036-tmdb-licence-constraints]]). A value that arrived broken was given, so it is
 quarantined rather than reported. The page has one such line today, for `released`, because
 `title` and the external id are required on every record. When CNCORE-357 or CNCORE-369 add a
-property to the import, its absence reads the same way.
+property to the import, its absence reads the same way, WITH ONE COST: every Item imported before
+the property was added is said to lack it until its Provider is asked again, because nobody asked
+for it when its rows were written. So that change re-imports what the catalogue holds, as the
+rebuild CNCORE-365 does from empty.
+
+**IT REACHES EVERY PROVIDER'S ITEMS, NOT ONLY EPISODES.** A wiki story with no release date says
+"provider-wiki holds no release date for this." too, which is as true of it as of an episode.
 
 Asserted at the router in process ("a season's episodes", `provider.test.ts`) and in the served page
 (`item-page.test.ts`, "an episode the second Provider holds thinly"). Mutation-checked: deleting the

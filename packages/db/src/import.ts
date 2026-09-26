@@ -112,11 +112,14 @@ export interface FetchedArtwork {
  *
  * WRITTEN ONCE BECAUSE A READ DEPENDS ON IT (CNCORE-375). An import that asks
  * for `released` and is answered with no date has learned that its source holds
- * none, and `findPropertiesNotGiven` says so on the Item's page, so a field the
- * source fills on a quarter of episodes reads as thin rather than as broken. A
- * property added to the claims below without being named here would be written
- * and never said to be missing; one named here and not claimed would be said
- * to be missing from every Item.
+ * none, and `findPropertiesNotGiven` says so on the Item's page, so a thin
+ * source reads as thin rather than as a broken page. The claims are built from
+ * this list, so the two cannot drift.
+ *
+ * A PROPERTY ADDED HERE IS SAID TO BE MISSING FROM EVERY ITEM IMPORTED BEFORE
+ * IT WAS ADDED, until that Item's Provider is asked again: its rows were written
+ * when nobody asked for it. So the change that adds one re-imports what the
+ * catalogue holds, as the rebuild CNCORE-365 does from empty.
  */
 export const WHAT_AN_IMPORT_ASKS_FOR = ["external_id", "title", "released"] as const;
 

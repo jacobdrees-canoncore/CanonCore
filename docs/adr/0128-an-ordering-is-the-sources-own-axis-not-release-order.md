@@ -188,6 +188,12 @@ them. Nothing new was built for that: `provider-tmdb` already answered a season'
 episodes, and CanonCore's browse already writes an ordering. So the Owner descends programme, season,
 episode, asserted at the router in process ("a season's episodes", `provider.test.ts`).
 
+**NOT BUILT: getting there by descending.** Browsing a programme brings its seasons and not their
+episodes, and a season's page offers nothing that fetches them. So the Owner fetches a programme's
+episodes by handing its season ids to a run (`pnpm import:list`) or by typing each one on `/import`,
+and a season's page holds no members until then. The descent works in the catalogue once they are
+fetched. Reaching them from the season's own page is CNCORE-428.
+
 **EPISODE COVERAGE, over the episodes actually imported.** The population is every season TMDB lists
 for its three `Doctor Who` programmes (`tv:121`, `tv:57243`, `tv:239770`: the same 44 seasons as
 above), browsed into the catalogue through the router on 2026-09-26: **2,465 episodes**, every one
