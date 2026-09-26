@@ -86,8 +86,9 @@ so this is a partition rather than an overlapping estimate.
 | **Concept** | 3,246 | `Infobox Object` 3,244, `Anatomy` 2 |
 | **Species** | 1,919 | `Infobox Species` |
 | **Organisation** | 1,013 | `Infobox Organisation` 808, `Company` 205 |
-| **Time span** | 600 | `Infobox Event or Conflict` 560, `Event or Exhibition` 40 |
-| *entities, subtotal* | **39,173** | |
+| **Time span** | 560 | `Infobox Event or Conflict` |
+| *entities, subtotal* | **39,133** | |
+| real-world events | 40 | `Infobox Event or Exhibition`, which these rows counted as 40 more Time spans and a subtotal of 39,173 until CNCORE-431 found every page a real concert or exhibition |
 | production / release | 6,942 | `Magazine` 3,231, `Audio Series` 778, `Documentary` 623, `Reference Book` 441, `Merchandise` 365, `Crossover` 310, `Music` 109, `Series` 67, `Match` 13, `Website` 3 |
 | **no infobox at all** | **69,815** | — |
 | stories | 12,806 | the dab rule |

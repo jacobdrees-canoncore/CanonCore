@@ -997,15 +997,15 @@ describe("a provider whose dates are not EDTF", () => {
 const EVENTS = {
   container: {
     id: "900001",
-    title: "Template:Infobox Event or Exhibition",
+    title: "Template:Infobox Event or Conflict",
     kind: "infobox",
     released: [],
     writers: [],
     series: null,
-    url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Exhibition",
+    url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Conflict",
   },
   ordering: [],
-  unplaced: ["Doctor Who Experience", "Doctor Who Live"].map((title, at) => ({
+  unplaced: ["Battle of Canary Wharf", "Cyber-Wars"].map((title, at) => ({
     id: String(900002 + at),
     title,
     kind: "event",

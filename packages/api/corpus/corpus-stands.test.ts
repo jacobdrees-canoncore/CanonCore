@@ -126,16 +126,15 @@ const MEASURED = {
    */
   mostOrderings: 45,
   /**
-   * THE FIRST ENTITY KIND, CNCORE-367's WALKING SKELETON: 595 Time spans, the
+   * THE FIRST ENTITY KIND, CNCORE-367's WALKING SKELETON: 555 Time spans, the
    * pages carrying `Infobox Event or Conflict` (555 of its 560, five being
-   * under the wiki's out-of-universe branch) or `Infobox Event or Exhibition`
-   * (40), counted from the live wiki on 2026-09-26 into a DEVELOPMENT install
-   * and read back through the kind filter (ADR-0137). The Owner's install
-   * holds them once it is rebuilt; until then this reddens there, which is the
-   * rebuild being owed rather than the suite being wrong. 580 is the floor
-   * convention above: a little under, so an edit to the wiki does not redden it.
+   * under the wiki's out-of-universe branch), counted on the Owner's install on
+   * 2026-09-26 and read back through the kind filter (ADR-0137). It was 595
+   * with `Infobox Event or Exhibition`'s 40, which are real-world events and
+   * were taken back out under CNCORE-431. 540 is the floor convention above: a
+   * little under, so an edit to the wiki does not redden it.
    */
-  timeSpans: 580,
+  timeSpans: 540,
 };
 
 let census: CorpusCensus;
@@ -212,5 +211,28 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
     const narrowed = await client.catalogue.list({ kind: "time_span", limit: 1 });
     expect(narrowed.total).toBeGreaterThanOrEqual(MEASURED.timeSpans);
     expect(narrowed.rows[0]?.kind).toBe("Time span");
+  });
+
+  /*
+   * AND WHAT THE KIND IS NOT (CNCORE-431). The floor above counts the stored
+   * kind and so agrees with whatever the mapping wrote: CNCORE-367's 595 did,
+   * with the Proms among them. A real-world concert is named here because it is
+   * the member that landed wrong, and it is looked for the way a reader would.
+   */
+  it("files no real-world concert as a Time span", async () => {
+    const found = await client.catalogue.search({
+      query: "Doctor Who at the Proms",
+      kind: "time_span",
+      limit: 10,
+    });
+    expect(found.rows.map((row) => row.title)).toEqual([]);
+    // THE SAME QUESTION ANSWERS A TIME SPAN THAT IS ONE, so the empty list above is the
+    // mapping's answer and not a search that answers nothing (ADR-0168).
+    const control = await client.catalogue.search({
+      query: "Battle of Canary Wharf",
+      kind: "time_span",
+      limit: 10,
+    });
+    expect(control.rows.map((row) => row.title)).toEqual(["Battle of Canary Wharf"]);
   });
 });
