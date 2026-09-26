@@ -1057,7 +1057,6 @@ describe("a record's item kind", () => {
     const works = await call(appRouter.catalogue.works, { limit: 100 }, { context });
     expect(works.rows.map((row) => row.id)).toEqual(expect.not.arrayContaining(members));
   });
-
 });
 
 /**
