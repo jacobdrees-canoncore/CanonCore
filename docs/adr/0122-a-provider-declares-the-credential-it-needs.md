@@ -723,6 +723,7 @@ client and is routed by setting the global dispatcher. What has NOT been seen is
 `pnpm session unlock` passing end to end on the Owner's instance with a fresh clearance. Its one
 live run, at 15:39Z, stored both copies and got `valid` from the manifest. The script's spend then
 got `403`, because the scripts were still on the default route, and that result is what led to
-forcing IPv4. The same session was refused over IPv4 by 15:58:52Z, 41 minutes after it was minted
-and under [[0069-the-first-provider-is-the-wiki]]'s two-hour lower bracket. Whether presenting it
-over IPv6 revoked it is unmeasured.
+forcing IPv4. The same session was refused over IPv4 by 15:58:52Z, because the Mac had changed network in
+between, and not because of its age. That is CNCORE-206's rule doing what it says: Cloudflare binds
+a clearance to the public address that passed its challenge. **A clearance lives until the public
+address changes, which on a laptop means until it changes network.**
