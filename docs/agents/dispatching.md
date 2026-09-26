@@ -59,17 +59,17 @@ section, merged with `merge-if-green.sh --standing-decisions`.
 
 ### The data
 
-- **Check-in points**: CNCORE-367, CNCORE-365. Each rebuilds the Owner's install, so when one reaches
-  Done the Owner walks it and whatever builds on it pauses until the walk is done.
-- **Held-back tickets**:
-  - CNCORE-371, until CNCORE-358 is Done: both edit ADR-0015 and ADR-0073 and each adds a migration rung, and 371 likely shares `packages/db/src/import.ts` with CNCORE-360; held so the three do not move the same records at once. Given 2026-09-26.
+- **Check-in points**: CNCORE-352, CNCORE-365. When one reaches Done the Owner walks the install and
+  whatever builds on it pauses until the walk is done. CNCORE-367's check-in was walked on 2026-09-26;
+  352 was added that day, because it lands the remaining entity kinds on the mechanism that walk found
+  two defects in (CNCORE-431, CNCORE-432).
+- **Held-back tickets**: none.
 - **Standing permissions**:
   - Merge a dependency bump whose provider twin has merged, after the gate passes and the diff is read.
 - **Precondition checks**:
   - The live wiki session: the Owner confirms it before each wave that includes a wiki-gated ticket.
     `pnpm session` in provider-wiki compares the host and provider copies but spends no request, so
     it cannot say the wiki still accepts them; until a live check exists, this is asked.
-- **Check-in pauses**:
-  - CNCORE-367: NOTHING new is dispatched until the Owner has walked the rebuilt install and said the walk is done. Wider than the blocking graph, by the Owner's choice of 2026-09-26: every ticket waits, not only those behind 367. Work already running merges and retires as usual.
+- **Check-in pauses**: none.
 
 Given by the Owner on 2026-09-26.
