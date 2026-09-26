@@ -180,3 +180,52 @@ different population, and these figures do not replace them, since they describe
 franchise alone. And WHAT THIS IMPORT HOLDS of either is **none**. No `description` Property exists
 yet, and artwork is CNCORE-358 and CNCORE-372's, so a season arrives as a title, a release date, an
 external id and its place in the programme's ordering, and nothing more.
+
+## Under CNCORE-375: a season's episodes, and the depth where the source thins out
+
+A season's episodes arrive by browsing the season, which answers them at the numbers TMDB gives
+them. Nothing new was built for that: `provider-tmdb` already answered a season's browse with its
+episodes, and CanonCore's browse already writes an ordering. So the Owner descends programme, season,
+episode, asserted at the router in process ("a season's episodes", `provider.test.ts`).
+
+**NOT BUILT: getting there by descending.** Browsing a programme brings its seasons and not their
+episodes, and a season's page offers nothing that fetches them. So the Owner fetches a programme's
+episodes by handing its season ids to a run (`pnpm import:list`) or by typing each one on `/import`,
+and a season's page holds no members until then. The descent works in the catalogue once they are
+fetched. Reaching them from the season's own page is CNCORE-428.
+
+**EPISODE COVERAGE, over the episodes actually imported.** The population is every season TMDB lists
+for its three `Doctor Who` programmes (`tv:121`, `tv:57243`, `tv:239770`: the same 44 seasons as
+above), browsed into the catalogue through the router on 2026-09-26: **2,465 episodes**, every one
+read back as an Item page. What an episode page shows, and how many carry it:
+
+| field on the page | episodes carrying it |
+| -- | -- |
+| title | 2,465 (100%) |
+| release date | 2,387 (96.8%) |
+| `tmdb` id | 2,465 (100%) |
+| `imdb` id | 0 |
+| `tvdb` id | 0 |
+
+**NO EPISODE ARRIVES BY BROWSE WITH AN IMDb OR TVDB ID**, and that is the season endpoint, not a
+loss: `/3/tv/{id}/season/{n}` carries no per-episode `external_ids`, and a `lookup` of one episode
+does (`append_to_response=external_ids`). Fetching them in a browse would cost one request per
+episode, 1,398 for the largest season. Nothing here needs them, so none are fetched.
+
+**THE FIELDS NO PAGE DRAWS YET**, read from the same 44 season answers on the same day, so the ticket
+that draws one reads its episode rate first rather than its work rate:
+
+| field | episodes carrying it | the spec, 2026-09-21 |
+| -- | -- | -- |
+| overview | 1,967 (79.8%) | 25.3% |
+| still | 1,411 (57.2%) | 18.0% |
+| any crew | 959 (38.9%) | 12.1% |
+| any vote | 1,029 (41.7%) | 4.8% |
+| production code | 61 (2.5%) | 0.7% |
+
+The spec counted its figures over the second Provider's episodes of a series it does not name, and
+these do not replace them: they describe the headline franchise alone, the richest programme TMDB holds of this
+catalogue's. Two in five episodes carry no crew and three in five no vote even here. So a credits
+surface (CNCORE-369) or a description (CNCORE-357) drawn against a film's 88.5% renders empty on most
+episodes, and an Item page says what a Provider gave none of rather than drawing the empty row
+([[0204-an-entity-page-is-drawn-against-what-entities-carry]], "Under CNCORE-375").

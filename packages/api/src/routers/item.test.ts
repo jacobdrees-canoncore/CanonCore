@@ -104,6 +104,9 @@ describe("item.get", () => {
       "kind",
       // MATCHES OFFERED AND NOT YET DECIDED (CNCORE-361). Red here when added.
       "matchCandidates",
+      // WHAT A PROVIDER WAS ASKED FOR AND GAVE NONE OF (CNCORE-375), a property
+      // name and the Provider's own label. Red here when it was added.
+      "notGiven",
       "placements",
       "releaseDate",
       "sortName",

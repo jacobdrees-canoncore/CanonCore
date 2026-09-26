@@ -279,7 +279,10 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
 
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
-  project.provide("attributedSeries", await browseASeriesFromTmdb(baseUrl, tmdb.url));
+  project.provide("attributedSeries", {
+    ...(await browseASeriesFromTmdb(baseUrl, tmdb.url)),
+    episode: await episodesFromTheStandIn(baseUrl),
+  });
   const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
   owned.defer(twoInstances.close);
   project.provide("twoInstances", twoInstances.fixture);
@@ -1321,6 +1324,9 @@ const MATRIX_COLLECTION = "collection:2344";
  */
 const DOCTOR_WHO_1963 = "tv:121";
 
+/** That programme's first season, whose episodes are browsed in turn (CNCORE-375). */
+const FIRST_SEASON = "season:121:1";
+
 /**
  * A stand-in for the real image, for a machine that cannot pull a private one.
  *
@@ -1463,6 +1469,32 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     ],
     unplaced: [],
   };
+  /**
+   * A season as its own browse answers it (CNCORE-375): its episodes at TMDB's
+   * numbers, the second with no air date, as TMDB holds 78 of the 2,465 episodes
+   * of its three `Doctor Who` programmes (2026-09-26, ADR-0128).
+   */
+  const episode = (number: number, title: string, released: string[]) => ({
+    id: `episode:121:1:${number}`,
+    title,
+    kind: "episode",
+    released,
+    writers: [],
+    series: "Doctor Who",
+    series_id: DOCTOR_WHO_1963,
+    url: `https://www.themoviedb.org/tv/121/season/1/episode/${number}`,
+    images: [],
+    external_ids: { tmdb: String(1000 + number) },
+    is_container: false,
+  });
+  const firstSeason = {
+    container: season(1, "Season 1", "1963-11-23"),
+    ordering: [
+      { position: 1, record: episode(1, "An episode the stand-in dates", ["1963-11-23"]) },
+      { position: 2, record: episode(2, "An episode the stand-in leaves undated", []) },
+    ],
+    unplaced: [],
+  };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
     if (path.startsWith("/search")) return answer(searchOver(searched, path), searchStatus(path));
@@ -1476,6 +1508,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     if (path === `/browse/${encodeURIComponent(DOCTOR_WHO_1963)}`) {
       return answer(programme, 200);
     }
+    if (path === `/browse/${encodeURIComponent(FIRST_SEASON)}`) return answer(firstSeason, 200);
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX.id)}`) return answer(record, 200);
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX_RELOADED.id)}`) {
       return answer(reloaded, 200);
@@ -1776,6 +1809,40 @@ async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
   const season = placements[0]?.itemId;
   if (season === undefined) throw new Error(`${DOCTOR_WHO_1963} arrived with no seasons`);
   return { series: containerId, season };
+}
+
+/**
+ * Two episodes of a season's own browse, one with no release date (CNCORE-375).
+ *
+ * A STAND-IN, EVEN IN CI, WHERE `theTmdbProvider` ANSWERS A REAL IMAGE. What is
+ * under test is how CanonCore says a Provider gave none of a value, and live
+ * TMDB dates every episode of `season:121:1`: against the real image the
+ * undated episode did not exist, and the case failed on a premise rather than a
+ * defect (run 36274185046). TMDB leaves 78 of the 2,465 `Doctor Who` episodes
+ * undated (ADR-0128), and naming one here would be a fixture that breaks the day
+ * TMDB fills it.
+ *
+ * TITLED AS NO REAL EPISODE IS, because a real episode with the same title and
+ * date lands on the same Item since CNCORE-361 (ADR-0026), and the suite imports
+ * `An Unearthly Child` from the real image for multi-placement.
+ */
+async function episodesFromTheStandIn(baseUrl: string) {
+  const standIn = await stubTmdbProvider();
+  try {
+    const client = await asTheOwner(baseUrl);
+    const episodes = await client.provider.browse({
+      baseUrl: standIn.url,
+      containerId: FIRST_SEASON,
+    });
+    const [dated, undated] = episodes.placements.map(({ itemId }) => itemId);
+    if (dated === undefined || undated === undefined) {
+      throw new Error(`${FIRST_SEASON} arrived without its two episodes`);
+    }
+    return { dated, undated };
+  } finally {
+    // The rows are in the database by here, and nothing reads the manifest again.
+    await standIn.close();
+  }
 }
 
 /**
@@ -2988,7 +3055,12 @@ declare module "vitest" {
      */
     attributed: { id: string; title: string; notice: string };
     /** A programme and one of its seasons, from that same Provider (CNCORE-360). */
-    attributedSeries: { series: string; season: string };
+    attributedSeries: {
+      series: string;
+      season: string;
+      /** Two episodes from a stand-in, even in CI, one with no release date (CNCORE-375). */
+      episode: { dated: string; undated: string };
+    };
     /** One item two instances of one provider each owe a notice on (CNCORE-130). */
     twoInstances: { id: string; notice: string };
     /**

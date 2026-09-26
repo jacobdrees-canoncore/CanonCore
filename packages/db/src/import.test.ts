@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { WHAT_AN_IMPORT_ASKS_FOR } from "./import";
 import {
   createGroupByHand,
   type Database,
@@ -21,6 +22,7 @@ import {
   statements,
   takeItemOutOfGroupByHand,
 } from "./index";
+import { itemKinds } from "./schema";
 import {
   anItemTitled,
   aPlacement,
@@ -2099,3 +2101,21 @@ async function theOwnerIdForTest(): Promise<string> {
   if (!owner) throw new Error("migration 1 seeds one owner row");
   return owner.id;
 }
+
+/**
+ * EVERY KIND THE IMPORT'S LIST NAMES IS ONE THE CATALOGUE HAS (CNCORE-375).
+ * The list says which kinds each property belongs to, as plain keys, so a
+ * misspelt one would compile and silently stop a page ever saying the property
+ * is missing. `item_kinds` is where the seven are seeded (ADR-0005).
+ */
+describe("the kinds an import's properties belong to", () => {
+  it("are all kinds the catalogue has", async () => {
+    const named = Object.values(WHAT_AN_IMPORT_ASKS_FOR).flatMap((kinds) => kinds ?? []);
+    const seeded = (await db.select({ kind: itemKinds.kind }).from(itemKinds)).map(
+      ({ kind }) => kind,
+    );
+
+    expect(named.length).toBeGreaterThan(0);
+    expect(seeded).toEqual(expect.arrayContaining(named));
+  });
+});

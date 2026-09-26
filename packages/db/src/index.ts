@@ -85,6 +85,7 @@ export {
   findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
+  findPropertiesNotGiven,
   findStatementsOfItem,
   type ItemKind,
   type ItemRow,

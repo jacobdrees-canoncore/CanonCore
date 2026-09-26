@@ -364,6 +364,12 @@ either.
 - Artwork: there is no image store yet (CNCORE-358), and expiring a stored picture is CNCORE-372's
   by that ticket's own criterion. The test literals above are still two acts to purge, not one.
 
+**UNDER CNCORE-375, EPISODES ARE HELD TO THE SAME MECHANISM AND ADD NONE.** A season's browse writes
+its episodes' titles, dates, ids and Placements through the same three writers, so each is refused
+on read past 180 days as a season is. Asserted at the router ("a season's episodes", `provider.test.ts`).
+The projected-title gap above is 2,465 episode titles wider for it, over the three `Doctor Who`
+programmes alone.
+
 **NOT SETTLED, still:** the two clauses to put to TMDB before a public demo ships. CNCORE-360 touched
 neither, and the commercial-use question and paragraph 1.C's AI restriction remain dispositions
 rather than answers.

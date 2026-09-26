@@ -15,6 +15,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
+import { WHAT_AN_IMPORT_ASKS_FOR } from "./import";
 import type { Database } from "./index";
 import {
   type ACutIn,
@@ -739,6 +740,77 @@ export async function findStatementsOfItem(
       statements.valueLiteral,
       statements.id,
     );
+}
+
+/** A property an import asked a Provider for, and the Provider that gave none. */
+export interface PropertyNotGiven {
+  property: string;
+  /** What that Provider calls itself, as `StatementOfItem.sourceLabel`. */
+  sourceLabel: string;
+}
+
+/**
+ * WHAT A PROVIDER WAS ASKED FOR ABOUT THIS ITEM AND GAVE NONE OF (CNCORE-375).
+ *
+ * An import asks for every property in `WHAT_AN_IMPORT_ASKS_FOR` on every
+ * answer. So where the Item's kind has one of them and a Provider holds no
+ * statement of it, that Provider has answered that it holds none. Said on the page, a thin source reads as thin rather than as a
+ * surface that is broken -- and it is said as one line, never drawn as an
+ * empty row, which is ADR-0204's thin page.
+ *
+ * ONLY OF A PROPERTY THE ITEM'S KIND HAS, which the list names beside each
+ * property: a time span lacks no release date, because it could not hold one.
+ *
+ * ONLY A PROVIDER STILL STANDING BEHIND THE ITEM IS ASKED ABOUT: one with at
+ * least one live claim inside its ceiling. What a source did not give is a claim
+ * about what it said, and nothing it said may still be read once its ceiling
+ * has passed (ADR-0036).
+ *
+ * A QUARANTINED VALUE WAS GIVEN, only broken, so it is not reported here: that
+ * is the import's count of broken values, a different sentence.
+ */
+export async function findPropertiesNotGiven(
+  db: Database,
+  itemId: string,
+): Promise<PropertyNotGiven[]> {
+  const given = alias(statements, "given");
+  return db
+    .select({ property: properties.name, sourceLabel: sources.label })
+    .from(given)
+    .innerJoin(sources, eq(sources.id, given.sourceId))
+    .innerJoin(items, eq(items.id, given.subjectItemId))
+    .innerJoin(
+      properties,
+      and(
+        eq(properties.ownerId, given.ownerId),
+        // ONLY A PROPERTY THIS ITEM'S KIND HAS: a time span lacks no release
+        // date, since it could not hold one.
+        or(
+          ...Object.entries(WHAT_AN_IMPORT_ASKS_FOR).map(([name, kinds]) =>
+            kinds === null
+              ? eq(properties.name, name)
+              : and(eq(properties.name, name), inArray(items.kind, [...kinds])),
+          ),
+          // AN EMPTY LIST ASKS ABOUT NOTHING, rather than letting `or()`'s
+          // `undefined` drop the clause and report every property there is.
+        ) ?? sql`false`,
+      ),
+    )
+    .where(
+      and(
+        eq(given.subjectItemId, itemId),
+        eq(sources.kind, "provider"),
+        isNull(given.deletedAt),
+        insideItsCeiling(given.observedAt),
+        // Public only, for `findStatementsOfItem`'s reason (ADR-0045).
+        sql`coalesce((${properties.capabilities} -> 'public')::boolean, true)`,
+        sql`not exists (select 1 from "statements" held
+          where held."subject_item_id" = ${itemId} and held."source_id" = ${sources.id}
+            and held."property_id" = ${properties.id} and held."deleted_at" is null)`,
+      ),
+    )
+    .groupBy(properties.name, sources.id)
+    .orderBy(properties.name, sources.sourceOrder, sources.id);
 }
 
 /** One of an item's ids in a Scheme, and who said so (CNCORE-349). */

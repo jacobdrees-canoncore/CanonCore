@@ -1131,3 +1131,29 @@ describe("an item carrying a picture", () => {
     }
   });
 });
+
+/**
+ * CNCORE-375: AN EPISODE PAGE SAYS WHAT ITS SOURCE DOES NOT HOLD. TMDB leaves
+ * most fields thin at episode depth, and a page that simply omitted a value
+ * would read as broken rather than as thin. So what an import asked for and the
+ * Provider gave none of is one line in the served page, and nothing is drawn as
+ * an empty row (ADR-0204).
+ */
+describe("an episode the second Provider holds thinly", () => {
+  it("says the Provider holds no release date for it", async () => {
+    const { status, text } = await documentAt(`/items/${attributedSeries.episode.undated}`);
+
+    expect(status).toBe(200);
+    // The Provider's name is its own words, so it arrives in its own span.
+    expect(text).toMatch(/>provider-tmdb<\/span> holds no release date for this\./);
+    // And it still owes that Provider's notice, as every page carrying its claims does.
+    expect(text).toContain(attributed.notice);
+  });
+
+  it("says nothing of a value the Provider gave", async () => {
+    const { text } = await documentAt(`/items/${attributedSeries.episode.dated}`);
+
+    expect(text).toContain("1963-11-23");
+    expect(text).not.toContain("holds no release date");
+  });
+});

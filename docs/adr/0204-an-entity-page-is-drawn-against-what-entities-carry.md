@@ -119,3 +119,54 @@ the day the thin page's test gains an entity that has one. This record flips the
 **NOT A MECHANISM, SAID PLAINLY: the story-only rule.** No check reads a layout and refuses a
 story-only property, because no entity layout yet names any property at all: the item page renders
 whatever statements an Item carries. The rule binds whoever draws the first layout that does.
+
+## Under CNCORE-375: a page says what a Provider gave none of, and draws no row for it
+
+The thin page reaches works too. TMDB's episodes are the thinnest works the catalogue holds (ADR-0128,
+"Under CNCORE-375"), and a page that simply omits a value leaves a reader unable to tell a thin
+source from a broken page. So an Item page says it in one line under its Values, such as
+"provider-tmdb holds no release date for this.", and still draws no row for the value. The first
+rule above stands: nothing is drawn for a property the Item does not carry. What is added is who
+does not hold it.
+
+**WHAT COUNTS AS "GAVE NONE" IS A FACT, NOT A GUESS.** A Provider import asks for the same properties
+on every answer, `WHAT_AN_IMPORT_ASKS_FOR` in `packages/db/src/import.ts`, which is also the list
+the import claims from, so the two cannot drift. A Provider that still stands behind the Item and
+holds no statement of one of them THAT THE ITEM'S KIND HAS answered that it holds none. `findPropertiesNotGiven` reads it,
+and `item.get` answers it as `notGiven`. A Provider whose every claim has passed its ceiling is not
+asked about ([[0036-tmdb-licence-constraints]]). A value that arrived broken was given, so it is
+quarantined rather than reported. The page has one such line today, for a work's `released`, because
+`title` and the external id are required on every record. When CNCORE-357 or CNCORE-369 add a
+property to the import, its absence reads the same way, WITH ONE COST: every Item imported before
+the property was added is said to lack it until its Provider is asked again, because nobody asked
+for it when its rows were written. So that change re-imports what the catalogue holds, as the
+rebuild CNCORE-365 does from empty.
+
+**IT REACHES EVERY PROVIDER'S ITEMS, NOT ONLY EPISODES, BUT ONLY OF A KIND THAT HAS THE PROPERTY.**
+A wiki story with no release date says "provider-wiki holds no release date for this." too, which is
+as true of it as of an episode. A time span, a character or a place says nothing of a release date,
+because it could not hold one. Each property in `WHAT_AN_IMPORT_ASKS_FOR` names the kinds it belongs
+to: `released` is a `work`'s, since a release is an Edition's of a Work
+([[0081-release-date-means-earliest-known-release]]) and a Container folds into `work`, and `title` and the
+external id belong to every kind. As first built, the line appeared on every kind, and the dispatcher's walk of #303
+on the Owner's catalogue found `1814 frost fair`, a time span, reading "provider-wiki holds no
+release date for this." On that catalogue, restored from the Owner's dump of 2026-09-26 at 21:25Z,
+595 live time spans (`deleted_at is null`) stood beside 8,010 works, and 588 of the time spans held
+no release date, so each read the wrong line. After CNCORE-352 so would every entity kind. The
+import still writes whatever a Provider sends of any kind. Only what a page says is missing is
+narrowed.
+
+**IN CODE BESIDE THE IMPORT'S LIST, NOT IN THE PROPERTY'S `capabilities`**, although which kinds a
+property belongs to is a fact about the property, and [[0012-statements-and-a-properties-catalogue]]
+prefers such a fact declared in the data. The list is the import's, it is read by this one query,
+and declaring it would take a ladder rung and a wider `properties_capabilities_are_an_object` for a
+fact nothing else reads. The day a second reader wants it, it moves to `capabilities`. A kind the
+list names is checked against `item_kinds` by `import.test.ts`, so a misspelt kind fails the suite
+rather than silently dropping every line.
+
+Asserted at the router in process ("a season's episodes", `provider.test.ts`) and in the served page
+(`item-page.test.ts`, "an episode the second Provider holds thinly"). Mutation-checked: deleting the
+ceiling predicate or the held-statement exclusion from `findPropertiesNotGiven` each turned one
+router test red. So did widening `released` to every kind, which turned "says nothing of a property
+the Item's kind does not have" red alone. Making the page's line render nothing turned the
+served-page case red.

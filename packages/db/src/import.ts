@@ -106,6 +106,38 @@ export interface FetchedArtwork {
   bytes: Uint8Array;
 }
 
+/**
+ * THE PROPERTIES EVERY PROVIDER IMPORT ASKS FOR, whatever the record carries,
+ * which `writeProvidedItem` claims in full on every answer (`assertClaims`).
+ *
+ * WRITTEN ONCE BECAUSE A READ DEPENDS ON IT (CNCORE-375). An import that asks
+ * for `released` and is answered with no date has learned that its source holds
+ * none, and `findPropertiesNotGiven` says so on the Item's page, so a thin
+ * source reads as thin rather than as a broken page. The claims are built from
+ * this list, so the two cannot drift.
+ *
+ * A PROPERTY ADDED HERE IS SAID TO BE MISSING FROM EVERY ITEM IMPORTED BEFORE
+ * IT WAS ADDED, until that Item's Provider is asked again: its rows were written
+ * when nobody asked for it. So the change that adds one re-imports what the
+ * catalogue holds, as the rebuild CNCORE-365 does from empty.
+ *
+ * EACH NAMES THE KINDS IT BELONGS TO, `null` for every kind, because only an
+ * Item that could hold a value can be said to lack one. A time span has no
+ * release date, and `1814 frost fair` read "provider-wiki holds no release date
+ * for this." on the Owner's catalogue until this said so (ADR-0204). A release
+ * is an Edition's of a Work (ADR-0081), and a Container folds into `work`
+ * (ADR-0004). The import still writes whatever a Provider sends, whatever the
+ * kind: this narrows only what a page says is missing.
+ */
+export const WHAT_AN_IMPORT_ASKS_FOR = {
+  external_id: null,
+  title: null,
+  released: ["work"],
+} as const satisfies Record<string, readonly string[] | null>;
+
+/** A property every import asks for. */
+type AskedFor = keyof typeof WHAT_AN_IMPORT_ASKS_FOR;
+
 export interface ImportedRecord {
   itemId: string;
   /**
@@ -573,38 +605,50 @@ async function writeProvidedItem(
     });
   }
 
+  const asked = whatItAnswers(record);
   const quarantinedValues = await assertClaims(tx, {
     ownerId,
     itemId,
     sourceId,
-    claims: [
-      // ADR-0078: the mapping that finds this item again, beside the surrogate
-      // id rather than instead of it (migration 3).
-      { property: "external_id", values: [record.externalId] },
-      { property: "title", values: [record.title] },
-      // One statement per date, each keeping the precision it arrived with. The
-      // catalogue decides the earliest known release for itself (ADR-0081), so
-      // picking one here would be answering a question that is not ours.
-      //
-      // AND EACH IS CHECKED (CNCORE-29). ADR-0073 says a date is an EDTF string,
-      // and the wire schema is `z.array(z.string())` -- so without a check the
-      // record described what the catalogue writes rather than what it accepts.
-      // A value that fails is kept and QUARANTINED rather than dropped or
-      // refused, which is ADR-0030's posture for a value that arrives broken.
-      //
-      // NOTHING IS NAMED HERE ANY MORE (CNCORE-47). The check used to be an
-      // `admits` callback written beside this value; it is now `released`'s own
-      // `validation` declaration (ADR-0012, migration 7), which `assertClaims`
-      // reads. So this list says what the provider CLAIMS and the catalogue says
-      // what may be read back -- and which properties are checked is a query
-      // rather than a grep.
-      { property: "released", values: record.released },
-    ],
+    // EVERY PROPERTY `WHAT_AN_IMPORT_ASKS_FOR` NAMES, and no other, held by
+    // the type below: that list is also what a read says a Provider gave none
+    // of (CNCORE-375).
+    claims: (Object.keys(WHAT_AN_IMPORT_ASKS_FOR) as AskedFor[]).map((property) => ({
+      property,
+      values: asked[property],
+    })),
   });
 
   await assertIdentifiers(tx, { ownerId, itemId, sourceId, identifiers: record.identifiers });
 
   return { itemId, quarantinedValues };
+}
+
+/** What one record answers for each property an import asks for. */
+function whatItAnswers(record: ProvidedRecord): Record<AskedFor, string[]> {
+  return {
+    // ADR-0078: the mapping that finds this item again, beside the surrogate
+    // id rather than instead of it (migration 3).
+    external_id: [record.externalId],
+    title: [record.title],
+    // One statement per date, each keeping the precision it arrived with. The
+    // catalogue decides the earliest known release for itself (ADR-0081), so
+    // picking one here would be answering a question that is not ours.
+    //
+    // AND EACH IS CHECKED (CNCORE-29). ADR-0073 says a date is an EDTF string,
+    // and the wire schema is `z.array(z.string())` -- so without a check the
+    // record described what the catalogue writes rather than what it accepts.
+    // A value that fails is kept and QUARANTINED rather than dropped or
+    // refused, which is ADR-0030's posture for a value that arrives broken.
+    //
+    // NOTHING IS NAMED HERE ANY MORE (CNCORE-47). The check used to be an
+    // `admits` callback written beside this value; it is now `released`'s own
+    // `validation` declaration (ADR-0012, migration 7), which `assertClaims`
+    // reads. So this list says what the provider CLAIMS and the catalogue says
+    // what may be read back -- and which properties are checked is a query
+    // rather than a grep.
+    released: record.released,
+  };
 }
 
 /**
