@@ -551,6 +551,98 @@ CORPUS-WIDE. This pass reads 718 properties over the three TYPED ns-0 population
 vocabulary is essentially the same size while the triple count is lower, which is what a narrower
 population should do.
 
+## Entity fill, re-measured under CNCORE-377
+
+Taken 2026-09-26 against the live wiki, because the dataset frozen for this note had been deleted by
+then and the per-property figures behind the entity/story comparison above went with it. What it
+decided is `docs/adr/0204-an-entity-page-is-drawn-against-what-entities-carry.md`, and the fill
+rate at 1% or more is `.claude/rules/entity-surfaces.md`, where a page gets laid out. This section
+holds the method, the controls and the rest.
+
+**The populations**, each ns 0, non-redirect, from `list=embeddedin&einamespace=0&eifilterredir=nonredirects`:
+
+| population | infoboxes | pages |
+|---|---|---|
+| entity | `Individual`, `Person`, `Location`, `Filming Location`, `Object`, `Anatomy`, `Species`, `Organisation`, `Company`, `Event or Conflict`, `Event or Exhibition` | 39,209 |
+| story | `Story SMW` | 11,310 |
+| production | `Magazine`, `Audio Series`, `Documentary`, `Reference Book`, `Merchandise`, `Crossover`, `Music`, `Series`, `Match`, `Website`, `Story` | 8,371 |
+
+`list=allpages&apnamespace=10&apprefix=Infobox` lists 30 infobox templates; 23 are transcluded in
+ns 0 and the table uses all 23. Transclusions and distinct pages are equal in every population, and
+the three ns-0 pages carrying two infoboxes all sit in story AND production: `Interference (novel)`,
+`Children in Need 1983 (TV story)`, `The Visual Dictionary (reference book)`.
+
+**The pull** is `live-wiki.ts`'s `exportRdf` over each population in 500-title batches: 23 for
+story, 17 for production, 79 for entity. Every figure is counted two ways and they differ only by
+SMW subobjects:
+
+| population | every subject the export carries | the population's own pages | subobjects |
+|---|---|---|---|
+| entity | 166,930 triples, 96 properties | 165,618 triples, 92 properties | 328 `# QUERY` records, 1,312 triples |
+| story | 207,141, 565 | 207,139, 563 | 1 `# ERR` record |
+| production | 45,171, 167 | 45,169, 165 | 1 `# ERR` record |
+
+Story-only 479 and shared-by-all-three 20 under both counts; entity-only 64 counting subobjects and
+60 without. Against the 2026-09-21 figures under "All three typed populations, counted the same way"
+the story triples moved 207,091 to 207,141 and the entity triples 166,856 to 166,930, which is five
+days of wiki growth.
+
+**Per page, housekeeping aside.** Distinct properties per page, leaving out
+`Modification date#aux`, `Display title of`, `Has query`, `Have links been moved`,
+`Proposed new name`, `User proposing speedy rename` and the two `#aux` date twins:
+
+| properties carried | entity pages | cumulative | story pages |
+|---|---|---|---|
+| 0 | 713 | 1.8% | 0 |
+| 1 | 4,743 | 13.9% | 0 |
+| 2 | 10,962 | 41.9% | 0 |
+| 3 | 10,005 | 67.4% | 0 |
+| 4 | 6,760 | 84.6% | 11 |
+| 5 | 3,320 | 93.1% | 39 |
+| 6 or more | 2,706 | 100% | 11,260 |
+| **median** | **3** | | **11** |
+
+**The controls**, each a census query run against a population that has to come back empty:
+`embeddedin` on `Template:Infobox No Such Template 377` answered 0 pages; `exportRdf` over 500
+titles of the form `CNCORE-377 no such page N` answered 0 triples over 0 subjects; the entity and
+story populations share 0 pages; and the story-only set matches 0 triples on entity pages, which is
+true by construction and would stay green over a pull that had spanned the whole wiki, so it is the
+weakest of the four.
+
+**The long tail**, every property on fewer than 1% of the 39,209 entity pages, counted over the
+population's own pages. Those at 1% or more are in `.claude/rules/entity-surfaces.md` and are not
+repeated here.
+
+| property | pages | | property | pages | | property | pages |
+|---|---|---|---|---|---|---|---|
+| `Grandparent` | 363 | | `Event date` | 20 | | `Nephew` | 12 |
+| `Grandchild` | 316 | | `Uncle` | 20 | | `Host` | 11 |
+| `Other actor` | 228 | | `Soundcloud` | 19 | | `Adoptive grandchild` | 10 |
+| `In-law` | 223 | | `Closing date` | 18 | | `Mate` | 10 |
+| `Has query` | 206 | | `Opening date` | 18 | | `Adoptive grandparent` | 9 |
+| `Counterpart` | 204 | | `Cousin` | 15 | | `Event end date` | 9 |
+| `Corresponding Wikipedia link` | 194 | | `Tumblr` | 14 | | `Great-grandchild` | 9 |
+| `Youtube` | 132 | | `Adoptive parent` | 13 | | `Great-grandparent` | 9 |
+| `Time Lord` | 85 | | `Music` | 13 | | `Adoptive brother` | 7 |
+| `Counterpart name` | 60 | | `Adoptive father` | 38 | | `Release date` | 7 |
+| `Sibling` | 60 | | `Parent` | 30 | | `Release date#aux` | 7 |
+| `Counterpart override` | 54 | | `Niece` | 27 | | `Conductor` | 6 |
+| `Adopted child` | 47 | | `Adoptive mother` | 25 | | `Featuring` | 6 |
+| `Pet` | 47 | | `Aunt` | 25 | | `Have links been moved` | 6 |
+| `Incarnation override` | 45 | | `Bluesky` | 21 | | `Proposed new name` | 6 |
+| `Release end date` | 6 | | `Release end date#aux` | 6 | | `User proposing speedy rename` | 6 |
+| `Adoptive sister` | 5 | | `Foster child` | 5 | | `Foster mother` | 5 |
+| `Network` | 5 | | `Broadcast note` | 4 | | `Foster sibling` | 4 |
+| `Nibling` | 4 | | `Vocalist` | 4 | | `Confidential` | 3 |
+| `Opening note` | 3 | | `Pibling` | 3 | | `Adoptive sibling` | 2 |
+| `Bandcamp` | 2 | | `Closing note` | 2 | | `Foster father` | 2 |
+| `Foster grandchild` | 2 | | `Foster grandparent` | 2 | | `Interviewee` | 2 |
+| `Tiktok` | 2 | | `Release status` | 1 | | `Spotify` | 1 |
+
+The scripts ran from a scratch directory and were deleted with their output, as this note's own
+dataset was: the populations, the batch size and the parsing rule above are the query that takes it
+again.
+
 ## Method, and what it cost
 
 - One request in flight at a time, 0.35s between calls, exponential backoff, `Retry-After`

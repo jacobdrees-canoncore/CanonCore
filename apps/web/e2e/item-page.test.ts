@@ -5,8 +5,10 @@ import {
   documentFrom,
   followed,
   headingOf,
+  mainOf,
   sectionIn,
   sourcesIn,
+  textOf,
   walkLinked,
 } from "./document";
 
@@ -149,6 +151,48 @@ describe("the kind, in the reader's words", () => {
     // THE KEY THE FIXTURE ACTUALLY SEEDED, which is a fact about the fixture
     // and so comes from it -- unlike the words above.
     expect(text).not.toContain(timeSpan.kind);
+  });
+});
+
+/**
+ * THE THIN ENTITY IS THE NORMAL PAGE, NOT ITS EMPTY STATE (CNCORE-377, ADR-0204).
+ *
+ * An entity page on the wiki carries about four properties where a story
+ * carries eighteen, and the record states the census. So an Item carrying a
+ * title, a kind and its Placements and nothing else is the page most entity
+ * readers land on, and it has to read as a whole page: every row it shows is a
+ * value the Item carries, and nothing is drawn for a property it does not.
+ *
+ * The failure this holds off is a layout drawn against a story -- a slot for
+ * who played it, an image frame, a first appearance -- left standing empty on
+ * the tens of thousands of pages that carry none of them.
+ */
+describe("an entity carrying a title, a kind and its Placements, and nothing else", () => {
+  it("reads as a whole page: its title, its kind, and where it is placed", async () => {
+    const { status, text } = await documentAt(`/items/${workBrowsing.characterId}`);
+
+    expect(status).toBe(200);
+    expect(headingOf(text)).toContain(workBrowsing.character);
+    expect(text).toContain("<dd>Character</dd>");
+    const placed = sectionIn(text, "also-appears-in");
+    expect(placed).toContain(workBrowsing.entityContainer);
+    expect(placed).toContain("#1");
+  });
+
+  it("draws a row for every value it carries and for nothing it does not", async () => {
+    const { text } = await documentAt(`/items/${workBrowsing.characterId}`);
+
+    // What it carries is the title the owner gave it and the sort name derived
+    // from that title, so the Values list is exactly those two rows. Written
+    // out rather than built from the fixture, because the derived one drops the
+    // article and a built string would only restate the derivation.
+    const rows = sectionIn(text, "values").match(/<li[^>]*>.*?<\/li>/gs) ?? [];
+    expect(rows.map((row) => textOf(row)).sort()).toEqual([
+      "Sorts ascharacter somebody playsCanonCore (sort name v1)",
+      "TitleA character somebody playsOwner",
+    ]);
+    // And no image frame waits for an image it does not have.
+    expect(mainOf(text)).not.toContain("<img");
   });
 });
 

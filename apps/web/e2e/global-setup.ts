@@ -2380,6 +2380,11 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     fixture: {
       person: "A person in the cast",
       character: "A character somebody plays",
+      /**
+       * THE THIN ENTITY, which is the catalogue's normal case (ADR-0204): a
+       * title, a kind and one Placement, and nothing else.
+       */
+      characterId: character,
       entityContainer: "The Doctors, in order",
       entityContainerId: entityContainer,
       workContainer: "A season that holds stories",
@@ -2691,6 +2696,7 @@ declare module "vitest" {
     workBrowsing: {
       person: string;
       character: string;
+      characterId: string;
       entityContainer: string;
       entityContainerId: string;
       workContainer: string;

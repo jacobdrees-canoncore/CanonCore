@@ -28,8 +28,8 @@ holds.** An agent-filed ticket lands there by default, where the frontier cannot
 5. **The data** — not yet named. Every Container is a `Theory:Timeline - X` page and every Item is
    `kind: work`, so six of seven kinds and nine of thirteen properties sit empty. Ends in a Rose page,
    and in images. Evidence: `docs/research/walking-the-owners-install.md`.
-6. **The redesign** — `packages/ui` is already shadcn and the product gets redesigned from the ground
-   up. Speccing 5 is not this: four of 5's eight flow problems are data, not design.
+6. **The redesign** — from the ground up, on `packages/ui`'s shadcn, and an entity page is drawn against
+   [[0204-an-entity-page-is-drawn-against-what-entities-carry]]. Speccing 5 is not this: four of 5's eight flow problems are data, not design.
 7. **Playback, then the clients, then the demo** ([[0055-web-now-phone-next-tv-last]],
    [[0115-the-public-release-comes-before-the-playback-half]]). **5 and 6 sit ahead of 7 by
    [[0152-two-more-efforts-go-ahead-of-the-playback-half]]**, which takes the second insertion ADR-0115
