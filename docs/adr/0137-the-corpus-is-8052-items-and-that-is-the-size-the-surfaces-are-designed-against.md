@@ -239,12 +239,34 @@ was removed and the install brought up on the images built from `624b8fc6` and `
 | the 465 `Theory:Timeline` pages | 465 | 0 | 5.6 minutes, 18:55:25Z to 19:01:01Z |
 
 The kind filter's `total` for `time_span` answered 595, and a count of `items` with that kind and
-no `deleted_at` answered 595. The catalogue holds 595 Time spans and 8,010 Works over 31,504
-Placements, and the corpus suite passes against it, its new Time span floor included. **THE
+no `deleted_at` answered 595. **Both read the one stored kind, so they agreed whatever it was, and
+40 of the 595 were real-world events** (CNCORE-431, below). The catalogue held 595 Time spans and
+8,010 Works over 31,504 Placements, and the corpus suite passes against it, its new Time span floor included. **THE
 TIMELINE RUN IS WHAT THE STORM ABOVE STOPPED AT ITS TWELFTH CONTAINER, AND IT RAN WHOLE IN ONE
 ATTEMPT** -- a rehearsal of the same run an hour earlier did too, in 5.4 minutes. Nothing here
 says why the wiki refused on 2026-09-15 and not now, so the resume procedure above stays the
 answer to a storm rather than something this retires.
+
+### The 40 that were no Time span, taken back out (CNCORE-431)
+
+`Doctor Who at the Proms (2008)` read "Kind: Time span" on the rebuilt install. `Infobox Event or
+Exhibition` is the wiki's infobox for "live, non-fictional events", by its own documentation, and
+none of its 40 pages sits under `Category:Non-DWU material`, so the out-of-universe check the
+entity path already made refused none of them. `provider-wiki` no longer maps it. A kind freezes
+at creation (migration 11), so a re-import could not correct the rows: on 2026-09-26 at 21:26Z,
+after a dump, the 40 Items, their 40 Placements and the infobox's own Container Item were
+tombstoned in one transaction. The 40 were placed nowhere else.
+
+| counted on the Owner's install | before | after |
+|---|---:|---:|
+| Items of kind `time_span`, not deleted | 595 | 555 |
+| Items in the catalogue | 8,605 | 8,564 |
+| `time_span` Items titled like `Proms` | 4 | 0 |
+| Placements, not deleted | 31,504 | 31,464 |
+
+The kind filter on the running install answers `Battle of Canary Wharf` for "Canary" and nothing
+for "Proms". Whether `Event or Conflict`'s 555 hold real-world pages too was measured rather than
+assumed: `provider-wiki`'s `KINDS.md`.
 
 ## The catalogue survives a restart and a rename, measured with the corpus in it
 

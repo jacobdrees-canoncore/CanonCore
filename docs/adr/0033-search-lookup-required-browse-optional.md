@@ -1184,9 +1184,15 @@ only one that types an entity is a container. Its members are the articles that 
 every one Unplaced, because the wiki asserts no order among the pages carrying an infobox and a
 release-date order would be this provider inventing one. `containers` does not list them, for the
 reason it does not list categories: they are not containers the wiki WROTE as orderings.
-Two answer today, `Infobox Event or Conflict` (page 8103, 560 pages) and `Infobox Event or
-Exhibition` (page 203134, 40 pages), counted on 2026-09-26 over `list=embeddedin`, ns 0,
-non-redirects -- the census's 600 Time span pages.
+One answers, `Infobox Event or Conflict` (page 8103, 560 pages), counted on 2026-09-26 over
+`list=embeddedin`, ns 0, non-redirects. **`Infobox Event or Exhibition` (page 203134, 40 pages)
+answered too, and CNCORE-431 took it out:** its own documentation says it covers "live,
+non-fictional events", and all 40 were real ones, the Proms among them. So the census's 600 Time
+span pages were 560, and the mapping was never checked against a single member. **A MAPPING ROW
+NOW ARRIVES WITH A SAMPLED PRECISION BESIDE IT**: N members drawn from what `browse` serves under
+it, each labelled right or wrong by a reader, recorded with population and date in
+`provider-wiki`'s `KINDS.md` by `pnpm measure:kinds`. A count of what landed cannot stand in for
+it, because it reads the kind the mapping wrote ([[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]).
 
 **NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added.
 
