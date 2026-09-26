@@ -97,6 +97,17 @@ no release, no ceremony. If the gate were expensive it would be negotiated away.
 [[0094-a-fresh-install-starts-empty]]'s third category — an install — running wherever the Owner
 runs it. No record here decides where that is.
 
+**During a project, the check-ins are scheduled by the dispatch loop's standing decisions.** This
+record gates the project's END; the `dispatch` skill's check-in points are its counterpart along
+the way, so the use it requires is not saved up for the close. They are stored in the `## Standing
+decisions` section of `docs/agents/dispatching.md`
+([[0203-standing-dispatch-decisions-live-in-dispatching-md-and-no-agent-can-change-them]]), asked of
+the Owner once per project. When a check-in ticket reaches Done the Owner is told to walk the
+install, and a **check-in pause** holds the tickets that build on that ticket until the Owner says
+the walk is done; unrelated tickets keep going (CNCORE-418, `claude-skills#29`). A check-in does not
+replace this gate: a project whose check-ins all passed still closes only through
+`closing-a-spec`.
+
 **It does not require a written report.** The output of the gate is tickets when something is wrong
 and nothing when nothing is. A gate whose output is a document is a document phase, which
 `CLAUDE.md` refuses on sight.

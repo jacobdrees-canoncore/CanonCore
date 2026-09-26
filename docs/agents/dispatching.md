@@ -3,6 +3,10 @@
 What the `dispatch` skill needs to know that only CanonCore has. The skill carries the loop and
 reads this file for the rest, so none of it sits in a file Sift also loads.
 
+The project's standing decisions go in a `## Standing decisions` section of this file, which the
+skill's first run creates. Only the dispatcher's own PR may change it, and the merge gate refuses
+any other ([[0203-standing-dispatch-decisions-live-in-dispatching-md-and-no-agent-can-change-them]]).
+
 ## The ceiling, and the prompt that carries it
 
 The skill takes a project's ceiling from the prompt that starts a dispatch, and stops if it is not

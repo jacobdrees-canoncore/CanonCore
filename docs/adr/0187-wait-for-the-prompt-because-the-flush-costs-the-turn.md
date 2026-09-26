@@ -14,6 +14,12 @@ status: proposed
 > tree no longer holds the `dispatch` skill's copy of these sentences:** it moved to the skills
 > repository on 2026-09-22, where no such check runs, so this record's check covers `CLAUDE.md` and
 > the records here and not the one a dispatcher reads while sending.
+> **HOW THE LOOP ASKS THE OWNER IS OWNED BY THE `dispatch` SKILL'S `asking.md` since 2026-09-26**
+> (CNCORE-418, `claude-skills#29` merged as `8d97c05`), in both directions of the one conversation:
+> the ask, and the relay of a parked agent's question to the Owner. This record keeps what that file
+> points back to it for, the keystrokes that get through a widget at each screen, and does not own
+> when or in what order the Owner is asked. Where the loop's standing decisions are kept is
+> [[0203-standing-dispatch-decisions-live-in-dispatching-md-and-no-agent-can-change-them]].
 > **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: whether a keystroke recipe is
 > RIGHT**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
 > another agent's widget, which is ADR-0162's own limit and unchanged by this record.
