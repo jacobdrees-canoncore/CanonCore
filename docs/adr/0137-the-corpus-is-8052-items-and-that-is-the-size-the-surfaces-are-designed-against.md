@@ -227,6 +227,25 @@ twelfth Container is where the storm above began. **This is a figure about THIS 
 no other.** CNCORE-352's 39,173 pages are two orders of magnitude more `ask` batches, and it
 retakes the figure with the same command rather than inheriting this one.
 
+**AND THE OWNER'S INSTALL WAS REBUILT FROM EMPTY ON IT, WITH NO REFUSAL AT EITHER SCALE.** On
+2026-09-26, after a dump that was restored into a scratch database and counted, `canoncore_data`
+was removed and the install brought up on the images built from `624b8fc6` and `provider-wiki`'s
+`30596cd5`: 25 migrations applied against 25 files, and nothing in the catalogue. Then, through
+`pnpm import:list` against `http://provider-wiki:8080`:
+
+| list | landed | refused | wall clock |
+|---|---:|---:|---|
+| the two Time span infoboxes, 8103 and 203134 | 2 | 0 | 19.3s, 18:55:02Z |
+| the 465 `Theory:Timeline` pages | 465 | 0 | 5.6 minutes, 18:55:25Z to 19:01:01Z |
+
+The kind filter's `total` for `time_span` answered 595, and a count of `items` with that kind and
+no `deleted_at` answered 595. The catalogue holds 595 Time spans and 8,010 Works over 31,504
+Placements, and the corpus suite passes against it, its new Time span floor included. **THE
+TIMELINE RUN IS WHAT THE STORM ABOVE STOPPED AT ITS TWELFTH CONTAINER, AND IT RAN WHOLE IN ONE
+ATTEMPT** -- a rehearsal of the same run an hour earlier did too, in 5.4 minutes. Nothing here
+says why the wiki refused on 2026-09-15 and not now, so the resume procedure above stays the
+answer to a storm rather than something this retires.
+
 ## The catalogue survives a restart and a rename, measured with the corpus in it
 
 ADR-0132's gate is "a running instance the Owner actually opens". Both survival claims were checked
