@@ -62,7 +62,7 @@ it cannot find. It does not create one.
 
 ## Why the same name as the CanonCore worktree
 
-Dispatch sends `--prompt "/implement"` and nothing more, because the binding is the brief
+Dispatch sends `--prompt "/implement"` (`/research` for a `spike`) and nothing more, because the binding is the brief
 ([[0162-a-brief-is-confirmed-at-the-receiving-end-not-at-the-call]]). So the agent has to be able to
 work out its provider worktree's path from the binding alone, and
 `~/orca/workspaces/<repo>/cncore-<n>` allows that: the directory already names the repo, and the
