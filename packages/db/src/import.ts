@@ -55,6 +55,13 @@ export interface ProvidedRecord {
    * seven, and `items.kind`'s foreign key refuses anything else.
    */
   itemKind: string;
+  /**
+   * Whether the source says this record holds others (CNCORE-360). A season
+   * named in its series' ordering arrives without its members, so this is the
+   * only way the catalogue can store it as a Container rather than infer one.
+   * Absent says the source did not say so, and never turns one off.
+   */
+  isContainer?: boolean;
 }
 
 export interface ImportedRecord {
@@ -388,6 +395,9 @@ async function writeProvidedItem(
   }: { ownerId: string; sourceId: string; record: ProvidedRecord; container?: boolean },
 ): Promise<ImportedRecord> {
   const found = await itemWithExternalId(tx, { ownerId, sourceId, externalId: record.externalId });
+  // What was browsed is a container, and so is a member its source says holds
+  // others -- a season named in its series' ordering (CNCORE-360).
+  container ||= record.isContainer === true;
 
   // A `browse` naming an id an earlier `lookup` wrote as a plain work: it is a
   // container after all, and `CONTEXT.md`'s Container headword makes that

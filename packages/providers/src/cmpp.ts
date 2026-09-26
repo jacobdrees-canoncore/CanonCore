@@ -143,6 +143,18 @@ export const cmppRecord = z.looseObject({
   item_kind: z
     .enum(["work", "person", "organisation", "place", "time_span", "character", "concept"])
     .default("work"),
+  /**
+   * WHETHER THE SOURCE SAYS THIS RECORD HOLDS OTHERS, which is the only way
+   * CanonCore may learn it: `CONTEXT.md`'s Container is "stored, never inferred
+   * from having members" (CNCORE-360). A season a series browse names arrives
+   * with none of its episodes, so nothing else in the answer could tell it from
+   * a story. Jellyfin's `IsFolder` is the same fact on the same kind of record.
+   *
+   * DEFAULTED TO FALSE, and false says only that the source did not say so:
+   * the catalogue turns a Container ON when told and never off, because a
+   * record that omits this is not evidence a Container stopped being one.
+   */
+  is_container: z.boolean().default(false),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;

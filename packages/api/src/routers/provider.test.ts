@@ -959,6 +959,135 @@ describe("a record's item kind", () => {
 });
 
 /**
+ * A series as `provider-tmdb` browses it: the programme, and its seasons in
+ * TMDB's own array order, specials first. Each season SAYS it is a container,
+ * which is the only way CanonCore may know one is (`CONTEXT.md`'s Container:
+ * "stored, never inferred from having members") -- its episodes are CNCORE-375's
+ * and do not arrive here, so nothing else could say it.
+ */
+const A_SERIES = {
+  container: {
+    id: "tv:57243",
+    title: "Doctor Who",
+    kind: "tv",
+    released: ["2005-03-26"],
+    writers: [],
+    series: null,
+    url: "https://www.themoviedb.org/tv/57243",
+    is_container: true,
+  },
+  ordering: [
+    {
+      position: 1,
+      record: {
+        id: "season:57243:0",
+        title: "Specials",
+        kind: "season",
+        released: ["2005-11-18"],
+        writers: [],
+        series: "Doctor Who",
+        series_id: "tv:57243",
+        url: "https://www.themoviedb.org/tv/57243/season/0",
+        is_container: true,
+      },
+    },
+    {
+      position: 2,
+      record: {
+        id: "season:57243:1",
+        title: "Series 1",
+        kind: "season",
+        released: ["2005-03-26"],
+        writers: [],
+        series: "Doctor Who",
+        series_id: "tv:57243",
+        url: "https://www.themoviedb.org/tv/57243/season/1",
+        is_container: true,
+      },
+    },
+  ],
+  unplaced: [],
+};
+
+/**
+ * CNCORE-360: the second Provider's series and its seasons arrive as their own
+ * Containers, so the Owner can descend from one to the other and browse the way
+ * the thing was published beside the way it happened (ADR-0128).
+ */
+describe("a series and its seasons", () => {
+  it("arrive as Containers, and the Owner descends from the series to a season", async () => {
+    const baseUrl = await stubProvider({}, { containers: { "tv:57243": A_SERIES } });
+
+    const { containerId } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "tv:57243" },
+      { context },
+    );
+
+    const series = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(series.isContainer).toBe(true);
+    expect(series.holds.rows.map(({ title, position }) => [title, position])).toEqual([
+      ["Specials", 1],
+      ["Series 1", 2],
+    ]);
+
+    for (const { itemId } of series.holds.rows) {
+      const season = await call(appRouter.item.get, { id: itemId }, { context });
+      expect(season.isContainer).toBe(true);
+    }
+  });
+
+  it("leaves a member that does not say it is a container a plain work", async () => {
+    const { is_container: _, ...unsaid } = A_SERIES.ordering[1]!.record;
+    const baseUrl = await stubProvider(
+      {},
+      {
+        containers: {
+          "tv:57243": { ...A_SERIES, ordering: [{ position: 1, record: unsaid }] },
+        },
+      },
+    );
+
+    const { placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "tv:57243" },
+      { context },
+    );
+
+    const member = await call(appRouter.item.get, { id: placements[0]?.itemId ?? "" }, { context });
+    expect(member.isContainer).toBe(false);
+  });
+
+  it("stays its own Container beside another Provider's ordering of the same stories", async () => {
+    // ADR-0128: two Providers' orderings are two Containers, and neither may
+    // improve the other. The wiki's timeline and TMDB's series both land, apart.
+    const wiki = await stubProvider();
+    const tmdb = await stubProvider({}, { containers: { "tv:57243": A_SERIES } });
+
+    const timeline = await call(
+      appRouter.provider.browse,
+      { baseUrl: wiki, containerId: "388305" },
+      { context },
+    );
+    const series = await call(
+      appRouter.provider.browse,
+      { baseUrl: tmdb, containerId: "tv:57243" },
+      { context },
+    );
+
+    expect(series.containerId).not.toBe(timeline.containerId);
+    const seriesPage = await call(appRouter.item.get, { id: series.containerId }, { context });
+    const timelinePage = await call(appRouter.item.get, { id: timeline.containerId }, { context });
+    expect(seriesPage.holds.rows.map(({ title }) => title)).toEqual(["Specials", "Series 1"]);
+    // Both at position 1, which ties them (ADR-0009), so their order is no claim.
+    expect(timelinePage.holds.rows.map(({ title }) => title).sort()).toEqual([
+      "Day of the Vashta Nerada (audio story)",
+      "Night of the Vashta Nerada (audio story)",
+    ]);
+  });
+});
+
+/**
  * ADR-0033: "a third party's licence terms stay declared fields rather than
  * special cases in our core", and ADR-0036 is the licence that makes it concrete.
  * The app takes the obligation off the manifest and writes it beside the source

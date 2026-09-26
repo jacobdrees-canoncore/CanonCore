@@ -401,6 +401,8 @@ function asProvided(record: CmppRecord) {
     identifiers: record.external_ids,
     // THE CATALOGUE'S KIND, which the provider maps from its own (CNCORE-367).
     itemKind: record.item_kind,
+    // Whether the source says this record holds others (CNCORE-360).
+    isContainer: record.is_container,
   };
 }
 
