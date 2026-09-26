@@ -141,8 +141,12 @@ const THE_WAY_THROUGH = new RegExp(
   `ADR-${ANSWERING_RECORD}\\b|docs/adr/${ANSWERING_RECORD}-|\\[\\[${ANSWERING_RECORD}-`,
 );
 
-/** The rule itself: a send, and nothing sent. Bounded by a full stop so the two halves share a sentence. */
-const SEND_IT_NOTHING = /\bsen[dt]s?\b[^.]*\bnothing\b/i;
+/**
+ * The rule itself, as one phrase. A looser first draft -- any `send` followed
+ * later in the sentence by `nothing` -- passed "send one Enter and nothing
+ * else", the recipe it exists to refuse (CNCORE-422 review).
+ */
+const SEND_IT_NOTHING = /\b(?:is sent|send (?:it|its widget|that widget)) nothing\b/i;
 
 /**
  * The record that IS the answer, which is why it is not asked the question, as
@@ -165,13 +169,12 @@ function theRecordThatAnswersIt(): string {
  * The same three documents tell a dispatcher that input to a PARKED agent goes
  * to the prompt widget, where `--enter` SELECTS the option under the cursor.
  * True, and stated as a hazard with nothing on the other side of it: a reader
- * who has only that has been told what not to do and not what to do, so the
- * options are to guess the keystrokes or to leave the agent parked. That is
- * what left the widget recipe undocumented for as long as it was, and on
- * 2026-09-21 it cost three measured messages, four by the dispatcher's own
- * count -- sent into a multi-select whose confirm
- * screen was still open, eaten in silence while `orca terminal send` answered
- * `Sent N bytes`.
+ * who has only that has been told what not to do and not what to do. On
+ * 2026-09-21 that cost three measured messages, four by the dispatcher's own
+ * count -- sent into a multi-select whose confirm screen was still open, eaten
+ * in silence while `orca terminal send` answered `Sent N bytes`. The answer is
+ * now to send the widget nothing (CNCORE-420), and the second rule below holds
+ * that sentence beside the warning.
  *
  * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
  * never the document. A pointer three sections away from the warning is the
@@ -258,6 +261,16 @@ describe("the sentence that warns about the prompt widget", () => {
   });
 });
 
+/** The record as written, line by line, for its table rows. */
+function recordSource(): string {
+  return readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8");
+}
+
+/** The record flattened, for its sentences. */
+function recordText(): string {
+  return flatten(recordSource());
+}
+
 /**
  * THE KEYSTROKES ARE RETIRED, NOT KEPT AS A RECIPE NOBODY FOLLOWS (CNCORE-422).
  *
@@ -277,19 +290,16 @@ describe("the sentence that warns about the prompt widget", () => {
  * THE FLUSH HALF IS NOT TOUCHED, and the first describe in this file is what
  * holds it.
  */
-function recordText(): string {
-  return flatten(readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8"));
-}
-
 describe("ADR-0187's delivery half", () => {
   it("holds no keystroke table", () => {
-    const raw = readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8");
     expect(
-      raw,
+      recordSource(),
       "ADR-0187 holds a keystroke table again. The Owner's ruling of 2026-09-26 (CNCORE-420) " +
         "retired answering a parked agent's widget from outside it, so a table of counts reads " +
         "as a recipe for something nobody may do.",
-    ).not.toMatch(/^\s*\|.*keystrokes to submit/im);
+      // ANY TABLE, by its separator row, rather than the old heading: the
+      // same counts under a renamed column are the same recipe.
+    ).not.toMatch(/^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/m);
   });
 
   it("says the 2026-09-26 ruling retired it", () => {

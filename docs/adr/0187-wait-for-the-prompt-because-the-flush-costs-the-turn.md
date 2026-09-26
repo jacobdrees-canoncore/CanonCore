@@ -4,7 +4,8 @@ status: proposed
 
 # Wait for the prompt, because the flush costs the turn
 
-> **PROPOSED 2026-09-21. Half the mechanism landed.** [[0162-a-brief-is-confirmed-at-the-receiving-end-not-at-the-call]]
+> **PROPOSED 2026-09-21. Half the mechanism landed: the check below reads this repository and not the
+> `dispatch` skill's copy of these sentences.** [[0162-a-brief-is-confirmed-at-the-receiving-end-not-at-the-call]]
 > recorded two hazards about sending input to another agent's terminal and gave neither a way
 > through; this record is the way through, and the rule about when to spend one.
 > **BUILT AS A CHECK: the two sentences that carry the hazards** —
@@ -74,11 +75,6 @@ that widget off the tab the Owner was reading. So the widget is sent nothing, an
 attribution message went with it (CNCORE-422). The readings are in this record's history in git, and
 the question they left open, why two readings of one two-question single-select disagreed, is
 closed as moot rather than answered.
-
-## What this does not decide
-
-When a flush is worth its turn in a given wave. The rule above says what the trade is; the
-dispatcher makes it.
 
 Decided by the DISPATCHER on 2026-09-21, not by the Owner. The delivery half was retired by the
 Owner on 2026-09-26.
