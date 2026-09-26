@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # An assertion is checked by deleting the behaviour it names
@@ -105,14 +105,80 @@ deleting its subject before it was touched, and each replacement was shown red o
 mutation. The four shapes above are what that found, and the live-import claims carry the
 measurement in the docblock beside the assertion it justifies.
 
-**NOT BUILT: nothing enforces this.** There is no mutation-testing check in CI and none is
-proposed here; a run that deletes behaviour at random is a different decision, with a cost
-this record has not priced. So the half that is missing is the half that would catch the
-eleventh, and until it exists this is a rule reviewers apply by hand -- which is how all ten
-arrived. `adr-numbering.test.ts`'s roll call is the nearest thing standing, and it is a roll
-call rather than a sweep.
+**NOT BUILT UNDER CNCORE-257: the run that applies it.** There was no mutation-testing check in
+CI and none is proposed here; a run that deletes behaviour at random is a different decision, with
+a cost this record has not priced. So the half that was missing was the half that would catch the
+eleventh, and this was a rule reviewers applied by hand -- which is how all ten arrived. **That
+half is built under CNCORE-378, below**, as a run that deletes a behaviour somebody NAMES rather
+than one it picks at random, so the decision this paragraph declined to take is still not taken.
 
 **AND ONE OF THE TEN WAS NOT RUN.** `live-import.test.ts` needs the Owner's tardis.wiki
 Credential, which expires within a day and which only the Owner renews. Its three
 replacements are typechecked, measured against a seeded catalogue for the red half and
 against the Owner's install for the green half, and unexecuted in the file they live in.
+
+## As built, under CNCORE-378
+
+**BUILT: the run.** `pnpm delete-the-behaviour --root <package> --delete <file>:<from>-<to>
+[vitest filters]`, in `packages/config/scripts/delete-the-behaviour.ts`. It runs the tree the
+filters choose, blanks the named lines, runs the tree again, puts the file's bytes back, and prints
+every test that passed both times as `STAYED GREEN`, exiting 1 if there is one. `--delete` repeats
+for a behaviour that lives in more than one place. It refuses, exiting 2, a file outside `--root`, a
+tree already red before the deletion, and a deletion after which a test stopped running at all: a
+line that breaks the file reddens everything, and would otherwise read as every assertion biting.
+A crash exits 2 too, so a 1 is always a finding.
+
+**THE TREE IS THE TESTS THAT CLAIM THE BEHAVIOUR, AND CHOOSING IT IS THE DEVELOPER'S.** Every test
+the chosen tree runs is expected to go red, so a test that never claimed this behaviour, staying
+green, is the tree chosen too wide rather than a finding. Deleting `without-comments.ts`'s `.`
+guard over that module's own suite reddens 1 of its 25 rows and names the other 24, which is
+[[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]]'s claim that the guard owns one
+row; `-t` narrows the tree to the row that claims it.
+
+**IT BITES, AND A SUITE SAYS SO.** `packages/config/src/testing/hollow-fixture/` holds one
+behaviour for each of the four shapes above, and for each a hollow assertion and a twin that
+reaches the same claim. `delete-the-behaviour.test.ts` runs the run over a copy and holds it to
+naming the four hollow ones and only them, to passing the four twins alone, to telling apart two
+tests named alike, and to three of the refusals. Six guards were then deleted in turn -- the refusal
+of an unreached test, the refusal of a red tree, the refusal of a path outside the root, the
+restore, the second run, and the numbering of tests named alike -- and each reddens at least one
+case. The refusals of an empty tree and of a tree that does not load have no case.
+
+**ONE GUARD IS HELD BY MEASUREMENT RATHER THAN BY A CASE: the signal listeners.** Review found
+their bodies never run, which is true -- `spawnSync` holds the event loop, so a signal is handled
+only after Vitest exits and `finally` has restored. But their PRESENCE is what keeps Node from
+dying on the spot. Interrupting a run eleven seconds in, inside the deleted run, on 2026-09-26:
+with the listeners the file came back and the run refused; with them deleted it died with the line
+still blanked. So the listeners are now empty and say why, rather than being deleted as the fourth
+shape. A case for it would race a signal against a timer, so there is none.
+
+**WHY NOT STRYKER, which is the established tool, and whose documentation was read rather than
+remembered.** It mutates by its own catalogue of operators across the lines it is given and reports
+per MUTANT, where this record asks a per-TEST question about a behaviour somebody named. Its
+`disableBail` does list every test a mutant fails, but under `coverageAnalysis: "perTest"` only the
+tests that covered the mutant run -- which leaves out exactly the assertion that never reached its
+behaviour, the first shape above. It was not installed and tried here; that is a reading of its
+configuration reference, not a measurement.
+
+**MEASURED, on 2026-09-26 at `38628332`, on an Apple M4 Pro with 14 cores.** The run over
+`without-comments.test.ts` alone, 25 tests: 0.86 to 0.90 seconds across three runs. The same
+deletion over all of `packages/config`, 41 files and 438 tests: 18.91 and 20.22 seconds across
+two, since it runs the tree twice. The suite holding the run to its fixture, six cases: 2.67 to
+3.82 seconds across three.
+
+**SO THE SELF-TEST IS IN CI AND THE RUN IS LOCAL-ONLY, each decided by its own figure.** Three
+seconds is small beside `packages/config`'s own run, which CI already takes uncached, so the suite
+that proves the run bites gates every pull request. The run costs two runs of the chosen tree per
+named behaviour: about twenty seconds for this package, for ONE behaviour. A CI gate has no author
+to name behaviours, so it would have to name them all -- every line, in every package -- and that
+figure multiplied by every line is a whole-corpus check.
+[[0057-the-archive-stays-outside-the-repo]] puts that local-only ("Anything needing the whole
+corpus is a local-only check, never a CI gate"); its corpus is the wiki, and the ticket that built
+this named it as the precedent for a corpus of tests too.
+
+**ACCEPTED, because the mechanism this record decides is whole.** The record decides that an
+assertion is checked by deleting its behaviour; it never decided that CI does the deleting. What
+was missing was any way to run the check other than by hand, and that exists and is held to
+biting. What it does NOT do is choose: which behaviour, and which tests claim it, is still the
+author's or the reviewer's call, and a behaviour nobody names is one nobody checks. This is a tool
+somebody reaches for, not a gate that reaches them.

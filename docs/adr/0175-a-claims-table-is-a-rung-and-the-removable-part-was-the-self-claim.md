@@ -98,9 +98,10 @@ value the way the row does and passes by construction, which is the hollow asser
 measured ten of.
 
 **PROVED BY DELETING THE BEHAVIOUR EACH HALF NAMES**, which is
-[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]'s rule. That record says nothing
-enforces it and it is one reviewers apply by hand; all ten of its cases were audited after the fact,
-and this is the rule run FORWARD on an assertion as it was written. Four mutations, each red in the
+[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]'s rule. That record said nothing
+enforced it and it was one reviewers applied by hand, which was true here and stopped being true
+under CNCORE-378, when it gained a run; all ten of its cases were audited after the fact, and this
+is the rule run FORWARD on an assertion as it was written. Four mutations, each red in the
 check that should own it: both rows deleted, and one row deleted, go red here; a row frozen to a
 constant goes red here while the comparison stays GREEN; a row repointed at a different real
 population goes red in the comparison instead, reporting 24 stated against 55 in the tree.

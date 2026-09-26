@@ -28,7 +28,8 @@
     "db:down": "turbo run db:down -F @canoncore/db --",
     "test:e2e": "turbo run test:e2e",
     "test:browser": "turbo run test:browser",
-    "test:contract": "turbo run test:contract"
+    "test:contract": "turbo run test:contract",
+    "delete-the-behaviour": "node packages/config/scripts/delete-the-behaviour.ts"
   },
   "dependencies": {
     "@canoncore/env": "workspace:*",
