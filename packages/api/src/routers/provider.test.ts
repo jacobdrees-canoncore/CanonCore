@@ -802,7 +802,7 @@ describe("provider.browse", () => {
       { baseUrl, containerId: "388305" },
       { context },
     );
-    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    const container = await call(appRouter.item.get, { id: containerId! }, { context });
 
     expect(container.title).toBe("Category:Vashta Nerada audio stories");
     expect(container.isContainer).toBe(true);
@@ -992,7 +992,9 @@ describe("a provider whose dates are not EDTF", () => {
  *
  * SHAPED AS `provider-wiki` ANSWERS A BROWSE OF AN ENTITY INFOBOX: the wiki
  * asserts no order among the pages that carry one, so every member is
- * Unplaced. The titles are real Event pages; the ids are this stub's own.
+ * Unplaced, and the infobox says it holds nothing (CNCORE-432) because it is
+ * how the members are reached rather than an ordering anybody wrote. The
+ * titles are real Event pages; the ids are this stub's own.
  */
 const EVENTS = {
   container: {
@@ -1003,6 +1005,7 @@ const EVENTS = {
     writers: [],
     series: null,
     url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Exhibition",
+    is_container: false,
   },
   ordering: [],
   unplaced: ["Doctor Who Experience", "Doctor Who Live"].map((title, at) => ({
@@ -1018,22 +1021,34 @@ const EVENTS = {
 };
 
 describe("a record's item kind", () => {
-  it("files each member under the kind its Provider named, where the kind filter finds it", async () => {
+  it("files each member under the kind its Provider named, in no ordering, where the kind filter finds it", async () => {
     const baseUrl = await stubProvider({}, { containers: { "900001": EVENTS } });
 
-    const { placements } = await call(
+    const landed = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "900001" },
       { context },
     );
-    const members = placements.map((placement) => placement.itemId);
-    expect(members).toHaveLength(2);
+    // THE INFOBOX IS STORED AS NOTHING (CNCORE-432). Stored, it was a Row
+    // titled `Template:Infobox Event or Exhibition` and the one ordering every
+    // Time span "Also appears in"; the wiki says it holds nothing, so each
+    // member is in no ordering, which is what the wiki says of it.
+    expect(landed).toMatchObject({ containerId: null, placements: [] });
+    const everything = await call(appRouter.catalogue.list, { limit: 100 }, { context });
+    expect(everything.rows.map((row) => row.title)).not.toContain(EVENTS.container.title);
 
     const narrowed = await call(
       appRouter.catalogue.list,
       { kind: "time_span", limit: 100 },
       { context },
     );
+    const members = narrowed.rows
+      .filter((row) => EVENTS.unplaced.some((record) => record.title === row.title))
+      .map((row) => row.id);
+    expect(members).toHaveLength(2);
+    for (const row of narrowed.rows.filter((row) => members.includes(row.id))) {
+      expect(row.sitsIn.total).toBe(0);
+    }
     for (const id of members) {
       expect((await call(appRouter.item.get, { id }, { context })).kind).toBe("Time span");
       expect(narrowed.rows).toContainEqual(expect.objectContaining({ id, kind: "Time span" }));
@@ -1110,7 +1125,7 @@ describe("a series and its seasons", () => {
       { context },
     );
 
-    const series = await call(appRouter.item.get, { id: containerId }, { context });
+    const series = await call(appRouter.item.get, { id: containerId! }, { context });
     expect(series.isContainer).toBe(true);
     expect(series.holds.rows.map(({ title, position }) => [title, position])).toEqual([
       ["Specials", 1],
@@ -1162,8 +1177,8 @@ describe("a series and its seasons", () => {
     );
 
     expect(series.containerId).not.toBe(timeline.containerId);
-    const seriesPage = await call(appRouter.item.get, { id: series.containerId }, { context });
-    const timelinePage = await call(appRouter.item.get, { id: timeline.containerId }, { context });
+    const seriesPage = await call(appRouter.item.get, { id: series.containerId! }, { context });
+    const timelinePage = await call(appRouter.item.get, { id: timeline.containerId! }, { context });
     expect(seriesPage.holds.rows.map(({ title }) => title)).toEqual(["Specials", "Series 1"]);
     // Both at position 1, which ties them (ADR-0009), so their order is no claim.
     expect(timelinePage.holds.rows.map(({ title }) => title).sort()).toEqual([
@@ -1446,7 +1461,7 @@ describe("a Provider's cache ceiling", () => {
     const item = await call(appRouter.item.get, { id: itemId }, { context });
     expect(fromTheProvider(item)).toEqual([]);
     expect(item.identifiers).toEqual([]);
-    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    const container = await call(appRouter.item.get, { id: containerId! }, { context });
     expect(container.holds.rows).toEqual([]);
   });
 
@@ -1458,7 +1473,7 @@ describe("a Provider's cache ceiling", () => {
     const item = await call(appRouter.item.get, { id: itemId }, { context });
     expect(fromTheProvider(item).length).toBeGreaterThan(0);
     expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
-    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    const container = await call(appRouter.item.get, { id: containerId! }, { context });
     expect(container.holds.rows).toHaveLength(2);
   });
 
@@ -1472,7 +1487,7 @@ describe("a Provider's cache ceiling", () => {
     const item = await call(appRouter.item.get, { id: itemId }, { context });
     expect(fromTheProvider(item).length).toBeGreaterThan(0);
     expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
-    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    const container = await call(appRouter.item.get, { id: containerId! }, { context });
     expect(container.holds.rows).toHaveLength(2);
   });
 
@@ -1484,7 +1499,7 @@ describe("a Provider's cache ceiling", () => {
     const item = await call(appRouter.item.get, { id: itemId }, { context });
     expect(fromTheProvider(item).length).toBeGreaterThan(0);
     expect(item.identifiers).toHaveLength(1);
-    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    const container = await call(appRouter.item.get, { id: containerId! }, { context });
     expect(container.holds.rows).toHaveLength(2);
   });
 });
@@ -1593,7 +1608,7 @@ describe("provider.purge", () => {
     expect(purged.placements).toBe(2);
     // The container the browse wrote is gone, and so is the source row that
     // carried the licence the instance no longer holds.
-    expect(await db.select().from(items).where(eq(items.id, containerId))).toEqual([]);
+    expect(await db.select().from(items).where(eq(items.id, containerId!))).toEqual([]);
     expect(await db.select().from(sources).where(eq(sources.identity, baseUrl))).toEqual([]);
   });
 
@@ -1652,7 +1667,7 @@ describe("provider.previewPurge", () => {
 
     // EVERY ROW IS WHERE IT WAS. An owner asking what a purge would cost has not
     // yet decided to pay it.
-    expect(await db.select().from(items).where(eq(items.id, containerId))).toHaveLength(1);
+    expect(await db.select().from(items).where(eq(items.id, containerId!))).toHaveLength(1);
     expect(await db.select().from(sources).where(eq(sources.identity, baseUrl))).toHaveLength(1);
 
     // And what it said would go, goes.

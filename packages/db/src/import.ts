@@ -354,9 +354,7 @@ export async function importBrowsedContainer(
      */
     // THE TITLES THIS ORDERING SERVES, which is how a part says it is one of
     // several (`instalmentsOf`, CNCORE-361).
-    const siblings = [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
-      (record) => record.title,
-    );
+    const siblings = membersOf(browsed).map((record) => record.title);
     const item = async (record: ProvidedRecord) => {
       const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record, siblings });
       quarantinedValues += writtenItem.quarantinedValues;
@@ -399,6 +397,44 @@ export async function importBrowsedContainer(
 
     return { containerId, placements: writtenPlacements, quarantinedValues };
   });
+}
+
+/**
+ * Writes the members a browse reached through a page that holds nothing, each
+ * in no ordering, and writes no Container (CNCORE-432).
+ *
+ * A PAGE THAT SAYS IT HOLDS NOTHING IS HOW ITS MEMBERS WERE REACHED, and no
+ * ordering anybody wrote: `provider-wiki` browses an entity infobox to find
+ * every page carrying it. Stored as a Container, it was a Row titled
+ * `Template:Infobox Event or Conflict` and the one place every Time span "Also
+ * appears in". A Container is stored when a source says so, never inferred
+ * (`CONTEXT.md`), and here the source has said the opposite.
+ *
+ * ONE TRANSACTION and FOUND OR CREATED, for `importBrowsedContainer`'s reasons:
+ * the members go through the very write its members do, so a second browse adds
+ * nothing and a Work met here matches as it would there.
+ */
+export async function importBrowsedMembers(
+  db: Database,
+  { provider, browsed }: { provider: ImportingProvider; browsed: ProvidedContainer },
+): Promise<{ quarantinedValues: number }> {
+  return db.transaction(async (tx) => {
+    const ownerId = await theOwnerId(tx);
+    const sourceId = await providerSource(tx, ownerId, provider);
+    const members = membersOf(browsed);
+    const siblings = members.map((record) => record.title);
+    let quarantinedValues = 0;
+    for (const record of members) {
+      quarantinedValues += (await writeProvidedItem(tx, { ownerId, sourceId, record, siblings }))
+        .quarantinedValues;
+    }
+    return { quarantinedValues };
+  });
+}
+
+/** Every member a browse answered, placed or not, in the order it arrived. */
+function membersOf(browsed: ProvidedContainer): ProvidedRecord[] {
+  return [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced];
 }
 
 /**

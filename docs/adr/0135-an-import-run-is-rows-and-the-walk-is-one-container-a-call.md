@@ -178,9 +178,11 @@ request because it sat beside `next/headers`.
 
 ## What the first entity import taught about resuming (CNCORE-367)
 
-**AN ENTITY INFOBOX IS ONE CONTAINER, SO A RUN OVER ONE NEEDED NOTHING NEW.** CNCORE-367 made an
+**AN ENTITY INFOBOX IS ONE BROWSE, SO A RUN OVER ONE NEEDED NOTHING NEW.** CNCORE-367 made an
 infobox browsable (ADR-0033), and a run listing `8103` and `203134` is an ordinary run at this
-record's grain: two Containers, 555 and 40 Unplaced members, one call each.
+record's grain: two ids, 555 and 40 members, one call each. **NOT TWO CONTAINERS, which this said
+until CNCORE-432**: the infobox says it holds nothing, so no Container is stored, the members land
+in no ordering, and the run's row for it reads `landed` with 0 Placements and no Item.
 
 **A WHOLE RUN REFUSED COST NOTHING, AND THE SAME COMMAND CARRIED IT ON.** Rehearsed on
 2026-09-26 against a development install, the first attempt refused both Containers in under a

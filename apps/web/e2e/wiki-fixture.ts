@@ -177,6 +177,54 @@ export const WAR_CHILD_MASTER: Browsed = {
   unplaced: [],
 };
 
+/** A page carrying `Infobox Event or Conflict`, as a browse of that infobox answers it. */
+const conflict = (id: string, title: string) => ({
+  id,
+  title,
+  kind: "Event or Conflict",
+  released: [],
+  writers: [],
+  series: null,
+  item_kind: "time_span" as const,
+  url: wikiUrl(title),
+});
+
+/**
+ * `Template:Infobox Event or Conflict` (8103), the entity infobox a Time span
+ * import browses through (CNCORE-367).
+ *
+ * FOUR OF ITS 555 PAGES, AND THAT IS A SAMPLE, said so rather than hidden. The
+ * guard this serves is about the infobox, which is stored as nothing whatever it
+ * reaches, and 555 Time spans on the instance every other file reads would move
+ * their counts for no gain. The ids and titles are the provider's own, read off
+ * the Owner's install that `provider-wiki` imported them into on 2026-09-26;
+ * none of them carries a release date there.
+ *
+ * THE INFOBOX SAYS IT HOLDS NOTHING, which is what this suite browses it for
+ * (CNCORE-432): it is how the pages are reached, not an ordering anybody wrote,
+ * so the app stores no Container for it and a reader never meets a `Template:`
+ * title as a place a Time span appears.
+ */
+export const EVENTS_OR_CONFLICTS: Browsed = {
+  container: {
+    id: "8103",
+    title: "Template:Infobox Event or Conflict",
+    kind: "infobox",
+    released: [],
+    writers: [],
+    series: null,
+    is_container: false,
+    url: wikiUrl("Template:Infobox Event or Conflict"),
+  },
+  ordering: [],
+  unplaced: [
+    conflict("5169", "Battle of Canary Wharf"),
+    conflict("7293", "Last Great Time War"),
+    conflict("11020", "Dalek-Movellan War"),
+    conflict("147984", "Siege of Trenzalore"),
+  ],
+};
+
 /**
  * The fixture containers this suite browses.
  *
@@ -269,6 +317,7 @@ export const CONTAINERS: Record<string, Browsed> = {
     unplaced: [],
   },
   "286338": WAR_CHILD_MASTER,
+  "8103": EVENTS_OR_CONFLICTS,
 };
 
 export const WIKI_MANIFEST = {

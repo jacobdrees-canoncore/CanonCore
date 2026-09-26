@@ -39,7 +39,13 @@ import {
   theBuildServing,
 } from "./instance";
 import { aProviderThatFloodsItsName, FLOOD, onLoopback, searchOver, searchStatus } from "./stubs";
-import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixture";
+import {
+  CONTAINERS,
+  EVENTS_OR_CONFLICTS,
+  TENTH_PLANET,
+  TIMELINES,
+  WIKI_MANIFEST,
+} from "./wiki-fixture";
 
 /**
  * An RPC client that has logged in, for the fixtures this harness fills through
@@ -1102,6 +1108,12 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
     baseUrl: providerUrl,
     containerId: "388305",
   });
+  // THE PAGE THAT HOLDS NOTHING (CNCORE-432), browsed onto the instance every
+  // reader-facing file asks, since that is where a `Template:` title would show.
+  const eventsOrConflicts = await client.provider.browse({
+    baseUrl: providerUrl,
+    containerId: EVENTS_OR_CONFLICTS.container.id,
+  });
 
   // FOUND BY TITLE rather than by index. The placements come back in the order
   // the provider gave them, so `placements[2]` would work -- and would also pass
@@ -1154,7 +1166,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
        * this the ordering the provider actually wrote rather than one found by
        * searching the page for a title.
        */
-      importedContainerId: missingEpisodes.containerId,
+      importedContainerId: stored(missingEpisodes.containerId),
       /*
        * SECOND, NOT THIRD, AND THAT IS THE FIXTURE MOVING RATHER THAN A TYPO.
        * ADR-0057 moved the fixture era to new Who and cut the missing-episode
@@ -1175,10 +1187,29 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       unplaced: operationDusk,
       unplacedIn: "Category:Vashta Nerada audio stories",
       /** That container's own id, for a test that opens it. */
-      unplacedInId: vashtaNerada.containerId,
+      unplacedInId: stored(vashtaNerada.containerId),
+      /**
+       * A browse through `Template:Infobox Event or Conflict`, which says it
+       * holds nothing (CNCORE-432): what it stored, which should be no
+       * Container, and one of the pages it reached.
+       */
+      throughAnInfobox: {
+        containerId: eventsOrConflicts.containerId,
+        title: EVENTS_OR_CONFLICTS.container.title,
+        member: "Siege of Trenzalore",
+      },
     },
     close: () => db.$client.end(),
   };
+}
+
+/**
+ * The Container a browse stored, which every browse here does: only a page that
+ * says it holds nothing stores none (CNCORE-432), and none of these is one.
+ */
+function stored(containerId: string | null): string {
+  if (containerId === null) throw new Error("that browse stored no Container");
+  return containerId;
 }
 
 /** The id of the item a browse placed under this title. */
@@ -1775,7 +1806,7 @@ async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
   });
   const season = placements[0]?.itemId;
   if (season === undefined) throw new Error(`${DOCTOR_WHO_1963} arrived with no seasons`);
-  return { series: containerId, season };
+  return { series: stored(containerId), season };
 }
 
 /**
@@ -1821,7 +1852,7 @@ async function twoInstancesOfOneProvider(baseUrl: string, databaseUrl: string) {
     const owner = await ownerSource(db);
     // PAST THE COLLECTION'S OWN TWO, so this row is the owner's addition rather
     // than a position either browse already claimed.
-    for (const containerId of [one.containerId, two.containerId]) {
+    for (const containerId of [stored(one.containerId), stored(two.containerId)]) {
       await assertPlacement(db, { containerId, itemId, position: 9, sourceId: owner });
     }
 
@@ -3054,6 +3085,7 @@ declare module "vitest" {
       unplacedIn: string;
       importedContainerId: string;
       unplacedInId: string;
+      throughAnInfobox: { containerId: string | null; title: string; member: string };
     };
   }
 }
