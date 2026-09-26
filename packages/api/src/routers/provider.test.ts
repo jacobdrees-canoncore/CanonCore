@@ -226,6 +226,8 @@ async function stubProvider(
      */
     refusesContainersWith = undefined as string | undefined,
     attribution = null as typeof ATTRIBUTION | null,
+    /** The image policy the manifest declares (ADR-0033). */
+    images = MANIFEST.images,
     /** What the provider calls itself, for a test about what it may call itself. */
     name = MANIFEST.name,
     /** Seconds, or `null` for a source declaring no ceiling (ADR-0036). */
@@ -256,6 +258,7 @@ async function stubProvider(
         name,
         operations,
         attribution,
+        images,
         max_cache_age: maxCacheAge ?? undefined,
       });
     }
@@ -582,6 +585,68 @@ describe("provider.import", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("PROVIDER_REFUSED");
+  });
+});
+
+/**
+ * The Tenth Planet with the picture its wiki page leads with -- ON LOOPBACK, which
+ * the content boundary refuses with no exception ever (ADR-0034). So it is
+ * refused before a socket opens, and the pair below can tell a picture that was
+ * CHOSEN and refused from one that was never chosen at all.
+ */
+const TENTH_PLANET_PICTURED = {
+  ...TENTH_PLANET,
+  images: [
+    {
+      role: "page image",
+      url: "http://127.0.0.1:9/Tenth_planet.jpg",
+      description_url: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
+      licences: ["Screenshot"],
+    },
+  ],
+};
+
+describe("a record's pictures (CNCORE-358)", () => {
+  /**
+   * A PICTURE THAT CANNOT BE FETCHED DOES NOT COST THE RECORD, AND IS COUNTED.
+   * The import lands without it and says how many it could not bring, rather
+   * than reporting success identically whether it brought the picture or not.
+   */
+  it("are fetched across the content boundary, so one a provider puts on loopback is refused and counted", async () => {
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET_PICTURED },
+      { images: { stored_variant: null, per_role_limit: 5, quality_floor: 0 } },
+    );
+
+    const imported = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+
+    expect(imported.picturesNotFetched).toBe(1);
+    expect((await call(appRouter.item.get, { id: imported.itemId }, { context })).artwork).toEqual(
+      [],
+    );
+  });
+
+  /**
+   * `0` IS A DECLARATION THAT THE SOURCE SERVES NO IMAGES, so the picture is
+   * never chosen -- and a picture never chosen is not one that failed.
+   */
+  it("are not asked for at all where the provider declares a limit of zero", async () => {
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET_PICTURED },
+      { images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 } },
+    );
+
+    const imported = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+
+    expect(imported.picturesNotFetched).toBe(0);
   });
 });
 

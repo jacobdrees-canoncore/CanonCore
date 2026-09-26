@@ -379,7 +379,7 @@ printed verbatim, and the source's mark. Declared by the provider and stored on 
 never held in CanonCore against a known provider — a notice hardcoded for one source leaves the
 next source's obligation nowhere to go. A source that imposes nothing has none, which is the
 ordinary case.
-_Not_ the attribution string on Artwork below, which is a photo credit for one image and belongs to
+_Not_ the attribution on Artwork below, which is a photo credit for one image and belongs to
 that file rather than to the source.
 _Avoid_: credit, licence text, disclaimer
 
@@ -547,8 +547,11 @@ An append-only fact that the owner watched part of an edition, at a time.
 The computed list of editions in progress. Offered, never auto-played.
 
 **Artwork**:
-A provider-supplied image with its role, its licence, its attribution string and its extracted
-palette.
+A provider-supplied image, held as its stored bytes, with its role, its licences, its attribution
+and its extracted palette. Its licences are the source's own labels, and none is the source
+stating none rather than a gap. Its attribution belongs to that file: on the wiki, the file page
+where the photo credit lives.
+_Avoid_: image (for the stored thing), poster (one role among many)
 
 ### Maintenance
 

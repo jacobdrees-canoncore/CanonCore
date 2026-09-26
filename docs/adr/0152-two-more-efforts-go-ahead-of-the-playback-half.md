@@ -23,13 +23,15 @@ still precedes clients precedes demo** ([[0055-web-now-phone-next-tv-last]]).
 ## Why the data effort goes first, measured rather than argued
 
 The catalogue holds 8,052 Items and every one is `kind: work`. All 465 Containers are
-`Theory:Timeline - X` wiki pages. Of thirteen declared properties, four are ever written — `title`,
-`external_id`, `sort_name`, `released` — and `image`, `portrayed_by`, `created_by`, `appears_in`,
-`based_on`, `category`, `part_of`, `credited_to` and `note` sit at zero. Counted against the Owner's
+`Theory:Timeline - X` wiki pages. Of TWELVE declared properties, four are ever written — `title`,
+`external_id`, `sort_name`, `released` — and `portrayed_by`, `created_by`, `appears_in`,
+`based_on`, `category`, `part_of`, `credited_to` and `note` sit at zero; it was thirteen with nine at
+zero when counted, until migration 24 deleted the never-written `image` under CNCORE-358, because a
+picture is a table rather than a Statement ([[0038-artwork-is-a-table]]). Counted against the Owner's
 own install on 2026-09-20; working in `docs/research/walking-the-owners-install.md`.
 
-So six of the seven item kinds are empty, no Group has ever existed, and there is no image anywhere in
-the product. **Every capability built on top of that data is a working mechanism with an empty input**,
+So six of the seven item kinds are empty, no Group has ever existed, and there was no image anywhere
+in the product until CNCORE-358 stored the first. **Every capability built on top of that data is a working mechanism with an empty input**,
 which is why walking the install produced two reported defects that were neither: the kind filter and
 Groups both work, and both had nothing in them.
 
@@ -45,8 +47,10 @@ hierarchy to descend, no images, and the wiki's namespaces and disambiguators ar
 titles. A first screen designed before the data arrives is designed for 8,052 undifferentiated works
 and then designed again.
 
-[[0037-artwork-stores-its-bytes]] and [[0038-artwork-is-a-table]] make this concrete: there is no
-artwork store, so there are no images and there cannot be until one exists. A redesign scheduled ahead
+[[0037-artwork-stores-its-bytes]] and [[0038-artwork-is-a-table]] make this concrete: there was no
+artwork store, so there were no images and there could not be until one existed. CNCORE-358 built
+the store, and it holds TMDB's pictures; the wiki's cannot reach it past tardis.wiki's challenge,
+which only the Provider can pass, and CNCORE-427 carries them. A redesign scheduled ahead
 of the data effort would be designing pages for content that does not arrive.
 
 **THE CORPUS HAS NO RECORD TO SCOPE A REDESIGN FROM, AND THAT IS NOT AN OVERSIGHT.** Every surface and

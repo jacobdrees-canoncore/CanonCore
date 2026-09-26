@@ -66,6 +66,13 @@ const unlockAnswers: { name: string; outcome: "held" | "refused" }[] = [];
  */
 const keysSent: { name: string; externalIds: boolean; sourceDefined: string[] }[] = [];
 
+/**
+ * THE FIELDS EACH IMAGE A PARTICIPANT'S LOOKUP SENT CARRIED, one sorted list per
+ * image: written by `its lookup`, read by `an image reference` at the end of the
+ * file (CNCORE-358).
+ */
+const imagesSent: { name: string; fields: string[] }[] = [];
+
 afterAll(async () => {
   await Promise.all(underTest.map((participant) => participant.close()));
 });
@@ -436,6 +443,31 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // a provider that answered a different record's id would break every
         // refresh downstream, and nothing else here would notice.
         expect(found.id).toBe(participant.aRecord);
+      });
+
+      /**
+       * EVERY IMAGE IT SENDS NAMES WHAT IT IS FOR AND WHERE ITS BYTES ARE, and
+       * that is all the contract requires of one (ADR-0033). `record.parse`
+       * above already refuses an image missing either; this names the two so
+       * a failure says which, and records what else each image carried for the
+       * check at the end of the file.
+       */
+      it("files each image it sends with a role and an HTTP url", async () => {
+        const declared = await declaredCredential(participant);
+        const response = await get(
+          participant,
+          `/lookup/${encodeURIComponent(participant.aRecord)}`,
+        );
+        if (cannotReachItsSource(declared)) return;
+
+        const { images = [] } = record.parse(response.body);
+        for (const image of images) {
+          expect(image.role.length, "an image with no role").toBeGreaterThan(0);
+          expect(new URL(image.url).protocol, `\`${image.url}\` is not an HTTP url`).toMatch(
+            /^https?:$/,
+          );
+          imagesSent.push({ name: participant.name, fields: Object.keys(image).sort() });
+        }
       });
 
       it("reports an id it does not hold as an answer, not as a failure", async () => {
@@ -1199,6 +1231,31 @@ describe("the open wire", () => {
         .map((sent) => sent.name),
       "Every provider under test sends something beyond the required half, so nothing shows a " +
         "provider sending none is still conformant.",
+    ).not.toHaveLength(0);
+  });
+});
+
+describe("an image reference", () => {
+  /**
+   * WHAT IS REQUIRED OF ANY PROVIDER STAYS TWO FIELDS (ADR-0033, CNCORE-358).
+   *
+   * The wiki sends `id`, `description_url` and `licences`; TMDB sends `width`;
+   * they share only `role` and `url`. A contract that took either provider's set
+   * as the rule would refuse the other, which is the mistake `cmpp.ts` records
+   * itself having made once over `width`. So something under test sends an
+   * image carrying NOTHING BUT the two, and conforms -- and something sends one
+   * carrying more, so the optional fields are checked on the wire too.
+   */
+  it("is exercised: something sends one carrying only a role and a url, and something one carrying more", () => {
+    expect(
+      imagesSent.filter((sent) => sent.fields.join() === "role,url").map((sent) => sent.name),
+      "Nothing under test sent an image carrying only `role` and `url`, so nothing shows the " +
+        "contract still requires no more than those two.",
+    ).not.toHaveLength(0);
+    expect(
+      imagesSent.filter((sent) => sent.fields.length > 2).map((sent) => sent.name),
+      "Nothing under test sent an image carrying more than `role` and `url`, so the optional " +
+        "fields were never checked on the wire.",
     ).not.toHaveLength(0);
   });
 });

@@ -25,9 +25,15 @@ export {
   SettingNotRead,
   type WhySettingNotRead,
 } from "./boundary";
-export { createProviderClient, type ProviderClient } from "./client";
+export {
+  createProviderClient,
+  type Picture,
+  type PictureType,
+  type ProviderClient,
+} from "./client";
 export {
   type CmppBrowse,
+  type CmppImage,
   type CmppManifest,
   type CmppPlacement,
   type CmppRecord,
@@ -52,6 +58,7 @@ export {
   reachProviders,
   unlockUrlFor,
 } from "./credential";
+export { picturesToFetch } from "./pictures";
 export {
   bounded,
   type FailureReason,

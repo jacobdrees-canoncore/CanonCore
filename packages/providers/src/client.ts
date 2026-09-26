@@ -72,8 +72,42 @@ export interface ProviderClient {
    * manifest before calling for the reason given there.
    */
   containers(): Promise<CmppContainers>;
+  /**
+   * The bytes at an image reference's `url` (ADR-0037), fetched across the
+   * CONTENT boundary from the first hop, because the provider wrote that URL
+   * and the Owner did not (ADR-0034).
+   */
+  picture(url: string): Promise<Picture>;
   close(): Promise<void>;
 }
+
+/** A picture's bytes, and the media type they arrived as. */
+export interface Picture {
+  bytes: Uint8Array;
+  mediaType: PictureType;
+}
+
+/**
+ * THE MEDIA TYPES A PICTURE MAY ARRIVE AS, and SVG is not among them.
+ *
+ * The bytes are served back from the instance's OWN origin (ADR-0037), so what
+ * a browser does with them is what a page on that origin does. A raster image
+ * is inert; an SVG is a document that can carry script, and serving a
+ * provider's one same-origin would hand that provider the Owner's session.
+ * Every type below is one a browser decodes as pixels and nothing else.
+ */
+const PICTURE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"] as const;
+export type PictureType = (typeof PICTURE_TYPES)[number];
+
+/**
+ * How many bytes one picture may be.
+ *
+ * The declared variants are small by design (ADR-0033): the wiki's is 420
+ * pixels wide and a spot measurement of nine TMDB `w500` posters gave 18-119KB.
+ * Four mebibytes is `MAX_BODY_BYTES` again, far past any declared variant and
+ * short of a picture that is really a flood.
+ */
+const MAX_PICTURE_BYTES = 4 * 1024 * 1024;
 
 /**
  * How many hops before the client gives up. A provider that redirects is
@@ -295,15 +329,31 @@ export function createProviderClient({
     // The FIRST hop is the config URL the owner typed. Checked before the
     // socket opens: refusing after connecting has already told an
     // unallowlisted host that this instance exists.
-    let url = new URL(path, base);
+    const url = new URL(path, base);
     assertConfigUrl(url, allowlist);
-    let dispatcher = configDispatchers[waiting];
+    return follow(url, configDispatchers[waiting], waiting, "application/json");
+  }
+
+  /**
+   * Every hop from `url` on, re-validating each one: `get`'s loop, shared with
+   * `picture` because the two differ only in which boundary the FIRST hop is
+   * judged by. The caller judges it before calling; every hop after it is a
+   * content URL whoever made the first.
+   */
+  async function follow(
+    first: URL,
+    firstDispatcher: Agent,
+    waiting: Patience,
+    accept: string,
+  ): Promise<Response> {
+    let url = first;
+    let dispatcher = firstDispatcher;
 
     for (let hop = 0; hop <= MAX_HOPS; hop++) {
       const response = await fetch(url, {
         dispatcher,
         redirect: "manual",
-        headers: { accept: "application/json" },
+        headers: { accept },
       });
 
       const location = response.headers.get("location");
@@ -327,7 +377,7 @@ export function createProviderClient({
       dispatcher = contentDispatchers[waiting];
     }
 
-    throw new OutboundRefused(`refused ${shortly(base.origin)}: more than ${MAX_HOPS} redirects.`);
+    throw new OutboundRefused(`refused ${shortly(first.origin)}: more than ${MAX_HOPS} redirects.`);
   }
 
   /**
@@ -393,6 +443,16 @@ export function createProviderClient({
     // beside a search's 0.25s. A provider that cannot answer its containers in
     // one quick call declines the operation (ADR-0033 under CNCORE-186).
     containers: () => read("/containers", cmppContainers, "brief"),
+    async picture(address) {
+      // A URL THE PROVIDER WROTE, so its first hop is already a content URL
+      // (ADR-0034): the allowlist the Owner wrote for the provider says nothing
+      // about where that provider sends a reader for bytes.
+      const url = hopTo(address, base);
+      assertContentUrl(url);
+      const response = await follow(url, contentDispatchers.brief, "brief", "image/*");
+      if (!response.ok) throw await failed(response, url.pathname);
+      return readPicture(response);
+    },
     async close() {
       // ALL FOUR, and a missed one leaks its sockets until the process ends. The
       // grid is walked rather than listed for exactly that reason: a fifth
@@ -610,6 +670,38 @@ async function readJson(response: Response): Promise<unknown> {
     );
   }
   return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/**
+ * A picture's bytes, refused past `MAX_PICTURE_BYTES` or as anything but a
+ * raster type in `PICTURE_TYPES`.
+ *
+ * THE TYPE IS READ FROM THE HEADER AND NOT SNIFFED, and the route that serves
+ * the bytes back says `nosniff` so a browser does not second-guess it either.
+ */
+async function readPicture(response: Response): Promise<Picture> {
+  const mediaType = (response.headers.get("content-type") ?? "")
+    .split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  const known = PICTURE_TYPES.find((type) => type === mediaType);
+  if (!known) {
+    await response.body?.cancel();
+    throw new OutboundRefused(
+      `refused ${shortly(response.url)}: it answered \`${shortly(mediaType ?? "")}\`, which is not a picture this instance serves.`,
+    );
+  }
+  const body = response.body;
+  if (!body)
+    throw new OutboundRefused(`refused ${shortly(response.url)}: the response carried no body.`);
+
+  const { bytes, cut } = await readAtMost(body, MAX_PICTURE_BYTES);
+  if (cut) {
+    throw new OutboundRefused(
+      `refused ${shortly(response.url)}: the picture is larger than the ${MAX_PICTURE_BYTES}-byte size this client will read.`,
+    );
+  }
+  return { bytes, mediaType: known };
 }
 
 /**

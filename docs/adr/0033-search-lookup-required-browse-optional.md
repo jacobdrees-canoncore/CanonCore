@@ -1133,6 +1133,8 @@ Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-c
 The image policy travels the wire from two providers and is read by nothing. Eight sections said the
 same of `max_cache_age` too, and it is read since CNCORE-360: a claim taken longer ago than its
 source declares is refused on read ([[0036-tmdb-licence-constraints]], "Under CNCORE-360").
+**HALF CORRECTED BY CNCORE-358:** of the image policy, `per_role_limit` is read since, at fetch
+time; `quality_floor` and `stored_variant` are not, and the last section below says so.
 
 ## And under CNCORE-349: the consumer stops stripping a record -- and this record STILL STAYS PROPOSED
 
@@ -1210,4 +1212,35 @@ That is the rule `writeProvidedItem` already applied to a browsed record.
 
 **STILL `proposed`, for the image policy alone.** `max_cache_age` is read since this ticket
 ([[0036-tmdb-licence-constraints]], "Under CNCORE-360"), and the policy's limit, floor and variant
-are still read by nothing.
+are still read by nothing -- the limit until CNCORE-358, the section below.
+
+## And under CNCORE-358: the per-role limit is honoured -- and this record STILL STAYS PROPOSED
+
+**`per_role_limit` IS READ, AT FETCH TIME.** `picturesToFetch` in `@canoncore/providers` takes the
+first `per_role_limit` of each role, in the order the provider sent them, and nothing else is
+fetched ([[0037-artwork-stores-its-bytes]]). **`0` FETCHES NOTHING, AS A DECLARATION**, and a
+manifest with no `images` block fetches nothing either: a provider that declared no limit has not
+declared an unlimited one. The test that reads `0` as unset goes red, which was checked by putting
+that defect in.
+
+**THE CONSUMER READS AN IMAGE REFERENCE NOW, AND REQUIRES ONLY ITS TWO FIELDS.** `cmppImage` holds
+`role` and an HTTP `url` to the contract's rule, defaults `description_url` to null and `licences`
+to empty, and bounds the labels. A source sending no `licences` key states none, exactly as one
+sending `[]` does; neither is read as a permissive licence.
+
+**THE CONTRACT SUITE HOLDS "TWO FIELDS" ON THE WIRE, BOTH PROVIDERS OVER HTTP WITH THE APP ABSENT.**
+`its lookup` asserts a role and an HTTP url on every image a participant sends, and `an image
+reference` fails unless something under test sent an image carrying ONLY those two and something
+sent one carrying more. The ahead-of-the-contract witness sends both, so the check holds on a run
+with no real provider -- and the bare-two half is exercised by THAT WITNESS ALONE, since both real
+providers send a third field. What holds the requirement at two is the contract's own schema; the
+witness is what proves a provider sending no more is read as conformant. Run on 2026-09-26 against the live `provider-wiki` and a `provider-tmdb`
+container as well: the wiki's page 265 sends `id`, `role`, `url`, `description_url` and `licences`,
+and TMDB's `movie:603` sends `role`, `url` and `width`.
+
+**`max_cache_age` REACHES PICTURES TOO, BY CNCORE-360'S OWN RULE**: a picture carries the
+`observed_at` it was fetched at and is refused on read past its source's ceiling, which is
+[[0037-artwork-stores-its-bytes]]'s half and is argued there.
+
+**STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** `quality_floor` and
+`stored_variant` are declared and unread. Both are CNCORE-372's.

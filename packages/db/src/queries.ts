@@ -3,6 +3,7 @@ import {
   type Column,
   eq,
   getTableColumns,
+  gt,
   inArray,
   isNotNull,
   isNull,
@@ -28,6 +29,7 @@ import {
 } from "./order";
 import {
   aliases,
+  artwork,
   groupItems,
   groups,
   identifiers,
@@ -779,6 +781,60 @@ export async function findIdentifiersOfItem(
       ),
     )
     .orderBy(identifiers.scheme, sources.sourceOrder, identifiers.value, identifiers.id);
+}
+
+/**
+ * A picture inside its source's declared ceiling, or one whose source declares
+ * none (ADR-0037). ONE PREDICATE FOR BOTH READERS, so the page never lays out a
+ * picture the route would then refuse to serve.
+ */
+const stillKept = or(isNull(artwork.expiresAt), gt(artwork.expiresAt, sql`now()`));
+
+/** One picture on an item, without its bytes: what the Item page lays out. */
+export interface ArtworkOfItem {
+  id: string;
+  role: string;
+  licences: string[];
+  attribution: string | null;
+  sourceLabel: string;
+}
+
+/**
+ * The pictures one item carries, each with what its source said about it
+ * (CNCORE-358). THE BYTES ARE NOT HERE: a page is laid out from this and the
+ * bytes are asked for one picture at a time, by `readArtwork`.
+ */
+export async function findArtworkOfItem(db: Database, itemId: string): Promise<ArtworkOfItem[]> {
+  return db
+    .select({
+      id: artwork.id,
+      role: artwork.role,
+      licences: artwork.licences,
+      attribution: artwork.attribution,
+      sourceLabel: sources.label,
+    })
+    .from(artwork)
+    .innerJoin(sources, eq(sources.id, artwork.sourceId))
+    .where(and(eq(artwork.itemId, itemId), isNull(artwork.deletedAt), stillKept))
+    .orderBy(sources.sourceOrder, artwork.role, artwork.createdAt, artwork.id);
+}
+
+/**
+ * One picture's stored bytes, or nothing where no picture has that id.
+ *
+ * AN ID THAT IS NOT A UUID ADDRESSES NOTHING, as one nobody minted does
+ * (ADR-0066): it answers `null` rather than a Postgres cast error.
+ */
+export async function readArtwork(
+  db: Database,
+  id: string,
+): Promise<{ mediaType: string; bytes: Uint8Array } | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const [found] = await db
+    .select({ mediaType: artwork.mediaType, bytes: artwork.bytes })
+    .from(artwork)
+    .where(and(eq(artwork.id, id), isNull(artwork.deletedAt), stillKept));
+  return found ?? null;
 }
 
 /**

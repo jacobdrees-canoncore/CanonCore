@@ -188,6 +188,25 @@ export const identifierPublic = z.object({
 });
 
 /**
+ * One picture an item carries, and what its source said about it (ADR-0038,
+ * CNCORE-358).
+ *
+ * `src` IS THIS INSTANCE'S ADDRESS FOR THE STORED BYTES, and the source's own
+ * URL is deliberately absent: a page given it would hotlink, which ADR-0037
+ * refuses.
+ */
+export const artworkPublic = z.object({
+  src: z.string(),
+  /** What the picture is FOR, in the source's own word (ADR-0033). */
+  role: z.string(),
+  /** The source's own licence labels. EMPTY IS THE SOURCE STATING NONE. */
+  licences: z.array(z.string()),
+  /** The credit belonging to this file -- its page on the source -- or null. */
+  attribution: z.string().nullable(),
+  sourceLabel: z.string(),
+});
+
+/**
  * What a source's licence obliges the app to show, for one source, on a page
  * that is about to show that source's claims (ADR-0036).
  *
@@ -516,6 +535,8 @@ export const itemPublic = z.object({
   statements: z.array(statementPublic),
   /** What this item is known as in other id spaces, each with who said so (CNCORE-349). */
   identifiers: z.array(identifierPublic),
+  /** The pictures this item carries, each with what its source said (CNCORE-358). */
+  artwork: z.array(artworkPublic),
   /**
    * What this page owes for showing the above (ADR-0036).
    *

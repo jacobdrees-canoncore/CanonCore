@@ -34,9 +34,9 @@ Our reading is that it does not bite: CanonCore is a catalogue, not an AI-based 
 building software with AI tooling is not using TMDB Content in connection with one. That reading is
 recorded here deliberately, because a later reader who finds the clause should see it was considered
 rather than missed. It was missed once already. Termination requires purging all cached TMDB content,
-which `source` on every statement already makes one delete. (It said "every statement and artwork
-row", and there is no artwork table: ADR-0038 proposes one and nothing has built it. Corrected here
-rather than beside, because the claim is about a cost and half of it was a forward promise.)
+which `source` on every statement and artwork row already makes one delete. (It said that, and then
+there was no artwork table, so it was corrected to statements alone; CNCORE-358 built the table and
+`purgeProvider` deletes a provider's pictures with the rest, so the artwork half holds again.)
 
 ## Evidence
 
@@ -76,7 +76,8 @@ and a provider's licence ending has no bearing on it. (The Group half is CNCORE-
 **HALF BUILT SINCE CNCORE-360: the six-month ceiling.** `max_cache_age` is declared by
 `provider-tmdb` at 180 days, and until CNCORE-360 it was read by nothing: the app honoured the
 ceiling only by not caching, which is compliance by absence rather than by mechanism. It is READ
-ON THE ITEM PAGE'S CLAIMS now, and NOT on the projected columns. "Under CNCORE-360" below says
+ON THE ITEM PAGE'S CLAIMS now, and on its pictures since CNCORE-358 (by the same `observed_at`
+rule, [[0037-artwork-stores-its-bytes]]), and NOT on the projected columns. "Under CNCORE-360" below says
 which reads refuse an expired value and which cannot, and it is why this record is still
 `proposed`.
 

@@ -1,6 +1,7 @@
 import {
   beginImportRun,
   type Database,
+  type FetchedArtwork,
   findItemsProvided,
   type ImportedContainer,
   type ImportedRecord,
@@ -28,6 +29,7 @@ import {
   type FailureReason,
   failureReason,
   type ProviderClient,
+  picturesToFetch,
   REASON_MAX_LENGTH,
   reasonFor,
   searchProviders,
@@ -208,7 +210,7 @@ async function importRecordFromProvider(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, recordId }: ImportRequest,
-): Promise<ImportedRecord | null> {
+): Promise<(ImportedRecord & { picturesNotFetched: number }) | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
     const { manifest, record } = await askingTheProvider(async () => {
@@ -220,16 +222,66 @@ async function importRecordFromProvider(
     });
     if (!record) return null;
 
-    return await importProvidedRecord(db, {
+    const { artwork, picturesNotFetched } = await fetchPictures(client, record, manifest);
+    const imported = await importProvidedRecord(db, {
       provider: providerFrom(baseUrl, manifest),
       record: asProvided(record),
+      artwork,
     });
+    return { ...imported, picturesNotFetched };
   } finally {
     // The client holds two undici agents and therefore two connection pools.
     // Left open they keep sockets alive long after the one import that needed
     // them.
     await client.close();
   }
+}
+
+/**
+ * The record's pictures that its provider's declared limit lets through,
+ * fetched as bytes (ADR-0037, CNCORE-358), and how many of those could not be.
+ *
+ * ONLY ON A SINGLE IMPORT, NOT ON A BROWSE. A browse answers a whole ordering --
+ * 2,913 members for the largest the wiki holds -- and fetching a picture for
+ * each inside it is a different operation with its own pacing, owed to the
+ * deferred artwork work (CNCORE-372) rather than smuggled in here.
+ *
+ * BEFORE THE WRITE, NEVER INSIDE IT. The catalogue's transaction must not wait
+ * on a stranger's server.
+ *
+ * A PICTURE THAT FAILS DOES NOT FAIL THE RECORD. Each is fetched across the
+ * content boundary (ADR-0034), and a refusal there -- or a wiki that answers a
+ * picture slowly -- says nothing about whether the record is good. It is
+ * COUNTED rather than lost, so the answer can say what did not arrive.
+ */
+async function fetchPictures(
+  client: ProviderClient,
+  record: CmppRecord,
+  manifest: CmppManifest,
+): Promise<{ artwork: FetchedArtwork[]; picturesNotFetched: number }> {
+  const chosen = picturesToFetch(record, manifest);
+  const fetched = await Promise.all(
+    chosen.map(async (image): Promise<FetchedArtwork | null> => {
+      try {
+        const { bytes, mediaType } = await client.picture(image.url);
+        return {
+          role: image.role,
+          url: image.url,
+          licences: image.licences,
+          attribution: image.description_url,
+          mediaType,
+          bytes,
+          // THE SOURCE'S CEILING, read here and checked on every read of the
+          // picture (ADR-0037): TMDB's is six months (ADR-0036).
+          keepFor: manifest.max_cache_age ?? null,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const artwork = fetched.filter((picture) => picture !== null);
+  return { artwork, picturesNotFetched: chosen.length - artwork.length };
 }
 
 /** What a browse needs: the URL the owner typed, and which container to take. */
@@ -1009,6 +1061,13 @@ export const provider = {
          * provider said or held half of it back.
          */
         quarantinedValues: z.number().int().nonnegative(),
+        /**
+         * How many of the pictures the provider's limit let through could not
+         * be fetched (CNCORE-358). A picture that fails does not fail the
+         * record, so without this the answer would read the same whether the
+         * picture arrived or not.
+         */
+        picturesNotFetched: z.number().int().nonnegative(),
       }),
     )
     .errors({

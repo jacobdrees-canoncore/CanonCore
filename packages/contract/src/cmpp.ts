@@ -88,8 +88,8 @@ export const record = z.looseObject({
   url: contentUrl,
 
   /*
-   * THE EXTENSIONS. Not required of anybody -- `provider-wiki` serves no images
-   * and has one id space, so it can send none of these and is fully conformant.
+   * THE EXTENSIONS. Not required of anybody -- a provider serving no images and
+   * holding one id space can send none of these and is fully conformant.
    * Checked for SHAPE when present, which is the whole anti-drift job: a second
    * provider inventing `externalIds` or a bare `image` string would pass a test
    * that only asked whether the required fields were there.

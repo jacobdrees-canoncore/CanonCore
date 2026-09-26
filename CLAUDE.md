@@ -26,7 +26,7 @@ holds.** An agent-filed ticket lands there by default, where the frontier cannot
    79 tickets audited clean on 2026-09-20 with ZERO unmet criteria, so CNCORE-242 to 250 are
    corrections to records and copy rather than missing mechanisms.
 5. **The data** — not yet named. Every Container is a `Theory:Timeline - X` page and every Item is
-   `kind: work`, so six of seven kinds and nine of thirteen properties sit empty. Ends in a Rose page,
+   `kind: work`, so six of seven kinds and eight of twelve properties sit empty. Ends in a Rose page,
    and in images. Evidence: `docs/research/walking-the-owners-install.md`.
 6. **The redesign** — from the ground up, on `packages/ui`'s shadcn, and an entity page is drawn against
    [[0204-an-entity-page-is-drawn-against-what-entities-carry]]. Speccing 5 is not this: four of 5's eight flow problems are data, not design.

@@ -225,7 +225,6 @@ const PROPERTY: Record<string, string> = {
   title: "Title",
   sort_name: "Sorts as",
   released: "Released",
-  image: "Image",
 };
 
 function propertyLabel(name: string): string {
@@ -622,6 +621,7 @@ export default async function ItemPage({
         own words about the item, and the list under it is everybody's.
       */}
       {owner && <Note itemId={item.id} note={await readNote(item.id, context)} />}
+      <Artwork artwork={item.artwork} />
       <Values statements={item.statements} />
       <Identifiers identifiers={item.identifiers} />
       {/*
@@ -875,6 +875,62 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
             <span className="text-muted-foreground text-sm">
               <TheirWords>{statement.sourceLabel}</TheirWords>
             </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * The pictures this item carries, each with what its source said about it
+ * (CNCORE-358, ADR-0038).
+ *
+ * FROM THIS INSTANCE'S STORED BYTES, and never the source's URL, which the page
+ * is not even given (ADR-0037). `/artwork/<id>` is the route that serves them.
+ *
+ * THE LICENCES ARE THE SOURCE'S OWN LABELS, VERBATIM, and none is a sentence:
+ * an empty list is the source STATING none, and the page says exactly that
+ * rather than leaving a gap a reader fills with something permissive.
+ *
+ * THE CREDIT IS THE FILE'S OWN -- the page on the source where the photo credit
+ * lives -- and not the source's credit line, which `Attribution` carries below.
+ * `noreferrer` because the destination is a third party's; its scheme is
+ * guaranteed HTTP by the consumer schema, as `record.url`'s is.
+ *
+ * A plain `img` rather than Next's `Image`, whose optimiser would fetch these
+ * bytes through a loader and cache a second copy outside the catalogue.
+ */
+function Artwork({ artwork }: { artwork: ItemOnThePage["artwork"] }) {
+  if (artwork.length === 0) return null;
+
+  return (
+    <section className="mt-8" aria-labelledby="artwork">
+      <h2 id="artwork" className="sr-only">
+        Artwork
+      </h2>
+      <ul className="mt-2 flex flex-wrap gap-4">
+        {artwork.map((picture) => (
+          <li key={picture.src}>
+            <figure>
+              <img src={picture.src} alt="" className="max-h-80 w-auto" />
+              <figcaption className="mt-1 flex flex-wrap items-baseline gap-3 text-muted-foreground text-sm">
+                <TheirWords>{picture.role}</TheirWords>
+                <span>
+                  {picture.licences.length === 0 ? (
+                    "No licence stated"
+                  ) : (
+                    <TheirWords>{picture.licences.join(", ")}</TheirWords>
+                  )}
+                </span>
+                {picture.attribution !== null && (
+                  <a className="hover:underline" href={picture.attribution} rel="noreferrer">
+                    Credit
+                  </a>
+                )}
+                <TheirWords>{picture.sourceLabel}</TheirWords>
+              </figcaption>
+            </figure>
           </li>
         ))}
       </ul>

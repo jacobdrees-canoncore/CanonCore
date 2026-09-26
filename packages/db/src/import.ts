@@ -1,9 +1,17 @@
-import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
 
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
 import { assertPlacement, theOwnerId } from "./placements";
-import { identifiers, items, placementSources, placements, sources, statements } from "./schema";
+import {
+  artwork,
+  identifiers,
+  items,
+  placementSources,
+  placements,
+  sources,
+  statements,
+} from "./schema";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {
@@ -74,6 +82,32 @@ export interface ProvidedRecord {
   isContainer?: boolean;
 }
 
+/**
+ * A picture a provider supplied, already FETCHED (ADR-0037, CNCORE-358).
+ *
+ * THE BYTES ARRIVE IN HAND, never a URL to go and get. Fetching is the
+ * provider client's, across ADR-0034's content boundary, and it happens before
+ * the transaction opens: a network wait inside one would hold its locks for as
+ * long as a stranger's server chose to take.
+ */
+export interface FetchedArtwork {
+  /** What the picture is FOR, in the source's own word (ADR-0033). */
+  role: string;
+  /** Where the bytes came from. Kept, and never shown to a reader's browser. */
+  url: string;
+  /** The source's own licence labels. Empty is the source STATING none. */
+  licences: string[];
+  /** The file's own credit -- the wiki's file page -- or null where it has none. */
+  attribution: string | null;
+  mediaType: string;
+  bytes: Uint8Array;
+  /**
+   * How many seconds the source lets this be kept -- its manifest's
+   * `max_cache_age` -- or null where it declares no ceiling (ADR-0037).
+   */
+  keepFor: number | null;
+}
+
 export interface ImportedRecord {
   itemId: string;
   /**
@@ -134,7 +168,16 @@ export interface ImportedRecord {
  */
 export async function importProvidedRecord(
   db: Database,
-  { provider, record }: { provider: ImportingProvider; record: ProvidedRecord },
+  {
+    provider,
+    record,
+    artwork: fetched = [],
+  }: {
+    provider: ImportingProvider;
+    record: ProvidedRecord;
+    /** What was fetched of the record's pictures. None is the ordinary case. */
+    artwork?: FetchedArtwork[];
+  },
 ): Promise<ImportedRecord> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
@@ -142,8 +185,73 @@ export async function importProvidedRecord(
 
     // Not a container: what it belongs to is a placement, and nothing here
     // holds members. Its kind is the record's (ADR-0005, CNCORE-367).
-    return writeProvidedItem(tx, { ownerId, sourceId, record });
+    const imported = await writeProvidedItem(tx, { ownerId, sourceId, record });
+    await storeArtwork(tx, { ownerId, itemId: imported.itemId, sourceId, fetched });
+    return imported;
   });
+}
+
+/**
+ * A century, in seconds: the furthest an expiry is stamped. The contract bounds
+ * `max_cache_age` only below, and a ceiling past what a timestamp holds would
+ * abort the transaction the record is written in. A source declaring more than
+ * a century has declared no ceiling that matters.
+ */
+const LONGEST_KEEP_SECONDS = 100 * 365 * 24 * 60 * 60;
+
+/**
+ * This source's pictures for one item, brought up to date with what was
+ * fetched this time (CNCORE-358).
+ *
+ * ROLE BY ROLE, AND A ROLE THAT BROUGHT NOTHING IS LEFT STANDING. A fetch can
+ * fail for a reason that has nothing to do with the record -- a slow wiki, a
+ * redirect the content boundary refused -- and reading that as the source
+ * withdrawing its picture would take a stored one down with it. The same
+ * argument `assertIdentifiers` makes about a thinner answer.
+ *
+ * A REPLACED PICTURE IS DELETED, NOT TOMBSTONED. A tombstone keeps the row, and
+ * this row is the bytes: every refresh would add a picture's weight to the
+ * database and keep it forever, unreachable.
+ *
+ * AND EVERY PICTURE PAST ITS SOURCE'S CEILING IS DELETED HERE, whoever's it is.
+ * The readers already refuse one (ADR-0037), but bytes kept unseen are still
+ * kept, and TMDB's ceiling is on keeping (ADR-0036). An import is the one write
+ * that happens anyway, so no job has to run for the bytes to go.
+ */
+async function storeArtwork(
+  tx: Transaction,
+  {
+    ownerId,
+    itemId,
+    sourceId,
+    fetched,
+  }: { ownerId: string; itemId: string; sourceId: string; fetched: FetchedArtwork[] },
+): Promise<void> {
+  await tx.delete(artwork).where(lte(artwork.expiresAt, sql`now()`));
+  if (fetched.length === 0) return;
+  const roles = [...new Set(fetched.map((picture) => picture.role))];
+  await tx
+    .delete(artwork)
+    .where(
+      and(eq(artwork.itemId, itemId), eq(artwork.sourceId, sourceId), inArray(artwork.role, roles)),
+    );
+  await tx.insert(artwork).values(
+    fetched.map((picture) => ({
+      ownerId,
+      itemId,
+      sourceId,
+      role: picture.role,
+      url: picture.url,
+      licences: picture.licences,
+      attribution: picture.attribution,
+      mediaType: picture.mediaType,
+      bytes: picture.bytes,
+      expiresAt:
+        picture.keepFor === null
+          ? null
+          : sql`now() + make_interval(secs => ${Math.min(picture.keepFor, LONGEST_KEEP_SECONDS)})`,
+    })),
+  );
 }
 
 /**

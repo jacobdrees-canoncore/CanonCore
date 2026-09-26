@@ -275,6 +275,21 @@ async function aheadOfTheContract(): Promise<Participant> {
     ...MINIMAL_RECORD,
     external_ids: { imdb: "tt0000001" },
     production_code: "4B",
+    // TWO IMAGES AND NOT ONE (CNCORE-358). The first carries only the two fields
+    // the contract requires of anybody and the second every optional one, so
+    // the suite holds both halves of "required is two fields" whether or not a
+    // real provider is reachable on this run.
+    images: [
+      { role: "poster", url: "https://example.invalid/poster.jpg" },
+      {
+        role: "page image",
+        url: "https://example.invalid/page.jpg",
+        id: "f1",
+        description_url: "https://example.invalid/File:page.jpg",
+        licences: [],
+        width: 420,
+      },
+    ],
   };
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");

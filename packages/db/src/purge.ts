@@ -6,6 +6,7 @@ import { LIVE_GROUP_MEMBERSHIP } from "./queries";
 import { rolledBack } from "./rolled-back";
 import {
   aliases,
+  artwork,
   groupItems,
   groups,
   identifiers,
@@ -164,6 +165,8 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
   // this provider made, exactly as a Statement is, and the source row below
   // cannot go while one still names it.
   await tx.delete(identifiers).where(eq(identifiers.sourceId, source.id));
+  // The provider's pictures go with it: bytes it supplied are its content.
+  await tx.delete(artwork).where(eq(artwork.sourceId, source.id));
 
   // A PLACEMENT IS A CLAIM AND MAY HAVE SEVERAL CLAIMANTS (ADR-0017): sources
   // agreeing about where an item sits are recorded against ONE row. So a
