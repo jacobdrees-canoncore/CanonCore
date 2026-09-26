@@ -12,7 +12,8 @@ import { z } from "zod";
  * IT IS DELIBERATELY NOT `@canoncore/providers`' SCHEMA, and this package depends
  * on no `@canoncore/*` package at all so that it cannot become one by accident.
  * That schema is a CONSUMER'S -- "what this app reads" -- and it strips unknown
- * keys, widens where the app does not care, and omits fields nothing renders yet.
+ * keys everywhere but a record (CNCORE-349), widens where the app does not
+ * care, and omits fields nothing renders yet.
  * Holding two providers to it would prove they both satisfy CanonCore, which is a
  * different and much weaker claim than that they satisfy one contract.
  *
@@ -27,6 +28,14 @@ import { z } from "zod";
  * `browse` optional and lets a provider declare more than it is asked for, so a
  * provider ahead of the contract is well-formed; what is refused is a provider
  * that spells a KNOWN field wrongly.
+ *
+ * ON A RECORD, AN UNKNOWN KEY IS A PROPERTY THE SOURCE DEFINES (CNCORE-349), and
+ * it answers to the same casing rule as every field here: snake_case. That is a
+ * CONTRACT rule and not a courtesy, because a source-defined name the contract
+ * later adopts must not need respelling to become the contract's own -- and
+ * because a key that merely respells a field this file names (`externalIds`)
+ * is not the source's property at all but that field gone missing. The
+ * contract test holds every record key to one or the other.
  */
 
 /** A source's own vocabulary for a role, size or kind: never a closed set here. */

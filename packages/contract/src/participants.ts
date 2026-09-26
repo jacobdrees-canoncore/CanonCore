@@ -69,6 +69,7 @@ export async function participants(): Promise<Participant[]> {
   found.push(await lockedProvider());
   found.push(await lockedProvider({ spends: true }));
   found.push(await containersProvider());
+  found.push(await aheadOfTheContract());
   return found;
 }
 
@@ -254,6 +255,48 @@ async function containersProvider(): Promise<Participant> {
   });
   return listeningAs(server, CONTAINERS_MANIFEST.name, OFFERED_CONTAINER.id);
 }
+
+/**
+ * A FOURTH CONFORMANCE WITNESS: a provider AHEAD of the contract, whose records
+ * carry ids in other id spaces and a property its own source defines
+ * (CNCORE-349).
+ *
+ * IT IS HERE BECAUSE NEITHER REAL PROVIDER SENDS THE SECOND AT ALL, and a
+ * machine that cannot reach `provider-tmdb` has nothing sending the first. So
+ * `its keys` would hold nobody to naming a source-defined property in the
+ * contract's casing, and `the open wire` fails on exactly that absence.
+ *
+ * `production_code` IS A REAL ONE, and chosen for it: TMDB publishes it per
+ * episode and the contract names no field for it. Otherwise this is the minimal
+ * witness, so it stands for the extra keys and nothing else.
+ */
+async function aheadOfTheContract(): Promise<Participant> {
+  const ahead = {
+    ...MINIMAL_RECORD,
+    external_ids: { imdb: "tt0000001" },
+    production_code: "4B",
+  };
+  const server: Server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const answer = jsonAnswer(response);
+    if (url.pathname === "/") return answer(AHEAD_MANIFEST);
+    if (url.pathname === "/search") {
+      const q = url.searchParams.get("q");
+      if (isNotAQuery(q)) return answer({ error: "a `q` query parameter is required" }, 400);
+      return answer({ results: q === ahead.title ? [ahead] : [] });
+    }
+    if (url.pathname === `/lookup/${ahead.id}`) return answer(ahead);
+    if (url.pathname.startsWith("/lookup/")) return answer({ error: "no such record" }, 404);
+    return answer({ error: "not found" }, 404);
+  });
+  return listeningAs(server, AHEAD_MANIFEST.name);
+}
+
+const AHEAD_MANIFEST = {
+  name: "a provider sending more than the contract names",
+  versions: [1],
+  operations: ["search", "lookup"],
+};
 
 /**
  * The container this witness offers, and the one it browses. THE SAME RECORD in

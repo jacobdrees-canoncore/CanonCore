@@ -12,6 +12,7 @@ import {
   type Database,
   groupItems,
   groupProviders,
+  identifiers,
   items,
   owners,
   placementSources,
@@ -243,6 +244,27 @@ describe("statements", () => {
         }),
       ),
     ).toBe("statements_one_value");
+  });
+});
+
+/**
+ * CNCORE-349. ONE SOURCE SAYS ONE VALUE FOR ONE ITEM IN ONE SCHEME, because
+ * CMPP's `external_ids` is a map keyed by scheme: two live rows for one
+ * (item, source, scheme) are two answers where the provider gave one.
+ * `assertIdentifiers` never writes a second; the index is what makes that a
+ * fact rather than a property of the only writer there is.
+ */
+describe("an Identifier, one per scheme per source", () => {
+  it("refuses a second live value for one item in one scheme from one source", async () => {
+    const provider = await aProvider(db, "http://127.0.0.1:9412");
+    const item = await anItem(db);
+    const ownerId = await theOwner(db);
+    const one = { ownerId, itemId: item, sourceId: provider, scheme: "imdb" };
+    await db.insert(identifiers).values({ ...one, value: "tt0133093" });
+
+    expect(await refusal(db.insert(identifiers).values({ ...one, value: "tt0234215" }))).toBe(
+      "identifiers_one_value_per_scheme",
+    );
   });
 });
 

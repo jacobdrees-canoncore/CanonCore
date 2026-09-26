@@ -652,6 +652,55 @@ export const statements = pgTable(
 );
 
 /**
+ * AN ITEM'S ID IN A SCHEME -- `imdb` `tt0133093` -- as a source asserted it
+ * (`CONTEXT.md`'s Identifier, CNCORE-349).
+ *
+ * NOT A STATEMENT, AND NOT THE `external_id` PROPERTY, for a measured reason.
+ * `external_id` is the id a provider knows ITS OWN record by, and migration 5
+ * holds one (source, value) to one item because that is what finds an item
+ * again. An Identifier is a claim about the WORK in someone else's id space,
+ * and one source legitimately sends one value for two of its records:
+ * `provider-tmdb` files `tmdb: "603"` on movie 603 and on programme 603, whose
+ * TMDB ids share a number and not a space. Under `external_id` that index
+ * refuses the second import; under a Property of its own each Scheme would be
+ * a field minted per provider, which ADR-0029 refuses.
+ *
+ * THE SCHEME IS THE PROVIDER'S OWN WORD, never a closed set here: CMPP keys
+ * `external_ids` by scheme and closes no list of them (ADR-0033).
+ *
+ * SOURCED LIKE EVERY CLAIM (ADR-0012), which is what lets two providers'
+ * Identifiers agree -- ADR-0026's evidence for matching, and nothing here
+ * decides a match. Withdrawn by tombstone on a refresh, as a Statement is.
+ */
+export const identifiers = pgTable(
+  "identifiers",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    scheme: text("scheme").notNull(),
+    value: text("value").notNull(),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    ...stampColumns(),
+  },
+  (t) => [
+    // WHAT ONE ITEM IS KNOWN AS, which is the read the Item page makes and the
+    // one a refresh makes of its own source's rows.
+    index("identifiers_item").on(t.itemId),
+    // ONE VALUE PER SCHEME PER SOURCE, because `external_ids` is a map keyed by
+    // scheme. Partial on the tombstone, as migration 5's is, so a value the
+    // source withdrew does not refuse the one it sends instead.
+    uniqueIndex("identifiers_one_value_per_scheme")
+      .on(t.itemId, t.sourceId, t.scheme)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+/**
  * ADR-0067. A fact only true in a context: appeared in a place, in this work,
  * at this time. How much of a source an adaptation covers is one of these, on
  * the `based_on` statement — never `edition_coverage`, which describes what

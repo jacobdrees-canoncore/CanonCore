@@ -116,3 +116,30 @@ catalogue. Measured: 2600 random characters insert, 2800 fail.
 carries no external id and nothing kept the one it was imported by, so it is
 found by nothing and the next import of that record writes a fresh item beside
 it. Deciding those two are one work is matching.
+
+## Identifiers, under CNCORE-349 -- and this record STILL STAYS PROPOSED
+
+**A PROVIDER'S IDS IN OTHER ID SPACES ARE HELD NOW, BESIDE THE MAPPING AND NOT IN IT.** CMPP's
+`external_ids` carries a record's id in someone else's space, keyed by Scheme: `provider-tmdb`
+sends `{ tmdb: "603", imdb: "tt0133093" }` for The Matrix. Migration 23 writes those to a table of
+their own, `identifiers`, one row per (item, source, scheme, value), sourced like a Statement. A
+refresh replaces a scheme's value by tombstone and never withdraws a scheme the answer left out,
+because a provider's answers are not equally full: `provider-tmdb` sends `imdb` on a lookup and
+only `tmdb` on a search or a browse. The first build read the browse as the full set and withdrew
+the IMDb id, which only CI's real-image job caught, since which e2e file browses first is a matter of
+ordering. `provider.test.ts` now holds it deterministically. `identifiers_one_value_per_scheme` holds one live value per
+(item, source, scheme), because `external_ids` is a map keyed by scheme and a provider gives one
+answer per scheme. `item.get` reads them back and the Item page lists them.
+
+**NOT THE `external_id` PROPERTY, BECAUSE MIGRATION 5 WOULD REFUSE THEM.** That property is the id a
+provider knows ITS OWN record by, and the partial unique index holds one (source, value) to one
+item because that is how an import finds its item again. An id in another space does not have that
+shape. `provider-tmdb` files `tmdb: "603"` on movie 603 and on programme 603 alike, because TMDB
+numbers films and programmes separately, so the second import would be refused. It would also mix
+two meanings under one property: "this source knows it as 265" and "this source says IMDb knows it
+as tt0133093". Nor a Property per Scheme, which is a provider defining a field
+([[0029-only-the-product-adds-fields]]).
+
+**STILL NOT BUILT: ids agreeing across providers.** Two providers' Identifiers for one Scheme and
+value are [[0026-enrichment-reaches-every-provider]]'s evidence that they describe one work.
+Nothing reads them that way yet, and nothing here decides a match.

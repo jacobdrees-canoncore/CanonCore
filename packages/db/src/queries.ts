@@ -30,6 +30,7 @@ import {
   aliases,
   groupItems,
   groups,
+  identifiers,
   itemKinds,
   items,
   placementSources,
@@ -690,6 +691,40 @@ export async function findStatementsOfItem(
       statements.valueLiteral,
       statements.id,
     );
+}
+
+/** One of an item's ids in a Scheme, and who said so (CNCORE-349). */
+export interface IdentifierOfItem {
+  scheme: string;
+  value: string;
+  sourceKind: string;
+  sourceLabel: string;
+}
+
+/**
+ * What one item is known as in other id spaces, each with the source that said
+ * so -- the reader of what `importProvidedRecord` writes into `identifiers`.
+ *
+ * EVERY SOURCE'S ROW IS RETURNED, and two agreeing is the point rather than
+ * a redundant row to fold: it is ADR-0026's evidence, and folding it here would
+ * decide the question that record keeps for matching. Ordered by scheme, then by the
+ * instance's source order, so one scheme's claims read together.
+ */
+export async function findIdentifiersOfItem(
+  db: Database,
+  itemId: string,
+): Promise<IdentifierOfItem[]> {
+  return db
+    .select({
+      scheme: identifiers.scheme,
+      value: identifiers.value,
+      sourceKind: sources.kind,
+      sourceLabel: sources.label,
+    })
+    .from(identifiers)
+    .innerJoin(sources, eq(sources.id, identifiers.sourceId))
+    .where(and(eq(identifiers.itemId, itemId), isNull(identifiers.deletedAt)))
+    .orderBy(identifiers.scheme, sources.sourceOrder, identifiers.value, identifiers.id);
 }
 
 /**

@@ -74,6 +74,7 @@ export {
   type ChosenOrder,
   type FoundItem,
   findAttributionOwed,
+  findIdentifiersOfItem,
   findItem,
   findItemKinds,
   findItemsProvided,

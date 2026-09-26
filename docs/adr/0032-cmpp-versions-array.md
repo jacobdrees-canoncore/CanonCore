@@ -34,3 +34,9 @@ provider that says nothing is read as the first version rather than rejected.
 Taking the prose and not the schema is therefore a line of code rather than an intention: the field
 is not in any required list anywhere, and a manifest without it parses. The test that proves it
 deletes `versions` from a real manifest and asserts the answer is `[1]`.
+
+## An optional field does not move the version, under CNCORE-349
+
+CNCORE-349 opened the record to keys the contract does not name, and made CanonCore read
+`external_ids`. Neither moved `versions`. Nothing became required of a provider, so every provider
+that conformed before conforms unchanged. That is the same test `credential` passed under ADR-0122.

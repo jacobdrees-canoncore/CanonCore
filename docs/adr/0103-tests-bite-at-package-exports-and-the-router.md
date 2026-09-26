@@ -828,8 +828,9 @@ no rule written here.
 
 It is refused anyway, and the reason is not the dependency graph. **The two are different
 DOCUMENTS.** One is a SPECIFICATION and permits unknown keys, because ADR-0033 lets a provider
-declare more than it is asked for; the other is a CONSUMER'S reading and strips them, widens where
-the app does not care, and omits fields nothing renders. A single schema serving both collapses that
+declare more than it is asked for; the other is a CONSUMER'S reading and strips them everywhere but
+a record (which keeps them as a source's own properties since CNCORE-349), widens where the app does
+not care, and omits fields nothing renders. A single schema serving both collapses that
 distinction, and what it costs is the contract test's whole claim: the suite would prove that two
 providers satisfy CANONCORE, which is much weaker than that they satisfy one CONTRACT, and it is the
 substitution this seam exists to prevent. The app's copy of each response shape is therefore written

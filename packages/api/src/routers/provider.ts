@@ -396,6 +396,9 @@ function asProvided(record: CmppRecord) {
     // write one and this function the only thing standing in the way. What
     // arrives broken is quarantined at the door and counted, not lost here.
     released: record.released,
+    // THE IDS IN OTHER ID SPACES, which the consumer schema stripped until
+    // CNCORE-349. Carried as the provider keyed them, Scheme by Scheme.
+    identifiers: record.external_ids,
   };
 }
 

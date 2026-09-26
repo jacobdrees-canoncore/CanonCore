@@ -8,6 +8,7 @@ import {
   aliases,
   groupItems,
   groups,
+  identifiers,
   items,
   placementSources,
   placements,
@@ -159,6 +160,10 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
     .returning({ id: statements.id });
 
   await tx.delete(placementSources).where(eq(placementSources.sourceId, source.id));
+  // ITS IDENTIFIERS GO WITH IT (CNCORE-349): an id in another space is a claim
+  // this provider made, exactly as a Statement is, and the source row below
+  // cannot go while one still names it.
+  await tx.delete(identifiers).where(eq(identifiers.sourceId, source.id));
 
   // A PLACEMENT IS A CLAIM AND MAY HAVE SEVERAL CLAIMANTS (ADR-0017): sources
   // agreeing about where an item sits are recorded against ONE row. So a

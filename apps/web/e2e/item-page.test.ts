@@ -744,6 +744,23 @@ describe("an item imported from the second provider", () => {
     expect(text).toContain("provider-tmdb");
     expect(text).not.toMatch(/127\.0\.0\.1:\d+/);
   });
+
+  /**
+   * THE IDS IT CARRIES IN OTHER ID SPACES, which the consumer schema stripped
+   * at parse until CNCORE-349 and which reached nothing before it. `tt0133093`
+   * is The Matrix on IMDb, a value the real image and the stand-in both send
+   * and one IMDb does not reissue.
+   */
+  it("renders what TMDB says it is known as elsewhere, and names TMDB as having said so", async () => {
+    const identifiers = sectionIn(
+      (await documentAt(`/items/${attributed.id}`)).text,
+      "identifiers",
+    );
+
+    expect(identifiers).toContain("imdb");
+    expect(identifiers).toContain("tt0133093");
+    expect(identifiers).toContain("provider-tmdb");
+  });
 });
 
 describe("/items/<an item in more orderings than one page>", () => {

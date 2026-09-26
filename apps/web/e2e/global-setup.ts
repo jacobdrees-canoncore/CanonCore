@@ -1359,6 +1359,16 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   };
   const records = [record, reloaded];
   /**
+   * ONLY THE `tmdb` ID, AS A SEARCH AND A BROWSE ANSWER IT. The real image
+   * sends `imdb` on a lookup alone -- measured against `provider-tmdb:latest`
+   * on 2026-09-26 -- and a stand-in sending the full set everywhere hid a
+   * browse withdrawing the IMDb id a lookup had written, which only the
+   * real-image job caught (CNCORE-349).
+   */
+  const thinIds = (found: { external_ids: Record<string, string> }) => ({
+    external_ids: { tmdb: found.external_ids.tmdb },
+  });
+  /**
    * THE SAME TWO AS A SEARCH ANSWERS THEM, which is thinner than a lookup, and
    * the stub answered a lookup's record here until CNCORE-187 found it. The
    * image's `searchResultToRecord` (read at `46a1189`) sends no writers, no
@@ -1371,6 +1381,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     writers: [],
     series: null,
     series_id: null,
+    ...thinIds(found),
   }));
   /**
    * The collection as a browse answers it: the container, and its parts in
@@ -1392,8 +1403,8 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
       external_ids: { tmdb: "2344" },
     },
     ordering: [
-      { position: 1, record },
-      { position: 2, record: reloaded },
+      { position: 1, record: { ...record, ...thinIds(record) } },
+      { position: 2, record: { ...reloaded, ...thinIds(reloaded) } },
     ],
     unplaced: [],
   };
