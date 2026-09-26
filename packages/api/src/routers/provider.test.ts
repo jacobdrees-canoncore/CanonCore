@@ -1042,6 +1042,26 @@ describe("a record's item kind", () => {
     const works = await call(appRouter.catalogue.works, { limit: 100 }, { context });
     expect(works.rows.map((row) => row.id)).toEqual(expect.not.arrayContaining(members));
   });
+
+  it("says nothing of a property the Item's kind does not have", async () => {
+    // A time span has no release date to hold, so a Provider sending none has
+    // left nothing out. Found on the Owner's catalogue: `1814 frost fair` read
+    // "provider-wiki holds no release date for this." (ADR-0204).
+    const baseUrl = await stubProvider({}, { containers: { "900001": EVENTS } });
+    const { placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "900001" },
+      { context },
+    );
+
+    const timeSpan = await call(
+      appRouter.item.get,
+      { id: placements[0]?.itemId ?? "" },
+      { context },
+    );
+    expect(timeSpan.kind).toBe("Time span");
+    expect(timeSpan.notGiven).toEqual([]);
+  });
 });
 
 /**
@@ -1496,26 +1516,6 @@ describe("a season's episodes", () => {
 
     const undated = await call(appRouter.item.get, { id: endOfTheWorld }, { context });
     expect(undated.notGiven).toEqual([]);
-  });
-
-  it("says nothing of a property the Item's kind does not have", async () => {
-    // A time span has no release date to hold, so a Provider sending none has
-    // left nothing out. Found on the Owner's catalogue: `1814 frost fair` read
-    // "provider-wiki holds no release date for this." (ADR-0204).
-    const baseUrl = await stubProvider({}, { containers: { "900001": EVENTS } });
-    const { placements } = await call(
-      appRouter.provider.browse,
-      { baseUrl, containerId: "900001" },
-      { context },
-    );
-
-    const timeSpan = await call(
-      appRouter.item.get,
-      { id: placements[0]?.itemId ?? "" },
-      { context },
-    );
-    expect(timeSpan.kind).toBe("Time span");
-    expect(timeSpan.notGiven).toEqual([]);
   });
 });
 

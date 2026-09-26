@@ -753,8 +753,8 @@ export interface PropertyNotGiven {
  * WHAT A PROVIDER WAS ASKED FOR ABOUT THIS ITEM AND GAVE NONE OF (CNCORE-375).
  *
  * An import asks for every property in `WHAT_AN_IMPORT_ASKS_FOR` on every
- * answer, so a Provider with no statement of one of them has answered that it
- * holds none. Said on the page, a thin source reads as thin rather than as a
+ * answer. So where the Item's kind has one of them and a Provider holds no
+ * statement of it, that Provider has answered that it holds none. Said on the page, a thin source reads as thin rather than as a
  * surface that is broken -- and it is said as one line, never drawn as an
  * empty row, which is ADR-0204's thin page.
  *
@@ -791,7 +791,9 @@ export async function findPropertiesNotGiven(
               ? eq(properties.name, name)
               : and(eq(properties.name, name), inArray(items.kind, [...kinds])),
           ),
-        ),
+          // AN EMPTY LIST ASKS ABOUT NOTHING, rather than letting `or()`'s
+          // `undefined` drop the clause and report every property there is.
+        ) ?? sql`false`,
       ),
     )
     .where(
