@@ -100,6 +100,10 @@ describe("item.get", () => {
       "isContainer",
       "isOrdered",
       "kind",
+      // MATCHES OFFERED AND NOT YET DECIDED, and the parts another Provider
+      // holds this work as (CNCORE-361). Red here when they were added.
+      "matchCandidates",
+      "partsHeldElsewhere",
       "placements",
       "releaseDate",
       "sortName",

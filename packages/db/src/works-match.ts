@@ -102,7 +102,9 @@ export function partsOf(title: string, siblings: readonly string[]): number {
   const numbered = PART_NUMBER.exec(title);
   if (numbered === null) return 1;
   const story = numbered[1];
-  return siblings.filter((sibling) => PART_NUMBER.exec(sibling)?.[1] === story).length;
+  // At least the record itself, which a Provider that placed it nowhere does
+  // not list beside it.
+  return Math.max(1, siblings.filter((sibling) => PART_NUMBER.exec(sibling)?.[1] === story).length);
 }
 
 /** `The Tenth Planet (1)`: the story's title, then a part number in brackets. */
@@ -138,9 +140,30 @@ function normalised(title: string): string {
 }
 
 function releasedSignal(one: string[], other: string[]): WorkMatchSignals["released"] {
-  const days = (dates: string[]) => dates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
-  const a = days(one);
-  const b = days(other);
+  const a = daysOf(one);
+  const b = daysOf(other);
   if (a.length === 0 || b.length === 0) return "unknown";
   return a.some((date) => b.includes(date)) ? "same" : "differs";
+}
+
+/**
+ * `ILIKE` patterns that find every Item whose title could score above zero
+ * against this one: its words in order, with `and` left out so that `Love &
+ * Monsters` and `Love and Monsters` meet, for the whole title and for what
+ * follows its last colon. A blocking step, not a score: it only has to miss
+ * nothing the scorer would accept.
+ */
+export function titlePatterns(title: string): string[] {
+  const pattern = (normal: string | null) => {
+    const words = (normal ?? "").split(" ").filter((word) => word !== "" && word !== "and");
+    return words.length === 0 ? null : `%${words.join("%")}%`;
+  };
+  return [pattern(normalised(title)), pattern(subtitleOf(title))].filter(
+    (found): found is string => found !== null,
+  );
+}
+
+/** The dates a record states to the day, which is what `released: same` compares. */
+export function daysOf(released: readonly string[]): string[] {
+  return released.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
 }

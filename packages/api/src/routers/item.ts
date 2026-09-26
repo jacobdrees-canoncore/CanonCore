@@ -7,7 +7,9 @@ import {
   findIdentifiersOfItem,
   findItem,
   findItemKinds,
+  findMatchCandidatesOfItem,
   findNoteOfItem,
+  findPartsHeldElsewhere,
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
@@ -373,52 +375,64 @@ export const item = {
       // Read against the CANONICAL id rather than the one asked for, so an
       // alias reaching a merged-away item still answers with the survivor's
       // orderings and values rather than with none (ADR-0040).
-      const [placements, holds, groups, statements, identifiers, artwork, attribution] =
-        await Promise.all([
-          /*
-           * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
-           * the app that was neither. It answered every live placement, which
-           * ADR-0119's first sentence forbids. The cap is `A_PAGE`, the same
-           * ceiling the other five serve, and the caller cannot raise it.
-           */
-          findPlacementsOfItem(context.db, found.id, {
-            limit: A_PAGE,
-            after: input.placedAfter,
-            before: input.placedBefore,
-            // NARROWED IN THE QUERY SINCE CNCORE-129, so the cap above is the cap
-            // ON THE NARROWING: a reader who has chosen one origin walks that
-            // listing rather than the hundred rows the whole one starts with.
-            placedBy: input.placed,
-          }),
-          // ASKED UNCONDITIONALLY rather than only when `is_container`, because
-          // the two would be the same question answered twice: nothing can be
-          // placed in an item that is not a container, so a non-container's
-          // answer is empty either way -- and a branch here would be a second
-          // place for "what is a container" to be decided, free to disagree with
-          // the column.
-          /*
-           * CAPPED AND WALKED SINCE CNCORE-89. It answered every live placement,
-           * which ADR-0119's first sentence forbids -- and `browse` imports a
-           * whole category in one call, which ADR-0077 measures at 1,049 stories.
-           * The cap is `A_PAGE`, the same ceiling the other five listings serve,
-           * and the caller cannot raise it.
-           */
-          findPlacementsInContainer(context.db, found.id, {
-            limit: A_PAGE,
-            after: input.after,
-            before: input.before,
-          }),
-          // WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38). Uncapped, and
-          // deliberately: a Group is a scope the Owner drew by hand, so this list
-          // is the number of universes they curate rather than a function of the
-          // corpus -- which is the same argument `findGroups` makes for not being
-          // a Listing.
-          findGroupsOfItem(context.db, found.id),
-          findStatementsOfItem(context.db, found.id),
-          findIdentifiersOfItem(context.db, found.id),
-          findArtworkOfItem(context.db, found.id),
-          findAttributionOwed(context.db, found.id),
-        ]);
+      const [
+        placements,
+        holds,
+        groups,
+        statements,
+        identifiers,
+        artwork,
+        attribution,
+        partsHeldElsewhere,
+        matchCandidates,
+      ] = await Promise.all([
+        /*
+         * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
+         * the app that was neither. It answered every live placement, which
+         * ADR-0119's first sentence forbids. The cap is `A_PAGE`, the same
+         * ceiling the other five serve, and the caller cannot raise it.
+         */
+        findPlacementsOfItem(context.db, found.id, {
+          limit: A_PAGE,
+          after: input.placedAfter,
+          before: input.placedBefore,
+          // NARROWED IN THE QUERY SINCE CNCORE-129, so the cap above is the cap
+          // ON THE NARROWING: a reader who has chosen one origin walks that
+          // listing rather than the hundred rows the whole one starts with.
+          placedBy: input.placed,
+        }),
+        // ASKED UNCONDITIONALLY rather than only when `is_container`, because
+        // the two would be the same question answered twice: nothing can be
+        // placed in an item that is not a container, so a non-container's
+        // answer is empty either way -- and a branch here would be a second
+        // place for "what is a container" to be decided, free to disagree with
+        // the column.
+        /*
+         * CAPPED AND WALKED SINCE CNCORE-89. It answered every live placement,
+         * which ADR-0119's first sentence forbids -- and `browse` imports a
+         * whole category in one call, which ADR-0077 measures at 1,049 stories.
+         * The cap is `A_PAGE`, the same ceiling the other five listings serve,
+         * and the caller cannot raise it.
+         */
+        findPlacementsInContainer(context.db, found.id, {
+          limit: A_PAGE,
+          after: input.after,
+          before: input.before,
+        }),
+        // WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38). Uncapped, and
+        // deliberately: a Group is a scope the Owner drew by hand, so this list
+        // is the number of universes they curate rather than a function of the
+        // corpus -- which is the same argument `findGroups` makes for not being
+        // a Listing.
+        findGroupsOfItem(context.db, found.id),
+        findStatementsOfItem(context.db, found.id),
+        findIdentifiersOfItem(context.db, found.id),
+        findArtworkOfItem(context.db, found.id),
+        findAttributionOwed(context.db, found.id),
+        // ADR-0026's matcher, as it left this Item (CNCORE-361).
+        findPartsHeldElsewhere(context.db, found.id),
+        findMatchCandidatesOfItem(context.db, found.id),
+      ]);
 
       // ADR-0045: every field the read path emits is NAMED here. It is never
       // the stored row with fields removed, because a strip-list works until
@@ -515,6 +529,20 @@ export const item = {
           sourceLabel: owed.sourceLabel,
           notice: owed.notice,
           logo: owed.logo,
+        })),
+        partsHeldElsewhere: partsHeldElsewhere.map(({ sourceLabel, parts }) => ({
+          sourceLabel,
+          parts,
+        })),
+        matchCandidates: matchCandidates.map((candidate) => ({
+          itemId: candidate.itemId,
+          title: candidate.title,
+          score: candidate.score,
+          signals: candidate.signals,
+          partsHeldElsewhere: candidate.partsHeldElsewhere.map(({ sourceLabel, parts }) => ({
+            sourceLabel,
+            parts,
+          })),
         })),
       };
     }),

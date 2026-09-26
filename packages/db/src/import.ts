@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
+import { matchArrivingWork, recordWhatWasNotApplied } from "./matching";
 import { assertPlacement, theOwnerId } from "./placements";
 import { insideItsCeiling } from "./queries";
 import {
@@ -13,6 +14,7 @@ import {
   sources,
   statements,
 } from "./schema";
+import { partsOf } from "./works-match";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {
@@ -349,8 +351,13 @@ export async function importBrowsedContainer(
      * -- inside this transaction included -- so a repeat and a re-browse are one
      * question with one answer, rather than two mechanisms that could disagree.
      */
+    // THE TITLES THIS ORDERING SERVES, which is how a part says it is one of
+    // several (`partsOf`, CNCORE-361).
+    const siblings = [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
+      (record) => record.title,
+    );
     const item = async (record: ProvidedRecord) => {
-      const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record });
+      const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record, siblings });
       quarantinedValues += writtenItem.quarantinedValues;
       return writtenItem.itemId;
     };
@@ -498,12 +505,41 @@ async function writeProvidedItem(
     sourceId,
     record,
     container = false,
-  }: { ownerId: string; sourceId: string; record: ProvidedRecord; container?: boolean },
+    siblings,
+  }: {
+    ownerId: string;
+    sourceId: string;
+    record: ProvidedRecord;
+    container?: boolean;
+    /**
+     * The titles of everything the same browse served, which a member is
+     * matched with (CNCORE-361). Absent on a `lookup` and on the container
+     * itself, and then nothing is matched: a lookup names no Container to read
+     * parts from, and ADR-0128 keeps two Providers' orderings apart.
+     */
+    siblings?: string[];
+  },
 ): Promise<ImportedRecord> {
   const found = await itemWithExternalId(tx, { ownerId, sourceId, externalId: record.externalId });
   // What was browsed is a container, and so is a member its source says holds
   // others -- a season named in its series' ordering (CNCORE-360).
   container ||= record.isContainer === true;
+
+  // ADR-0026's MATCHING, for a work this source has never sent before: an Item
+  // another Provider holds that scores above the high bar is where it lands,
+  // rather than on a second Item for the same work (CNCORE-361).
+  const matched =
+    siblings === undefined || container
+      ? undefined
+      : await matchArrivingWork(tx, {
+          ownerId,
+          sourceId,
+          arriving: {
+            title: record.title,
+            released: record.released,
+            parts: partsOf(record.title, siblings),
+          },
+        });
 
   // A `browse` naming an id an earlier `lookup` wrote as a plain work: it is a
   // container after all, and `CONTEXT.md`'s Container headword makes that
@@ -520,7 +556,18 @@ async function writeProvidedItem(
   }
 
   const itemId =
-    found ?? (await insertProvidedItem(tx, { ownerId, container, kind: record.itemKind }));
+    found ??
+    matched?.applyTo ??
+    (await insertProvidedItem(tx, { ownerId, container, kind: record.itemKind }));
+  if (matched !== undefined) {
+    await recordWhatWasNotApplied(tx, {
+      ownerId,
+      itemId,
+      // Found by identity, it was offered when it first arrived; only what it
+      // disagrees about is taken afresh.
+      matched: found === undefined ? matched : { ...matched, offered: [] },
+    });
+  }
 
   const quarantinedValues = await assertClaims(tx, {
     ownerId,

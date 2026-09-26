@@ -814,7 +814,7 @@ describe("provider.browse", () => {
     // neutral fact, so a placement written without one is a claim nobody made.
     const baseUrl = await stubProvider();
 
-    const { placements } = await call(
+    const { containerId, placements } = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "388305" },
       { context },
@@ -823,7 +823,10 @@ describe("provider.browse", () => {
     expect(placements).toHaveLength(2);
     for (const placement of placements) {
       const item = await call(appRouter.item.get, { id: placement.itemId }, { context });
-      expect(item.placements.rows).toEqual([
+      // IN THIS BROWSE'S CONTAINER. Other tests browse the same two stories from
+      // other stubs, which are other Providers, and since CNCORE-361 those land
+      // on the same Items -- so the Item also sits in their containers.
+      expect(item.placements.rows.filter((row) => row.containerId === containerId)).toEqual([
         expect.objectContaining({ position: 1, placedBy: "provider" }),
       ]);
     }
@@ -1166,6 +1169,218 @@ describe("a series and its seasons", () => {
     expect(timelinePage.holds.rows.map(({ title }) => title).sort()).toEqual([
       "Day of the Vashta Nerada (audio story)",
       "Night of the Vashta Nerada (audio story)",
+    ]);
+  });
+});
+
+/** A wiki category holding these stories, as `provider-wiki` answers a browse of it. */
+function aWikiCategory(id: string, stories: [id: string, title: string, released: string][]) {
+  return {
+    container: {
+      id,
+      title: `Category:${id}`,
+      kind: "category",
+      released: [],
+      writers: [],
+      series: null,
+      url: `https://tardis.wiki/wiki/Category:${id}`,
+    },
+    ordering: stories.map(([storyId, title, released], at) => ({
+      position: at + 1,
+      record: {
+        id: storyId,
+        title,
+        kind: "TV story",
+        released: [released],
+        writers: [],
+        series: null,
+        url: `https://tardis.wiki/wiki/${storyId}`,
+      },
+    })),
+    unplaced: [],
+  };
+}
+
+/** A TMDB season holding these episodes, in TMDB's order, as `provider-tmdb` browses one. */
+function aTmdbSeason(id: string, episodes: [title: string, released: string][]) {
+  const [, series, season] = id.split(":");
+  return {
+    container: {
+      id,
+      title: `Season ${season}`,
+      kind: "season",
+      released: [],
+      writers: [],
+      series: "Doctor Who",
+      url: `https://www.themoviedb.org/tv/${series}/season/${season}`,
+      is_container: true,
+    },
+    ordering: episodes.map(([title, released], at) => ({
+      position: at + 1,
+      record: {
+        id: `episode:${series}:${season}:${at + 1}`,
+        title,
+        kind: "episode",
+        released: [released],
+        writers: [],
+        series: "Doctor Who",
+        series_id: `tv:${series}`,
+        url: `https://www.themoviedb.org/tv/${series}/season/${season}/episode/${at + 1}`,
+        is_container: false,
+      },
+    })),
+    unplaced: [],
+  };
+}
+
+/** The wiki's half and then TMDB's, each browsed for real, and the Items each placed. */
+async function browseBoth(
+  wiki: ReturnType<typeof aWikiCategory>,
+  tmdb: ReturnType<typeof aTmdbSeason>,
+) {
+  const wikiUrl = await stubProvider({}, { containers: { [wiki.container.id]: wiki } });
+  const tmdbUrl = await stubProvider(
+    {},
+    { containers: { [tmdb.container.id]: tmdb }, name: "provider-tmdb", attribution: ATTRIBUTION },
+  );
+  const fromWiki = await call(
+    appRouter.provider.browse,
+    { baseUrl: wikiUrl, containerId: wiki.container.id },
+    { context },
+  );
+  const fromTmdb = await call(
+    appRouter.provider.browse,
+    { baseUrl: tmdbUrl, containerId: tmdb.container.id },
+    { context },
+  );
+  return {
+    wiki: fromWiki.placements.map(({ itemId }) => itemId),
+    tmdb: fromTmdb.placements.map(({ itemId }) => itemId),
+  };
+}
+
+/*
+ * ADR-0026's OPERATION, AND ADR-0027's BARS (CNCORE-361). Each story here is one
+ * no other test in this file browses, because the suite shares one database and
+ * a story two tests both browsed would be matched ACROSS them -- which is the
+ * feature, and would make each test's answer depend on the other's.
+ */
+describe("works matched across Providers", () => {
+  it("lands a work both Providers describe on one Item, carrying both their ids", async () => {
+    const both = await browseBoth(
+      aWikiCategory("47651", [["1585", "New Earth (TV story)", "2006-04-15"]]),
+      aTmdbSeason("season:57243:2", [["New Earth", "2006-04-15"]]),
+    );
+
+    expect(both.tmdb).toEqual(both.wiki);
+    const item = await call(appRouter.item.get, { id: both.wiki[0] ?? "" }, { context });
+    expect(
+      item.statements
+        .filter(({ property }) => property === "external_id")
+        .map(({ sourceLabel, value }) => [sourceLabel, value])
+        .sort(),
+    ).toEqual([
+      ["provider-tmdb", "episode:57243:2:1"],
+      ["provider-wiki", "1585"],
+    ]);
+  });
+
+  it("offers a match between the bars rather than applying it, naming the signals", async () => {
+    const both = await browseBoth(
+      aWikiCategory("47652", [["1672", "Born Again (TV story)", "2005-11-18"]]),
+      aTmdbSeason("season:57243:0", [["Children in Need: Born Again", "2005-11-18"]]),
+    );
+
+    expect(both.tmdb).not.toEqual(both.wiki);
+    const wiki = await call(appRouter.item.get, { id: both.wiki[0] ?? "" }, { context });
+    expect(wiki.matchCandidates).toEqual([
+      {
+        itemId: both.tmdb[0],
+        title: "Children in Need: Born Again",
+        score: 0.7,
+        signals: { title: "subtitle", released: "same", parts: "agree" },
+        partsHeldElsewhere: [],
+      },
+    ]);
+    // Offered from both ends: the pair is one question, whichever page it is met on.
+    const tmdb = await call(appRouter.item.get, { id: both.tmdb[0] ?? "" }, { context });
+    expect(tmdb.matchCandidates.map(({ itemId }) => itemId)).toEqual([both.wiki[0]]);
+  });
+
+  it("discards a match below the low bar, offering nothing", async () => {
+    const both = await browseBoth(
+      aWikiCategory("47653", [["1826", "Doomsday (TV story)", "2006-07-08"]]),
+      aTmdbSeason("season:57243:9", [["Tardisode 13: Doomsday", "2006-07-01"]]),
+    );
+
+    expect(both.tmdb).not.toEqual(both.wiki);
+    const wiki = await call(appRouter.item.get, { id: both.wiki[0] ?? "" }, { context });
+    expect(wiki.matchCandidates).toEqual([]);
+  });
+
+  /*
+   * THE PART-VERSUS-STORY CASE, which CNCORE-368's finding makes a NO MATCH:
+   * TMDB's part 1 carries the story's title AND its date, so title and date
+   * alone would apply it. TMDB's own `(n)` titles say it is one of four.
+   */
+  it("matches no single part to a story the other Provider holds as several", async () => {
+    const both = await browseBoth(
+      aWikiCategory("47654", [["1998", "The Smugglers (TV story)", "1966-09-10"]]),
+      aTmdbSeason("season:121:4", [
+        ["The Smugglers (1)", "1966-09-10"],
+        ["The Smugglers (2)", "1966-09-17"],
+        ["The Smugglers (3)", "1966-09-24"],
+        ["The Smugglers (4)", "1966-10-01"],
+      ]),
+    );
+
+    expect(both.tmdb).not.toContain(both.wiki[0]);
+    const story = await call(appRouter.item.get, { id: both.wiki[0] ?? "" }, { context });
+    expect(story.partsHeldElsewhere).toEqual([{ sourceLabel: "provider-tmdb", parts: 4 }]);
+    expect(story.matchCandidates).toEqual([]);
+  });
+
+  it("forgets a part disagreement when the Provider holding the parts is purged", async () => {
+    const wiki = aWikiCategory("47656", [["2010", "The Faceless Ones (TV story)", "1967-04-08"]]);
+    const tmdb = aTmdbSeason("season:121:6", [
+      ["The Faceless Ones (1)", "1967-04-08"],
+      ["The Faceless Ones (2)", "1967-04-15"],
+    ]);
+    const wikiUrl = await stubProvider({}, { containers: { [wiki.container.id]: wiki } });
+    const tmdbUrl = await stubProvider({}, { containers: { [tmdb.container.id]: tmdb } });
+    const { placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl: wikiUrl, containerId: wiki.container.id },
+      { context },
+    );
+    await call(
+      appRouter.provider.browse,
+      { baseUrl: tmdbUrl, containerId: tmdb.container.id },
+      { context },
+    );
+
+    await call(appRouter.provider.purge, { baseUrl: tmdbUrl }, { context });
+
+    const story = await call(appRouter.item.get, { id: placements[0]?.itemId ?? "" }, { context });
+    expect(story.partsHeldElsewhere).toEqual([]);
+  });
+
+  it("carries the part disagreement on a row that offers a candidate", async () => {
+    const both = await browseBoth(
+      aWikiCategory("47655", [["2001", "The Moonbase (TV story)", "1967-02-11"]]),
+      aTmdbSeason("season:121:5", [
+        ["The Moonbase (1)", "1967-02-11"],
+        ["The Moonbase (2)", "1967-02-18"],
+        ["Behind the Sofa: The Moonbase", "1967-02-11"],
+      ]),
+    );
+
+    const offered = await call(appRouter.item.get, { id: both.tmdb[2] ?? "" }, { context });
+    expect(offered.matchCandidates).toEqual([
+      expect.objectContaining({
+        itemId: both.wiki[0],
+        partsHeldElsewhere: [{ sourceLabel: "provider-tmdb", parts: 2 }],
+      }),
     ]);
   });
 });

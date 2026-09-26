@@ -14,7 +14,9 @@ import {
   groupProviders,
   identifiers,
   items,
+  matchCandidates,
   owners,
+  partDisagreements,
   placementSources,
   placements,
   properties,
@@ -264,6 +266,44 @@ describe("an Identifier, one per scheme per source", () => {
 
     expect(await refusal(db.insert(identifiers).values({ ...one, value: "tt0234215" }))).toBe(
       "identifiers_one_value_per_scheme",
+    );
+  });
+});
+
+/**
+ * CNCORE-361. A PAIR IS OFFERED ONCE, and a source counts one work's parts
+ * once. `recordWhatWasNotApplied` writes neither twice -- it skips a pair on
+ * conflict and refreshes a count in place -- so these indexes are what make
+ * that a fact rather than a property of the only writer there is.
+ */
+describe("what the matcher hands over, once each", () => {
+  it("refuses one pair offered twice", async () => {
+    const ownerId = await theOwner(db);
+    const pair = {
+      ownerId,
+      itemId: await anItem(db),
+      candidateItemId: await anItem(db),
+      score: 0.7,
+      titleSignal: "subtitle",
+      releasedSignal: "same",
+    };
+    await db.insert(matchCandidates).values(pair);
+
+    expect(await refusal(db.insert(matchCandidates).values(pair))).toBe(
+      "match_candidates_one_per_pair",
+    );
+  });
+
+  it("refuses a second count of one work's parts from one source", async () => {
+    const one = {
+      ownerId: await theOwner(db),
+      itemId: await anItem(db),
+      sourceId: await aProvider(db, "http://127.0.0.1:9413"),
+    };
+    await db.insert(partDisagreements).values({ ...one, parts: 4 });
+
+    expect(await refusal(db.insert(partDisagreements).values({ ...one, parts: 6 }))).toBe(
+      "part_disagreements_one_per_source",
     );
   });
 });

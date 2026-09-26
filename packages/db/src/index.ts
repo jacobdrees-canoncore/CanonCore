@@ -52,6 +52,12 @@ export {
   theContainerIdQuoted,
 } from "./import-runs";
 export {
+  findMatchCandidatesOfItem,
+  findPartsHeldElsewhere,
+  type MatchCandidateOfItem,
+  type PartsHeldElsewhere,
+} from "./matching";
+export {
   type AssertedPlacement,
   assertPlacement,
   isAPlacementRefusalCause,
