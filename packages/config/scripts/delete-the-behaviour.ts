@@ -28,7 +28,7 @@
  * `git diff` to show.
  *
  * Exit 0 when every test went red, 1 when any stayed green, 2 when the run
- * was refused. Node builtins only, so bare `node` runs it with no loader.
+ * was refused or failed, so a 1 always means a finding. Node builtins only, so bare `node` runs it with no loader.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -54,8 +54,8 @@ function parse(argv: string[]): { root: string; deletions: Deletion[]; filters: 
       const match = /^(.+):(\d+)(?:-(\d+))?$/.exec(named);
       if (match === null)
         throw new Refusal(`--delete takes file:line or file:from-to, not ${named}`);
-      const [, file, from, to] = match as unknown as [string, string, string, string | undefined];
-      deletions.push({ file, from: Number(from), to: Number(to ?? from) });
+      const from = Number(match[2]);
+      deletions.push({ file: match[1] as string, from, to: Number(match[3] ?? from) });
     } else {
       filters.push(argument);
     }
@@ -64,7 +64,13 @@ function parse(argv: string[]): { root: string; deletions: Deletion[]; filters: 
   if (deletions.length === 0) throw new Refusal("--delete names the behaviour to delete");
   const base = process.env.INIT_CWD ?? process.cwd();
   // Real, because Vitest reports each file by its real path and a report is read against this.
-  return { root: realpathSync(resolve(base, root)), deletions, filters };
+  const real = realpathSync(resolve(base, root));
+  for (const { file } of deletions) {
+    if (relative(real, resolve(real, file)).startsWith("..")) {
+      throw new Refusal(`${file} is not under ${real}`);
+    }
+  }
+  return { root: real, deletions, filters };
 }
 
 /** Every test the tree holds, keyed by file and full name, with its status. */
@@ -98,6 +104,7 @@ function runTheTree(root: string, filters: string[]): { outcomes: Outcome[]; unl
     }
     const outcomes: Outcome[] = [];
     const unloaded: string[] = [];
+    const seen = new Map<string, number>();
     for (const file of parsed.testResults) {
       const name = relative(root, file.name);
       if (file.assertionResults.length === 0 && file.message)
@@ -106,7 +113,11 @@ function runTheTree(root: string, filters: string[]): { outcomes: Outcome[]; unl
         // A test `-t` or `.skip` left out is outside the tree chosen, not a red one inside it.
         if (test.status === "skipped" || test.status === "pending" || test.status === "todo")
           continue;
-        outcomes.push({ key: `${name} > ${test.fullName}`, status: test.status });
+        // Two tests one file names alike, as an `it.each` with a fixed title makes, are told apart by order.
+        const key = `${name} > ${test.fullName}`;
+        const times = (seen.get(key) ?? 0) + 1;
+        seen.set(key, times);
+        outcomes.push({ key: times === 1 ? key : `${key} (#${times})`, status: test.status });
       }
     }
     return { outcomes, unloaded };
@@ -117,26 +128,30 @@ function runTheTree(root: string, filters: string[]): { outcomes: Outcome[]; unl
 
 /** Deletes the named lines, and returns what puts every file back. */
 function applyDeletions(root: string, deletions: Deletion[]): () => void {
-  const originals = new Map<string, string>();
+  const originals = new Map<string, Buffer>();
   for (const { file } of deletions) {
     const path = resolve(root, file);
-    if (!originals.has(path)) originals.set(path, readFileSync(path, "utf8"));
+    if (!originals.has(path)) originals.set(path, readFileSync(path));
   }
   const restore = () => {
-    for (const [path, text] of originals) writeFileSync(path, text);
+    for (const [path, bytes] of originals) writeFileSync(path, bytes);
   };
-  for (const [path, text] of originals) {
-    const lines = text.split("\n");
-    const here = deletions.filter((deletion) => resolve(root, deletion.file) === path);
-    for (const { file, from, to } of here) {
-      if (from < 1 || to < from || to > lines.length) {
-        restore();
-        throw new Refusal(`${file}:${from}-${to} is not a range of its ${lines.length} lines`);
+  try {
+    for (const [path, bytes] of originals) {
+      const lines = bytes.toString("utf8").split("\n");
+      const here = deletions.filter((deletion) => resolve(root, deletion.file) === path);
+      for (const { file, from, to } of here) {
+        if (from < 1 || to < from || to > lines.length) {
+          throw new Refusal(`${file}:${from}-${to} is not a range of its ${lines.length} lines`);
+        }
       }
+      // Blanked rather than removed, so two ranges in one file keep the numbers they were named by.
+      for (const { from, to } of here) lines.fill("", from - 1, to);
+      writeFileSync(path, lines.join("\n"));
     }
-    // Blanked rather than removed, so two ranges in one file keep the numbers they were named by.
-    for (const { from, to } of here) lines.fill("", from - 1, to);
-    writeFileSync(path, lines.join("\n"));
+  } catch (error) {
+    restore();
+    throw error;
   }
   return restore;
 }
@@ -156,20 +171,21 @@ function main(): number {
     );
   }
 
-  const restore = applyDeletions(root, deletions);
-  const interrupted = () => {
-    restore();
-    process.exit(130);
-  };
-  process.once("SIGINT", interrupted);
-  process.once("SIGTERM", interrupted);
+  // THE LISTENERS' BODIES NEVER RUN, AND THEIR PRESENCE IS THE POINT. `spawnSync`
+  // holds the event loop, so a signal cannot be handled until Vitest has exited
+  // and `finally` below has already restored. What a listener does is stop Node
+  // taking the default action, which is to die there and then with the lines
+  // still deleted: measured on 2026-09-26 by interrupting a run mid-deletion,
+  // restored with them and left deleted without.
+  const holdTheSignal = () => {};
+  process.on("SIGINT", holdTheSignal);
+  process.on("SIGTERM", holdTheSignal);
   let after: ReturnType<typeof runTheTree>;
+  const restore = applyDeletions(root, deletions);
   try {
     after = runTheTree(root, filters);
   } finally {
     restore();
-    process.off("SIGINT", interrupted);
-    process.off("SIGTERM", interrupted);
   }
 
   const reached = new Map(after.outcomes.map((outcome) => [outcome.key, outcome.status]));
@@ -190,7 +206,6 @@ function main(): number {
 try {
   process.exitCode = main();
 } catch (error) {
-  if (!(error instanceof Refusal)) throw error;
-  console.error(`refused: ${error.message}`);
+  console.error(error instanceof Refusal ? `refused: ${error.message}` : error);
   process.exitCode = 2;
 }

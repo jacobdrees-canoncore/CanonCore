@@ -50,14 +50,14 @@ function lineOf(text: string): number {
   return index + 1;
 }
 
-/** Each of the four behaviours, as the `--delete` that names it. */
+/** Each of the four behaviours, as the `--delete` flags that name it. */
 function theFourBehaviours(): string[] {
   return [
-    `shapes.ts:${lineOf("  catalogue.items.push(...titles);")}`,
+    `shapes.ts:${lineOf('  catalogue.sources.push("tardis.wiki");')}-${lineOf("  catalogue.items.push(...titles);")}`,
     `shapes.ts:${lineOf("    position: row.position,")}`,
     `shapes.ts:${lineOf(`  main = session === null ? \`<p>This page is the Owner's. <a href="/login">Log in</a></p>\` : main;`)}`,
     `shapes.ts:${lineOf("  if (taken.has(port)) bound = port + 1;")}`,
-  ];
+  ].flatMap((deletion) => ["--delete", deletion]);
 }
 
 function run(...args: string[]) {
@@ -76,9 +76,7 @@ function stayedGreen(stdout: string): string[] {
 
 describe("the delete-the-behaviour run", () => {
   it("fails on the four hollow shapes and names exactly them", () => {
-    const deletions = theFourBehaviours().flatMap((deletion) => ["--delete", deletion]);
-
-    const result = run(...deletions);
+    const result = run(...theFourBehaviours());
 
     expect(result.status, result.stderr).toBe(1);
     expect(stayedGreen(result.stdout).sort()).toStrictEqual(
@@ -93,9 +91,7 @@ describe("the delete-the-behaviour run", () => {
 
   it("passes a tree whose every assertion reaches its behaviour, and puts the file back", () => {
     const original = readFileSync(join(scratch, "shapes.ts"), "utf8");
-    const deletions = theFourBehaviours().flatMap((deletion) => ["--delete", deletion]);
-
-    const result = run(...deletions, "-t", "reaches");
+    const result = run(...theFourBehaviours(), "-t", "reaches");
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout.trim()).toBe("4 of 4 went red");
@@ -121,18 +117,47 @@ describe("the delete-the-behaviour run", () => {
     expect(readFileSync(join(scratch, "shapes.ts"), "utf8")).toBe(original);
   }, 60_000);
 
+  /**
+   * An `it.each` with a fixed title runs two tests under one name, and keyed by
+   * name alone the second's result overwrote the first's, so one reaching and
+   * one hollow read as one test.
+   */
+  it("tells apart two tests one file names alike", () => {
+    const suite = join(scratch, "shapes.test.ts");
+    writeFileSync(
+      suite,
+      `${readFileSync(suite, "utf8")}
+it.each([4000, 0])("steps aside", (port) => {
+  expect(serve(port, aPortThief(port))).toBe(port === 0 ? 0 : port + 1);
+});
+`,
+    );
+
+    const result = run(...theFourBehaviours(), "-t", "^steps aside");
+
+    expect(result.status, result.stderr).toBe(1);
+    expect(stayedGreen(result.stdout)).toStrictEqual(["shapes.test.ts > steps aside (#2)"]);
+  }, 60_000);
+
+  it("refuses to delete from a file outside the tree it runs", () => {
+    const result = run("--delete", "../outside.ts:1");
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("../outside.ts is not under");
+  });
+
   it("refuses a tree already red before anything is deleted", () => {
     const suite = join(scratch, "shapes.test.ts");
     writeFileSync(
       suite,
-      readFileSync(suite, "utf8").replace('toStrictEqual(["Rose"])', 'toStrictEqual(["Clara"])'),
+      readFileSync(suite, "utf8").replace('toContain("tardis.wiki")', 'toContain("tmdb")'),
     );
 
-    const result = run(...theFourBehaviours().flatMap((deletion) => ["--delete", deletion]));
+    const result = run(...theFourBehaviours());
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain(
-      "shapes.test.ts > a count over something else already fills reaches: the import recorded its Item",
+      "shapes.test.ts > a count over something else already fills reaches: the import recorded its origin",
     );
   }, 60_000);
 });

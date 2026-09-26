@@ -19,8 +19,9 @@ export function migrated(): Catalogue {
   return { sources: ["owner", "derived:sort-name-v1"], items: [] };
 }
 
-/** THE IMPORT, which the first shape's count stood in front of. */
+/** THE IMPORT, whose origin the first shape counted where a migration had already filled it. */
 export function importInto(catalogue: Catalogue, titles: string[]): void {
+  catalogue.sources.push("tardis.wiki");
   catalogue.items.push(...titles);
 }
 

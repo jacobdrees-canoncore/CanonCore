@@ -21,10 +21,10 @@ describe("a count over something else already fills", () => {
     expect(catalogue.sources.length).toBeGreaterThan(0);
   });
 
-  it("reaches: the import recorded its Item", () => {
+  it("reaches: the import recorded its origin", () => {
     const catalogue = migrated();
     importInto(catalogue, ["Rose"]);
-    expect(catalogue.items).toStrictEqual(["Rose"]);
+    expect(catalogue.sources).toContain("tardis.wiki");
   });
 });
 
