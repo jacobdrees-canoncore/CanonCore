@@ -327,8 +327,8 @@ _Avoid_: denormalisation, cache, materialised view
 
 **Sort name**:
 What an Item files under, as distinct from what it is called: *The Item in Two Orderings* is titled
-with its article and files under I, without it. A STATEMENT like any other, so it carries a source and can be
-disagreed with — where nobody has said, CanonCore derives one and says that it did (ADR-0134). The
+with its article and files without it, under I. A STATEMENT like any other, so it carries a source
+and can be disagreed with — where nobody has said, CanonCore derives one and says that it did (ADR-0134). The
 reader's words are "Sorts as", which is the word every surface uses.
 _Avoid_: sort title, sortable title
 

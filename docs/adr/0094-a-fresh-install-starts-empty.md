@@ -11,8 +11,8 @@ which is deliberately other material (`docs/demo.md`).
 **"EMPTY" IS ABOUT WHAT IS SHIPPED RATHER THAN WHO RUNS IT, AND NEVER ABOUT A REPOSITORY OR A DEVELOPER'S BOX.**
 An earlier version of this record said "no content of any kind", which the committed fixture
 contradicts on its face, and a first attempt at this correction then overcorrected into a second
-false claim — that no setup step loads archive-derived content. It does. Three things are being run
-together and they need separating:
+false claim — that no setup step loads archive-derived content. One did, until CNCORE-345 retitled
+the developer's seed below. Three things are being run together and they need separating:
 
 1. **A CLONE.** ADR-0057's named fixture is committed, in the wiki provider's repository rather than
    this one. It exists to be read by tests and nothing loads it into a catalogue.
