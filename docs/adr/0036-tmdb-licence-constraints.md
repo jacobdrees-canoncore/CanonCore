@@ -274,7 +274,7 @@ the sweep to every dead membership among the candidates makes the put answer a f
 since CNCORE-360, but not on the projected columns, which is what still holds this record open (see
 "Under CNCORE-360" below).
 
-## Under CNCORE-360: the ceiling is read, on every read that can see a claim's age
+## Under CNCORE-360: the ceiling is read where an Item page shows a claim
 
 CNCORE-360 is the day this record's own sentence names: "the day something stores a value or an
 image is the day it stops being enough". It stores TMDB's programmes and their seasons as Containers
@@ -330,6 +330,9 @@ either.
   until that Provider's next import writes the value. Nothing kept the ceiling to backfill it from.
 - `findItemsProvided`, the read that tells a search which candidates are already held, maps
   TMDB's ids to Items without the check. It shows no TMDB Content, but it does read a claim.
+- The two anchor reads a listing resumes from, `findInThisItemsOrder` and `findInTheContainersOrder`, do not
+  read `STILL_HELD`, so a cursor naming a Placement that has since expired still resumes after
+  it. They answer a position rather than a value, and the rows the page then shows are checked.
 - Artwork: there is no image store yet (CNCORE-358), and expiring a stored picture is CNCORE-372's
   by that ticket's own criterion. The test literals above are still two acts to purge, not one.
 

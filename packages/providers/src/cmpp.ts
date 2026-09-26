@@ -362,7 +362,12 @@ export const cmppManifest = z.object({
    * which is what keeps a third party's licence terms out of the catalogue's
    * own logic (ADR-0033).
    */
-  max_cache_age: z.number().int().positive().optional(),
+  //
+  // BOUNDED BY THE COLUMN IT IS WRITTEN TO. `sources.max_cache_age` is a
+  // Postgres `integer` (migration 24), so a larger declaration would fail the
+  // import with 22003 halfway through rather than being refused here as the
+  // malformed manifest it is. The bound is sixty-eight years.
+  max_cache_age: z.number().int().positive().max(2_147_483_647).optional(),
   images: z
     .object({
       /**

@@ -56,7 +56,9 @@ export interface AssertedPlacement {
  *
  * AND THE SOURCE ROW IS FOUND OR CREATED TOO, so one provider asserting the
  * same placement twice -- a second browse of a container it already claimed --
- * adds nothing rather than failing on `placement_sources_placement_source`.
+ * writes no second row rather than failing on `placement_sources_placement_source`.
+ * It moves that row's `observed_at` to now and nothing else (CNCORE-360), so a
+ * claim the source withdrew stays withdrawn.
  */
 export async function assertPlacement(
   writer: Writer,
@@ -86,9 +88,10 @@ export async function assertPlacement(
   await writer
     .insert(placementSources)
     .values({ ownerId, placementId, sourceId })
-    // SAID AGAIN, SO TAKEN AGAIN. `observed_at` is the moment the source made
-    // this claim, and a read refuses one older than the source's declared
-    // ceiling (ADR-0036, CNCORE-360): a re-browse is the source saying it now.
+    // SAID AGAIN, SO TAKEN AGAIN. `observed_at` is the moment the source last
+    // made this claim, and a read refuses one older than the source's declared
+    // ceiling (ADR-0036, CNCORE-360). Only the moment moves: `deleted_at` is
+    // left as it stood, so this revives nothing.
     .onConflictDoUpdate({
       target: [placementSources.ownerId, placementSources.placementId, placementSources.sourceId],
       set: { observedAt: sql`now()` },

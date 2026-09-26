@@ -475,7 +475,9 @@ async function writeProvidedItem(
  *
  * Unlike `assertClaims`, where every answer carries the same properties in
  * full. It reaches only THIS source's rows, since a source may only withdraw
- * what it said itself, and what is unchanged is not rewritten.
+ * what it said itself. What is unchanged keeps its row and has only its
+ * `observed_at` moved to now, which is what a read holds against the source's
+ * declared ceiling (CNCORE-360).
  */
 async function assertIdentifiers(
   tx: Transaction,

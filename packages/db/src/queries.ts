@@ -129,11 +129,15 @@ const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.
  * since: a value nobody has touched in six months is refused by the first read
  * after its sixth month rather than by a sweep that might not have happened.
  *
- * EVERY CALLER HAS `sources` JOINED to the claim it asks about, which is what
- * the unqualified column reaches.
+ * THE SOURCE'S CEILING DEFAULTS TO `sources.max_cache_age`, so a caller with
+ * `sources` joined to the claim it asks about passes the claim's moment alone.
+ * `STILL_HELD` reaches both through aliases of its own and passes both.
  */
-function insideItsCeiling(observedAt: SQLWrapper): SQL {
-  return sql`(${sources.maxCacheAge} is null or ${observedAt} > now() - make_interval(secs => ${sources.maxCacheAge}))`;
+function insideItsCeiling(
+  observedAt: SQLWrapper,
+  maxCacheAge: SQLWrapper = sources.maxCacheAge,
+): SQL {
+  return sql`(${maxCacheAge} is null or ${observedAt} > now() - make_interval(secs => ${maxCacheAge}))`;
 }
 
 /**
@@ -142,6 +146,10 @@ function insideItsCeiling(observedAt: SQLWrapper): SQL {
  * at least one standing claim still inside its source's ceiling. A placement
  * whose every claim has expired is refused on read, because its position is
  * then nobody's that the catalogue may still hold (ADR-0036, CNCORE-360).
+ *
+ * `placements` MUST BE UNALIASED WHERE THIS IS READ, as it is in both
+ * `whatItHolds` and `whatItSitsIn`'s every caller: `${placements.id}` renders as
+ * `"placements"."id"` and binds to the nearest relation of that name.
  */
 const STILL_HELD = sql`(
   not exists (select 1 from "placement_sources" claim
@@ -149,8 +157,7 @@ const STILL_HELD = sql`(
   or exists (select 1 from "placement_sources" claim
     join "sources" claimant on claimant."id" = claim."source_id"
     where claim."placement_id" = ${placements.id} and claim."deleted_at" is null
-      and (claimant."max_cache_age" is null
-        or claim."observed_at" > now() - make_interval(secs => claimant."max_cache_age")))
+      and ${insideItsCeiling(sql`claim."observed_at"`, sql`claimant."max_cache_age"`)})
 )`;
 
 /**

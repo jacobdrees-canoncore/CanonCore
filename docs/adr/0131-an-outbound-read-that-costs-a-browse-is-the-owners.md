@@ -96,7 +96,8 @@ what they did wrong.
   10s to 60s because the largest timeline on tardis.wiki needs 25.7s and could not be imported at
   all. That sixty is sized against ONE source, the wiki, on 2026-09-13, and is no measurement of any
   other. `provider-tmdb`'s slowest browse was 0.40s on 2026-09-26
-  ([[0130-a-providers-cap-is-per-kind-of-question]], corrected under CNCORE-360). The cap is right for the import; what was wrong is that a read anyone could call did the same
+  ([[0130-a-providers-cap-is-per-kind-of-question]], corrected under CNCORE-360). The cap is right
+  for the import; what was wrong is that a read anyone could call did the same
   work as the write behind it.
 - **Concurrency roughly doubles it.** Measured against the live wiki 2026-09-13: one AHistory browse
   (`browse/249643`) is 25.5–26.4s across five runs; TWO at once take **49.1s each**. `provider-wiki`
