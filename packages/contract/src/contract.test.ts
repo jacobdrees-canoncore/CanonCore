@@ -59,6 +59,13 @@ const underTest: Participant[] = await participants();
  */
 const unlockAnswers: { name: string; outcome: "held" | "refused" }[] = [];
 
+/**
+ * WHAT EACH PARTICIPANT'S RECORDS CARRIED BEYOND THE REQUIRED HALF: written by
+ * `its keys`, read by `the open wire` at the end of the file. A record of what
+ * RAN, for the reason `unlockAnswers` gives of its own.
+ */
+const keysSent: { name: string; externalIds: boolean; sourceDefined: string[] }[] = [];
+
 afterAll(async () => {
   await Promise.all(underTest.map((participant) => participant.close()));
 });
@@ -210,6 +217,19 @@ function expectSaysItCannotAnswer(response: Awaited<ReturnType<typeof get>>, pat
  * `images.stored_variant` -- and those are exactly the ones added second by
  * whichever provider needed them first.
  */
+/**
+ * A key as a respelling would reduce to: no case, no separator, no plural.
+ * `externalIds`, `EXTERNAL_IDS`, `externalid` and `external-id` all come to
+ * `externalid`, which is what makes a respelled contract field distinguishable
+ * from a property the source genuinely defines under a name of its own.
+ */
+function spelledAs(key: string): string {
+  return key.toLowerCase().replace(/[_-]/g, "").replace(/s$/, "");
+}
+
+/** Snake_case as CMPP spells it: lower case, digits, single underscores between words. */
+const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
+
 function camelCaseKeysIn(body: unknown, found: string[] = []): string[] {
   if (Array.isArray(body)) {
     for (const entry of body) camelCaseKeysIn(entry, found);
@@ -482,6 +502,70 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
               "field reads as absent -- or a new one that has to pick the contract's casing.",
           );
         }
+      });
+    });
+
+    /**
+     * WHAT A RECORD CARRIES BEYOND THE REQUIRED HALF, NAMED AND SHAPED
+     * (CNCORE-349).
+     *
+     * `record` is a `looseObject`, so a key the contract does not name parses
+     * whatever it is -- which makes a property the SOURCE defines and a typo of
+     * a contract field indistinguishable to a shape check. Both "arrive". So
+     * every key is put to one of two tests and never neither: a key the contract
+     * NAMES is held to that field's own shape, one at a time, and a key it does
+     * not is held to the contract's casing and to not being a respelling of a
+     * field it does name. `externalIds` fails the second; `production_code`
+     * passes it and is the source's own.
+     *
+     * A PROVIDER SENDING NEITHER IS UNAFFECTED, since there is then nothing to
+     * test -- and `the open wire` below is what stops that being the whole suite.
+     */
+    describe("its keys", () => {
+      it("sends each key the contract names in its shape, and each it does not as a name of its source's own", async () => {
+        const declared = await declaredCredential(participant);
+        if (cannotReachItsSource(declared)) return;
+
+        const lookup = await get(participant, `/lookup/${encodeURIComponent(participant.aRecord)}`);
+        const search = await get(participant, `/search?q=${encodeURIComponent(participant.aQuery)}`);
+        const records = [lookup.body, ...searchResponse.parse(search.body).results] as Record<
+          string,
+          unknown
+        >[];
+
+        const named = new Map(Object.entries(record.shape));
+        const respellable = new Map([...named.keys()].map((key) => [spelledAs(key), key]));
+        const sourceDefined = new Set<string>();
+
+        for (const sent of records) {
+          for (const [key, value] of Object.entries(sent)) {
+            const field = named.get(key);
+            if (field !== undefined) {
+              expect(
+                field.safeParse(value).success,
+                `\`${key}\` is a contract field and does not have the shape the contract declares for it.`,
+              ).toBe(true);
+              continue;
+            }
+            expect(
+              key,
+              `\`${key}\` is not snake_case. A property a source defines is spelled the way every ` +
+                "contract field is (ADR-0033), so a later contract naming it needs no respelling.",
+            ).toMatch(SNAKE_CASE);
+            expect(
+              respellable.get(spelledAs(key)),
+              `\`${key}\` respells the contract's own field, so it parses as a property of the ` +
+                "source's while the field it meant reads as absent.",
+            ).toBeUndefined();
+            sourceDefined.add(key);
+          }
+        }
+
+        keysSent.push({
+          name: participant.name,
+          externalIds: records.some((sent) => "external_ids" in sent),
+          sourceDefined: [...sourceDefined],
+        });
       });
     });
 
@@ -1081,6 +1165,37 @@ describe("ADR-0122's optionality", () => {
       "Nothing under test refused the credential it was given, so the rule that a refusal changes " +
         "nothing is a branch no participant entered. Restore the witness that Spends rather than " +
         "deleting this test.",
+    ).not.toHaveLength(0);
+  });
+});
+
+/**
+ * THE OPEN WIRE IS EXERCISED IN ALL THREE WAYS A RECORD CAN USE IT (CNCORE-349).
+ *
+ * `its keys` holds a record's extra keys to a name and a shape, and returns
+ * having checked nothing for a provider sending none -- which is the wiki's
+ * every record, and is conformant. With nothing sending `external_ids`, or
+ * nothing sending a property of its source's own, those assertions are a loop
+ * over nothing and the suite is green because nobody was asked. The witness
+ * ahead of the contract is what sends both whether or not a real provider does.
+ */
+describe("the open wire", () => {
+  it("is exercised: something sends ids in other id spaces, something a property its source defines, and something neither", () => {
+    expect(
+      keysSent.filter((sent) => sent.externalIds).map((sent) => sent.name),
+      "Nothing under test sent `external_ids`, so its shape was never checked on the wire.",
+    ).not.toHaveLength(0);
+    expect(
+      keysSent.filter((sent) => sent.sourceDefined.length > 0).map((sent) => sent.name),
+      "Nothing under test sent a property its source defines, so nothing checked that one is " +
+        "named in the contract's casing and is not a contract field respelled.",
+    ).not.toHaveLength(0);
+    expect(
+      keysSent
+        .filter((sent) => !sent.externalIds && sent.sourceDefined.length === 0)
+        .map((sent) => sent.name),
+      "Every provider under test sends something beyond the required half, so nothing shows a " +
+        "provider sending none is still conformant.",
     ).not.toHaveLength(0);
   });
 });

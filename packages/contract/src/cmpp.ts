@@ -27,6 +27,14 @@ import { z } from "zod";
  * `browse` optional and lets a provider declare more than it is asked for, so a
  * provider ahead of the contract is well-formed; what is refused is a provider
  * that spells a KNOWN field wrongly.
+ *
+ * ON A RECORD, AN UNKNOWN KEY IS A PROPERTY THE SOURCE DEFINES (CNCORE-349), and
+ * it answers to the same casing rule as every field here: snake_case. That is a
+ * CONTRACT rule and not a courtesy, because a source-defined name the contract
+ * later adopts must not need respelling to become the contract's own -- and
+ * because a key that merely respells a field this file names (`externalIds`)
+ * is not the source's property at all but that field gone missing. The
+ * contract test holds every record key to one or the other.
  */
 
 /** A source's own vocabulary for a role, size or kind: never a closed set here. */
