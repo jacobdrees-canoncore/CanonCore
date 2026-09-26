@@ -29,6 +29,7 @@ export {
   takeItemOutOfGroupByHand,
 } from "./groups";
 export {
+  type FetchedArtwork,
   type ImportedContainer,
   type ImportedRecord,
   type ImportingProvider,
@@ -66,6 +67,7 @@ export {
 } from "./placements";
 export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purge";
 export {
+  type ArtworkOfItem,
   type AttributionOwed,
   type BrowsedListing,
   type Catalogue,
@@ -73,6 +75,7 @@ export {
   CHOSEN_ORDERS,
   type ChosenOrder,
   type FoundItem,
+  findArtworkOfItem,
   findAttributionOwed,
   findIdentifiersOfItem,
   findItem,
@@ -88,6 +91,7 @@ export {
   type PlacementInContainer,
   type PlacementOfItem,
   type PlacementsInContainer,
+  readArtwork,
   readCatalogue,
   readWorks,
   type StatementOfItem,

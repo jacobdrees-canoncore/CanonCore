@@ -34,6 +34,47 @@ const MAX_ID_CHARS = 255;
 /** The most schemes one record may carry ids in. See `external_ids`. */
 const MAX_SCHEMES = 16;
 
+/** The longest role or licence label kept, in characters. Each is a word, not prose. */
+const MAX_LABEL_CHARS = 255;
+
+/** The most licence labels one image may carry. See `cmppImage.licences`. */
+const MAX_LICENCES = 16;
+
+/**
+ * One image reference on a record: where its bytes are, and what the source
+ * says about them (ADR-0033). Read since CNCORE-358, when the first picture was
+ * stored; the loose record carried it through unshaped until then.
+ *
+ * ONLY `role` AND `url` ARE REQUIRED, which is the contract's intersection. The
+ * wiki sends `description_url` and `licences`, TMDB sends neither, and a
+ * consumer requiring them would refuse one provider's every picture.
+ */
+export const cmppImage = z.object({
+  /** What the image is FOR, in the source's own word (ADR-0033). */
+  role: z.string().min(1).max(MAX_LABEL_CHARS),
+  /** Where the BYTES are. HTTP for the reason `cmppRecord.url` gives. */
+  url: z.url({ protocol: /^https?$/ }),
+  /**
+   * The page describing the file, where a wiki keeps the photo credit. RENDERED
+   * AS A LINK beside the picture, so it is the same sink `cmppRecord.url` is and
+   * takes the same rule.
+   */
+  description_url: z
+    .url({ protocol: /^https?$/ })
+    .nullable()
+    .default(null),
+  /**
+   * The source's own licence labels for this file. EMPTY MEANS THE SOURCE STATES
+   * NONE, which is a claim of its own and never a permissive one; a source that
+   * sends no key at all states none just the same. Bounded, because each is a
+   * line under the picture: 16 is four times the most the wiki carries on one
+   * file (two), and a label is a template name rather than a paragraph.
+   */
+  licences: z.array(z.string().min(1).max(MAX_LABEL_CHARS)).max(MAX_LICENCES).default([]),
+});
+
+export type CmppImage = z.infer<typeof cmppImage>;
+
 /**
  * A candidate match, or one record by id. Metadata and URLs, never media bytes.
  *
@@ -155,6 +196,12 @@ export const cmppRecord = z.looseObject({
    * record that omits this is not evidence a Container stopped being one.
    */
   is_container: z.boolean().default(false),
+  /**
+   * Every image the source files against this record, as references (ADR-0031).
+   * Which of them are FETCHED is `picturesToFetch`'s, under the manifest's
+   * `per_role_limit`; this is only what was offered.
+   */
+  images: z.array(cmppImage).default([]),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;

@@ -1327,3 +1327,35 @@ describe("searching every provider at once", () => {
     expect(found.failed[0]?.reason).toBeInstanceOf(OutboundRefused);
   });
 });
+
+/**
+ * A PICTURE'S BYTES, fetched from a URL a provider WROTE (CNCORE-358).
+ *
+ * An image reference's `url` arrives inside a provider's response, so it is a
+ * CONTENT URL from its first hop (ADR-0034): the Owner typed the provider's base
+ * URL and never this one. The allowlist that makes the provider reachable buys
+ * the picture nothing, which is why these stubs sit on an allowlisted loopback
+ * and are refused anyway.
+ *
+ * THE FETCH THAT SUCCEEDS HAS NO TEST IN THIS FILE, and cannot have one. Every
+ * stub here is on loopback, which the content boundary refuses with no
+ * exception ever, so the only picture this suite could fetch is one it is
+ * forbidden to. That half was walked by hand against TMDB's real image host,
+ * and the PR that brought this in says what the walk showed. The wiki's host
+ * refuses it outright with a challenge only its Provider passes (CNCORE-427).
+ */
+describe("a picture", () => {
+  it("is refused on loopback even though loopback is allowlisted", async () => {
+    let reached = false;
+    const picture = await stubProvider((_, response) => {
+      reached = true;
+      response.writeHead(200, { "content-type": "image/png" });
+      response.end(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    });
+    const client = createProviderClient({ baseUrl: picture, allowlist: onLoopback() });
+
+    await expect(client.picture(`${picture}/poster.png`)).rejects.toThrow(OutboundRefused);
+    await expect(client.picture(`${picture}/poster.png`)).rejects.toThrow("loopback");
+    expect(reached).toBe(false);
+  });
+});

@@ -1,4 +1,4 @@
-import { aliases, type Database, items } from "@canoncore/db";
+import { aliases, type Database, importProvidedRecord, items } from "@canoncore/db";
 import {
   aContainerLargerThanOnePage,
   anItem,
@@ -75,6 +75,9 @@ describe("item.get", () => {
     );
 
     expect(Object.keys(item).sort()).toStrictEqual([
+      // THE PICTURES IT CARRIES, each with what its source said about it
+      // (CNCORE-358). Red here when it was added, the enumeration working.
+      "artwork",
       // What this page owes for showing the rest (ADR-0036). Named here like
       // every other field, which is the point of this test: it went red when
       // `attribution` was added, which is the enumeration working.
@@ -453,6 +456,50 @@ describe("item.get, on what each source claimed", () => {
     // The survivor's sort name comes with its title, and leads it: `sort_name`
     // sorts before `title` (CNCORE-173).
     expect(item.statements.map((claim) => claim.value)).toEqual(["survivor", "The survivor"]);
+  });
+});
+
+describe("item.get, on the pictures an item carries (CNCORE-358)", () => {
+  it("answers each with its role, its licences, its credit and where its stored bytes are served", async () => {
+    const { itemId } = await importProvidedRecord(db, {
+      provider: {
+        identity: "http://127.0.0.1:9701",
+        label: "provider-wiki",
+        attribution: null,
+        maxCacheAge: null,
+      },
+      record: {
+        externalId: "265",
+        title: "The Tenth Planet",
+        released: [],
+        identifiers: {},
+        itemKind: "work",
+      },
+      artwork: [
+        {
+          role: "page image",
+          url: "https://tardis.wiki/wiki/Special:FilePath/Tenth_planet.jpg?width=420",
+          licences: ["Screenshot"],
+          attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
+          mediaType: "image/png",
+          bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+        },
+      ],
+    });
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+
+    const [picture, ...more] = item.artwork;
+    expect(more).toEqual([]);
+    expect(picture).toStrictEqual({
+      // SERVED FROM THIS INSTANCE, never the source's URL (ADR-0037). The
+      // source's URL is not in the payload at all.
+      src: expect.stringMatching(/^\/artwork\/[0-9a-f-]{36}$/),
+      role: "page image",
+      licences: ["Screenshot"],
+      attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
+      sourceLabel: "provider-wiki",
+    });
   });
 });
 

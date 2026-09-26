@@ -30,6 +30,7 @@ const attributed = inject("attributed");
 const attributedSeries = inject("attributedSeries");
 const twoInstances = inject("twoInstances");
 const timeSpan = inject("timeSpan");
+const pictured = inject("pictured");
 /**
  * THE SAME FIXTURE `container-page.test.ts` READS THE OTHER END OF. Its
  * disagreement and its corroboration are seeded once and rendered twice -- the
@@ -1075,5 +1076,58 @@ describe("/items/<an item in more orderings than one page>", () => {
     const waysBack =
       sectionIn(beyond.text, "also-appears-in").match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
     expect(waysBack).toHaveLength(1);
+  });
+});
+
+/**
+ * ONE PICTURE, FROM STORED BYTES (CNCORE-358, ADR-0037).
+ *
+ * The page points at THIS INSTANCE for the bytes and never at the source, so a
+ * provider rotating a path -- or the wiki reusing a filename (ADR-0057) --
+ * changes nothing a reader sees, and no reader's browser is sent to a third party.
+ */
+describe("an item carrying a picture", () => {
+  it("renders it from this instance's stored bytes, never from the source's URL", async () => {
+    const { status, text } = await documentAt(`/items/${pictured.id}`);
+
+    expect(status).toBe(200);
+    const artwork = sectionIn(text, "artwork");
+    expect(artwork).toMatch(/<img[^>]+src="\/artwork\/[0-9a-f-]{36}"/);
+    expect(text).not.toContain("Special:FilePath");
+  });
+
+  it("shows the licences the source stated and links the credit that belongs to that file", async () => {
+    const artwork = sectionIn((await documentAt(`/items/${pictured.id}`)).text, "artwork");
+
+    expect(artwork).toContain("Screenshot");
+    expect(artwork).toContain('href="https://tardis.wiki/wiki/File:Tenth_planet.jpg"');
+  });
+
+  /**
+   * THE BYTES STAY INSIDE THIS INSTANCE (ADR-0089). The wiki's pictures reach one
+   * person, so another site must not be able to point an `<img>` at them:
+   * `Cross-Origin-Resource-Policy: same-origin` is what a browser refuses a
+   * cross-origin embed on. `nosniff` holds the browser to the type stored, and
+   * `private` keeps a shared cache from holding a copy.
+   */
+  it("serves exactly the stored bytes, to this instance's own pages only", async () => {
+    const src = sectionIn((await documentAt(`/items/${pictured.id}`)).text, "artwork").match(
+      /src="(\/artwork\/[0-9a-f-]{36})"/,
+    )?.[1];
+    const response = await fetch(new URL(src ?? "/artwork/none", inject("baseUrl")));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("cross-origin-resource-policy")).toBe("same-origin");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("cache-control")).toContain("private");
+    expect(Buffer.from(await response.arrayBuffer()).toString("base64")).toBe(pictured.bytes);
+  });
+
+  it("answers an id addressing no picture as nothing, malformed or not", async () => {
+    for (const id of ["00000000-0000-4000-8000-000000000000", "not-an-id"]) {
+      const response = await fetch(new URL(`/artwork/${id}`, inject("baseUrl")));
+      expect(response.status).toBe(404);
+    }
   });
 });

@@ -134,9 +134,10 @@ CNCORE-47: `released`'s own `validation` column declares `{"format": "edtf", "le
 7) and `assertClaims` reads it. The reason given for not dispatching on `datatype` still holds
 exactly as written -- `url` is a seeded datatype with no check, so a dispatch over datatypes would
 read as though every one of them were guarded -- and it does not reach a dispatch over declarations,
-because a property declaring `{}` says "nothing is checked" in the catalogue's own words. `image` is
+because a property declaring `{}` says "nothing is checked" in the catalogue's own words. `title` is
 therefore visibly unguarded rather than implied to be guarded, which is the property the call site
-was protecting.
+was protecting. This named `image`, the one `url` property, until migration 25 deleted it
+(CNCORE-358); no Property carries `url` since, and the argument stands on any `{}`.
 
 THAT LEFT "NOT IN `validation`" UNANSWERED, AND CNCORE-47 ANSWERED IT: THE COLUMN IS FILLED. ADR-0012
 names validation among what the properties catalogue declares and makes "the metadata catalogue lives

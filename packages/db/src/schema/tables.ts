@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -715,6 +716,77 @@ export const identifiers = pgTable(
     uniqueIndex("identifiers_one_value_per_scheme")
       .on(t.itemId, t.sourceId, t.scheme)
       .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+/**
+ * Postgres `bytea`, which drizzle 0.45 has no builder for. Read and written as
+ * the bytes themselves; node-postgres hands a `bytea` back as a `Buffer`.
+ */
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (bytes) => Buffer.from(bytes),
+  fromDriver: (buffer) => new Uint8Array(buffer),
+});
+
+/**
+ * A PICTURE A PROVIDER SUPPLIED, AS BYTES (ADR-0037, ADR-0038, CNCORE-358).
+ *
+ * A TABLE AND NOT A STATEMENT, because it carries attributes of its own -- its
+ * role, its licences and the credit that belongs to the file -- and a Statement
+ * carrying those is a table wearing a Statement's name. The seeded `image`
+ * Property was that Statement, holding a URL, and the rung that made this table
+ * deleted it.
+ *
+ * THE BYTES ARE WHAT IS SHOWN; `url` IS ONLY WHERE THEY CAME FROM. Nothing ever
+ * points a reader's browser at it, so a provider rotating a path or the wiki
+ * reusing a filename changes nothing already stored (ADR-0057).
+ *
+ * IN THE DATABASE, SO IT STAYS INSIDE THE INSTANCE THAT FETCHED IT. The wiki's
+ * pictures are permitted to ONE person (ADR-0057), which pins everything built
+ * from them to that person's instance (ADR-0089): a row here reaches nobody the
+ * catalogue does not.
+ *
+ * `licences` IS NOT NULL, AND EMPTY IS THE SOURCE STATING NONE. A null would
+ * read as "not recorded", which a reader fills with whatever they hoped it said.
+ *
+ * `attribution` IS THE FILE'S OWN CREDIT, never the source's credit line --
+ * that one is on `sources`, from the manifest (ADR-0036). The wiki keeps a
+ * photo credit on each file's description page and sends that page's URL, so
+ * the URL is what is kept; null where the source has no such page.
+ *
+ * NOT YET HERE, AND OWED BY CNCORE-372: the palette, the pin and a quality floor.
+ */
+export const artwork = pgTable(
+  "artwork",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    role: text("role").notNull(),
+    url: text("url").notNull(),
+    licences: text("licences").array().notNull(),
+    attribution: text("attribution"),
+    mediaType: text("media_type").notNull(),
+    bytes: bytea("bytes").notNull(),
+    /**
+     * When the bytes were fetched: the moment the source last said this, which
+     * a Statement and an Identifier carry too (ADR-0012). READ AGAINST THE
+     * SOURCE'S `max_cache_age` BY CNCORE-360'S RULE, so a picture past its
+     * source's ceiling is neither laid out nor served (ADR-0037) and no job has
+     * to run for that to hold. The next import deletes the bytes (`storeArtwork`).
+     */
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+    ...stampColumns(),
+  },
+  (t) => [
+    // WHAT ONE ITEM SHOWS, which is the read the Item page makes.
+    index("artwork_item").on(t.itemId),
   ],
 );
 

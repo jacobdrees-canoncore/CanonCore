@@ -28,6 +28,7 @@ import {
 } from "./order";
 import {
   aliases,
+  artwork,
   groupItems,
   groups,
   identifiers,
@@ -133,7 +134,7 @@ const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.
  * `sources` joined to the claim it asks about passes the claim's moment alone.
  * `STILL_HELD` reaches both through aliases of its own and passes both.
  */
-function insideItsCeiling(
+export function insideItsCeiling(
   observedAt: SQLWrapper,
   maxCacheAge: SQLWrapper = sources.maxCacheAge,
 ): SQL {
@@ -779,6 +780,68 @@ export async function findIdentifiersOfItem(
       ),
     )
     .orderBy(identifiers.scheme, sources.sourceOrder, identifiers.value, identifiers.id);
+}
+
+/** One picture on an item, without its bytes: what the Item page lays out. */
+export interface ArtworkOfItem {
+  id: string;
+  role: string;
+  licences: string[];
+  attribution: string | null;
+  sourceLabel: string;
+}
+
+/**
+ * The pictures one item carries, each with what its source said about it
+ * (CNCORE-358). THE BYTES ARE NOT HERE: a page is laid out from this and the
+ * bytes are asked for one picture at a time, by `readArtwork`.
+ */
+export async function findArtworkOfItem(db: Database, itemId: string): Promise<ArtworkOfItem[]> {
+  return (
+    db
+      .select({
+        id: artwork.id,
+        role: artwork.role,
+        licences: artwork.licences,
+        attribution: artwork.attribution,
+        sourceLabel: sources.label,
+      })
+      .from(artwork)
+      .innerJoin(sources, eq(sources.id, artwork.sourceId))
+      // CNCORE-360's rule, with `sources` joined: a picture past its source's
+      // ceiling is not laid out (ADR-0037).
+      .where(
+        and(
+          eq(artwork.itemId, itemId),
+          isNull(artwork.deletedAt),
+          insideItsCeiling(artwork.observedAt),
+        ),
+      )
+      .orderBy(sources.sourceOrder, artwork.role, artwork.createdAt, artwork.id)
+  );
+}
+
+/**
+ * One picture's stored bytes, or nothing where no picture has that id.
+ *
+ * AN ID THAT IS NOT A UUID ADDRESSES NOTHING, as one nobody minted does
+ * (ADR-0066): it answers `null` rather than a Postgres cast error.
+ */
+export async function readArtwork(
+  db: Database,
+  id: string,
+): Promise<{ mediaType: string; bytes: Uint8Array } | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const [found] = await db
+    .select({ mediaType: artwork.mediaType, bytes: artwork.bytes })
+    .from(artwork)
+    .innerJoin(sources, eq(sources.id, artwork.sourceId))
+    // The same predicate `findArtworkOfItem` lays out by, so the page never
+    // shows a picture this refuses to serve.
+    .where(
+      and(eq(artwork.id, id), isNull(artwork.deletedAt), insideItsCeiling(artwork.observedAt)),
+    );
+  return found ?? null;
 }
 
 /**

@@ -176,6 +176,13 @@
       "when": 1790446783770,
       "tag": "20260926181943_migration_24_a_value_is_kept_no_longer_than_its_source_allows",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790448950541,
+      "tag": "20260926185550_migration_25_artwork_is_a_table",
+      "breakpoints": true
     }
   ]
 }

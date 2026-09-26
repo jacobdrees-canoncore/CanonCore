@@ -2,6 +2,7 @@ import type { AppRouterClient } from "@canoncore/api/routers";
 import {
   assertPlacement,
   createDb,
+  importProvidedRecord,
   placeItemByHand,
   placements,
   writeProviderSettings,
@@ -106,6 +107,9 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
   const timeSpan = await anItemOfAKindWhoseLabelDiffers(databaseUrl);
   owned.defer(timeSpan.close);
   project.provide("timeSpan", timeSpan.fixture);
+  const pictured = await anItemPictured(databaseUrl);
+  owned.defer(pictured.close);
+  project.provide("pictured", pictured.fixture);
   const workBrowsing = await theThingsWorkBrowsingHasToTellApart(databaseUrl);
   owned.defer(workBrowsing.close);
   project.provide("workBrowsing", workBrowsing.fixture);
@@ -2226,6 +2230,59 @@ async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
 }
 
 /**
+ * AN ITEM CARRYING ONE STORED PICTURE (CNCORE-358), written to the catalogue as
+ * an import would write it, the bytes already in hand.
+ *
+ * NOT IMPORTED THROUGH A PROVIDER, AND THAT IS ADR-0034 RATHER THAN A SHORTCUT.
+ * A picture's URL is a content URL, and every stub in this harness is on
+ * loopback, which the content boundary refuses with no exception ever -- so no
+ * provider here can hand the app a picture it is allowed to fetch. What this
+ * suite asks is the half after the fetch: that the page shows stored bytes, from
+ * this instance, and never the source's own URL.
+ *
+ * AND NO WIKI PICTURE ARRIVES THIS WAY TODAY: tardis.wiki refuses the app with
+ * a challenge only its Provider passes (CNCORE-427). The fixture is written in
+ * the wiki's shape because that is the one carrying licences and a file credit
+ * to show; it proves the page and the route, never that a wiki fetch works.
+ *
+ * THE BYTES ARE A GENERATED ONE-PIXEL PNG and not a wiki picture. The wiki's
+ * pictures are permitted to one person (ADR-0057), so none is committed here.
+ */
+const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+async function anItemPictured(databaseUrl: string) {
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  const title = "The Tenth Planet, pictured";
+  const sourceUrl = "https://tardis.wiki/wiki/Special:FilePath/Tenth_planet.jpg?width=420";
+  const { itemId } = await importProvidedRecord(db, {
+    provider: {
+      identity: "http://127.0.0.1:1/pictured",
+      label: "provider-wiki",
+      attribution: null,
+      maxCacheAge: null,
+    },
+    record: { externalId: "pictured-265", title, released: [], identifiers: {}, itemKind: "work" },
+    artwork: [
+      {
+        role: "page image",
+        url: sourceUrl,
+        licences: ["Screenshot"],
+        attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
+        mediaType: "image/png",
+        bytes: new Uint8Array(ONE_PIXEL_PNG),
+      },
+    ],
+  });
+  return {
+    fixture: { id: itemId, title, sourceUrl, bytes: ONE_PIXEL_PNG.toString("base64") },
+    close: () => db.$client.end(),
+  };
+}
+
+/**
  * THE FOUR ITEMS ADR-0077 IS ABOUT, which no other fixture here holds.
  *
  * The record's rule is `kind = 'work' AND (NOT is_container OR holds_work)`, and
@@ -2773,6 +2830,8 @@ declare module "vitest" {
     twoOrigins: { id: string; byHand: string; imported: string };
     /** An item whose kind a reader and the column call by different names. */
     timeSpan: { id: string; title: string; kind: string };
+    /** An item carrying one stored picture, and the source URL it must never show (CNCORE-358). */
+    pictured: { id: string; title: string; sourceUrl: string; bytes: string };
     /** The items work-browsing has to tell apart, and the containers that prove it (ADR-0077). */
     workBrowsing: {
       person: string;

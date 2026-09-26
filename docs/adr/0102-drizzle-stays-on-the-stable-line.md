@@ -18,7 +18,7 @@ a release candidate under every other ticket in version one. Take the cheap opti
 cheap.
 
 **NEITHER HALF OF THAT PREMISE HOLDS NOW, AND THE DECISION IS UNCHANGED BY IT** (CNCORE-252). That
-file is three `export *` lines and the ladder has TWENTY-FIVE rungs, so the cheap option was taken
+file is three `export *` lines and the ladder has TWENTY-SIX rungs, so the cheap option was taken
 while it was cheap and moving is no longer close to free. What reopens this is the revisit trigger
 named below -- `drizzle-orm` 1.0 shipping stable -- and not this paragraph going out of date, which
 is the difference between an argument's premise expiring and a decision being superseded.
