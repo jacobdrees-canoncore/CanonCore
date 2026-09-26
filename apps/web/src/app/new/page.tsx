@@ -260,7 +260,7 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
           {/*
             ADR-0018 puts ordering on the PLACEMENT, so the difference between
             these two is whether the positions in this container MEAN anything
-            -- "Series 1, in order" against "every Dalek story". A container
+            -- "Series 1, in order" against "everything one character appears in". A container
             without a meaningful order is a real and different thing rather than
             one nobody has sequenced yet.
           */}

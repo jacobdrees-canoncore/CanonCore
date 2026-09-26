@@ -47,7 +47,7 @@ const ORDERINGS = [
 
 export async function seedOneItemInTwoOrderings(
   connectionString: string,
-  title = "The Daleks' Master Plan",
+  title = "The Item in Two Orderings",
 ): Promise<SeededItem> {
   const client = new Client({ connectionString });
   await client.connect();

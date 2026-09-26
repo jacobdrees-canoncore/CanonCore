@@ -57,7 +57,7 @@ describe("setUpWorktreeDatabase", () => {
     expect(result.envWritten).toBe(true);
     // A title on the seeded item proves the LADDER ran, not just the insert:
     // the column is projected by a trigger that only migration 1 installs.
-    expect(result.seeded?.projectedTitle).toBe("The Daleks' Master Plan");
+    expect(result.seeded?.projectedTitle).toBe("The Item in Two Orderings");
     expect(await readFile(envFile, "utf8")).toContain(`/${database}`);
   });
 

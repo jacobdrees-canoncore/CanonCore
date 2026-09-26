@@ -156,7 +156,7 @@ describe("restoring a dump into a database of its own", () => {
     const copy = await catalogueAt(target);
     expect(copy.owners).toEqual(wanted.owners);
     expect(copy.items).toEqual(wanted.items);
-    expect(copy.items.map((item) => item.title)).toContain("The Daleks' Master Plan");
+    expect(copy.items.map((item) => item.title)).toContain("The Item in Two Orderings");
     expect(copy.placements).toEqual(wanted.placements);
     expect(copy.placements.map((placement) => placement.position)).toEqual(
       expect.arrayContaining([1, 63]),
@@ -179,7 +179,7 @@ describe("restoring a dump into a database of its own", () => {
     expect(restored.ladder).toEqual({ dumped: ladder.at(-2)?.tag, head: ladder.at(-1)?.tag });
     expect(await rungsAppliedTo(target)).toBe(ladder.length);
     expect((await catalogueAt(target)).items.map((item) => item.title)).toContain(
-      "The Daleks' Master Plan",
+      "The Item in Two Orderings",
     );
   });
 

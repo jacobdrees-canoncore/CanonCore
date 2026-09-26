@@ -16,10 +16,11 @@ together and they need separating:
 
 1. **A CLONE.** ADR-0057's named fixture is committed, in the wiki provider's repository rather than
    this one. It exists to be read by tests and nothing loads it into a catalogue.
-2. **A DEVELOPER'S DATABASE.** `pnpm db:setup` seeds one item titled *The Daleks' Master Plan* — an
-   archive row's name, hand-written in `packages/db/src/seed.ts` rather than extracted — because
-   CNCORE-4 and CNCORE-5 need something on the page to look at. That is archive-derived content in a
-   database, and pretending otherwise is how this record acquires a false claim for the second time.
+2. **A DEVELOPER'S DATABASE.** `pnpm db:setup` seeds one item titled *The Item in Two Orderings*,
+   hand-written in `packages/db/src/seed.ts`, because CNCORE-4 and CNCORE-5 need something on the
+   page to look at. Until CNCORE-345 that title was an archive row's name, which made it
+   archive-derived content in a database; it names no franchise now, and still starts a developer's
+   database non-empty, which is why this case is listed apart from an install.
 3. **AN INSTALL.** A running instance, somebody else's or the Owner's own. THAT is what starts
    empty, and it is the only one of the three this record governs.
 
