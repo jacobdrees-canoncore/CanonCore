@@ -196,7 +196,7 @@ function DrawAGroup() {
             className="mt-1"
             id="name"
             name="name"
-            placeholder="Doctor Who"
+            placeholder="A name for the Group"
             required
             type="text"
           />
