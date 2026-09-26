@@ -307,8 +307,22 @@ run, and a value nobody touched for six months is refused by the first read afte
   a catalogue Row reports off those two. A Placement nobody stands behind at all is still shown,
   which is the read path's standing rule and is not this record's to change.
 
-A source declaring no ceiling is never refused. That covers the Owner and `provider-wiki` as the
-tests stub it. Asserted at the router in process (ADR-0103), in `provider.test.ts`, "a Provider's
+A source declaring no ceiling is never refused, which covers the Owner.
+
+**AND `provider-wiki` NOW DECLARES NONE, WHICH IS THE OWNER'S DECISION, TAKEN ON 2026-09-26.** It
+declared thirty days, and its own comment called that "a freshness choice rather than a licence
+one". A declared `max_cache_age` IS a ceiling that a read enforces, as [[0037-artwork-stores-its-bytes]]
+has always said, so that number would have emptied every timeline not browsed again within a month,
+with nothing scheduled to browse it. No licence imposes a ceiling on the wiki: its text is CC BY-SA
+3.0 Unported ([[0057-the-archive-stays-outside-the-repo]]), and its images are
+permitted personally. So it declares none
+([provider-wiki#76](https://github.com/jacobdrees-canoncore/provider-wiki/pull/76)). Two options
+were declined: keeping the number and scheduling a re-import before it passed, which is correct to
+the letter but empties the catalogue until that job exists, and splitting the field into a ceiling
+and a freshness hint, which is a contract change for a number nothing needs. `max_cache_age` means
+a licence ceiling and nothing else, so a Provider declares it only where a licence imposes one.
+TMDB's 180 days is exactly that, and a TMDB value nobody re-imports within six months is refused on
+read, as its terms require. Nothing re-imports on a schedule yet. Asserted at the router in process (ADR-0103), in `provider.test.ts`, "a Provider's
 cache ceiling". Values are aged by moving `observed_at` into the past, never by waiting. Mutation-
 checked, each run and read: deleting the check from the statements read, the Identifiers read or
 `whatItHolds`, not writing the ceiling onto the source, and not refreshing `observed_at` in any of
