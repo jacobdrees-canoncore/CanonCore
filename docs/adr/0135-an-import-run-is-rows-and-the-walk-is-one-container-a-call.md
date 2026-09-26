@@ -8,6 +8,12 @@ status: accepted
 > `provider.beginImportRun` / `importNextContainer` / `readImportRun` walk and report it,
 > `importContainerList` is the driver and `pnpm import:list` is the Owner's command. No Provider
 > repository is touched, so there is no cross-repo pair here and nothing waiting on a second ticket.
+>
+> **EXTENDED TO A SECOND GRANULARITY UNDER CNCORE-373, 2026-09-26: A BATCH.** Migration 27 holds
+> where a Container walked in batches has got to, and `importNextContainer` asks for one batch a
+> call. That one IS a cross-repo pair: `provider-wiki` answers an infobox in batches, and its PR
+> is linked from this one's. What is left is ADR-0061's withdrawal for such a Container (CNCORE-437),
+> below; this record's own mechanism, resuming, is whole at both grains.
 
 Importing the wiki's corpus is 465 Containers. `browse` takes ONE container id (ADR-0033) and CMPP
 had no operation answering "which Containers do you have", so before this the corpus was 465 form
@@ -66,7 +72,9 @@ exclusion against a second walk nobody starts, at the price of a stale-claim tim
 duration nobody has measured and a run that strands itself when it is wrong. A Container interrupted
 mid-browse stays `pending` and is simply asked again, which is correct because
 `importBrowsedContainer` is ONE TRANSACTION: a Container is wholly in the catalogue or wholly
-absent, never half, so re-asking refreshes rather than doubles (ADR-0026, ADR-0078).
+absent, never half, so re-asking refreshes rather than doubles (ADR-0026, ADR-0078). For a Container
+walked in batches (CNCORE-373) the same holds of each BATCH rather than of the Container: a batch is
+wholly in or wholly absent, and the cursor moves only after it commits.
 
 ## A Container is done when it has LANDED, and a refusal is an attempt rather than a verdict
 
@@ -74,7 +82,9 @@ A run is still walking while a Container of it has not landed, so handing the sa
 asks again for what REFUSED as well as for what was never reached.
 
 **That rule is chosen against what actually interrupts a run.** ADR-0122's Credential lapses within
-a day, and it does not stop a walk: it makes every remaining Container refuse. A resume that treated
+a day, and it does not stop a walk by itself: it makes every remaining Container refuse. Since
+CNCORE-373 the walk stops at the first one, on the Provider's own `expired`, and leaves the rest
+`pending` rather than refused (see the CNCORE-373 section below). A resume that treated
 a refusal as settled would leave the Owner's remainder reachable only by re-walking the 200 that had
 already landed — and CNCORE-159's own story is "a lapsed Credential costs me the remainder rather
 than the whole".
@@ -195,6 +205,60 @@ the credential cannot, until somebody renews or restores it. And one Container a
 the right grain for the entity kinds that follow: `Infobox Individual` alone holds 23,653 pages,
 which one browse, one transaction and ADR-0130's sixty-second cap will not take. That is the
 batch granularity CNCORE-373 is filed to give a home, and this record is where it lands.
+
+## A Container walks in batches, and the run holds where (CNCORE-373)
+
+**THE SAME RULES, ONE LEVEL DOWN.** Everything above decides resumption at the grain of a
+Container. An entity infobox is too large for that grain: `Infobox Individual` holds 23,653 pages,
+and one browse of it is one transaction and 1,479 `ask` requests inside ADR-0130's sixty seconds.
+So `browse` now answers a Container that large in BATCHES (`CONTEXT.md`), and each rule this record
+states of a Container holds of a batch:
+
+- **The position is a row.** Migration 27 puts the Provider's cursor on the Container's row
+  (`batch_cursor`). A batch that lands moves it and adds to the Container's counts; the Container
+  stays `pending` until its last batch lands.
+- **A refusal is an attempt, and it costs the batch it was in.** A batch that refuses leaves the
+  cursor where it was and every earlier batch landed. Handing the same list over again carries on
+  from THAT batch, not from the first -- so resuming no longer clears the counts or the cursor,
+  only the outcome and the previous attempt's reason.
+- **One batch a call**, for the reason one Container a call is held above: a caller has nothing
+  to parallelise. `provider.browse`, the one request that lands a Container whole, follows every
+  `next` itself; the walk too long for a request is the run's.
+
+**A BATCH IS WHOLLY IN OR WHOLLY ABSENT, AND IT WITHDRAWS NOTHING.** Each batch is one transaction
+of `importBrowsedContainer`, which is what makes asking for a batch again refresh rather than
+double. But what a batch leaves out is the other batches, not what the source stopped asserting, so
+withdrawal (ADR-0061) is skipped for a batch. **THAT IS THE HALF NOT BUILT, AND IT IS ADR-0061'S
+RATHER THAN THIS RECORD'S:** resumption at batch grain is whole, and what is missing is the
+withdrawal a whole browse performs. A Container walked in
+batches never takes back a Placement its Source stopped asserting. CNCORE-437 carries it, and a
+`TODO` at `importBrowsedContainer`'s `batch` parameter names that ticket. Nothing that withdrew
+before stops withdrawing: only an infobox answers in batches, and infoboxes arrived under CNCORE-367.
+
+**A LAPSED CREDENTIAL NOW STOPS THE WALK, WHICH THIS RECORD SAID IT DID NOT.** The rule above that
+a refusal is one Container's still holds for every other refusal. A lapse is different in kind: it
+makes every Container after it refuse too, so walking on turns one lapse into a run of refusals
+the Owner has to read past. When a batch refuses, the step asks the Provider's manifest whether its
+Credential is `expired` (ADR-0122) and, if it is, answers `stopped` with a sentence of CanonCore's
+naming the lapse, and the driver ends the walk. What is left stays `pending`. **ON EVIDENCE:** the
+manifest is the Provider's own claim about its Credential, where the refusal's text is prose it may
+word however it likes. The CNCORE-367 section above names the cost of trusting it: a Provider that
+marks a good session lapsed stops the run, and renewing or restoring it is what carries it on.
+
+**A REFUSAL REPORTED AS SUCCESS IS THE PROVIDER'S TO READ, AND IS.** Semantic MediaWiki answers an
+`ask` over its limit with `200`, an empty `results` and `error.query`. `provider-wiki` has read the
+KEY, not the count of results, since 2026-09-13 (`askRefused`), and answers `503`, so no Item,
+Placement or Statement is written from one and the batch is still to be asked for. An EMPTY batch
+is an answer and carries on. Both are asserted at the router in-process.
+
+**THE CEILING, RE-TAKEN OVER THE POPULATION AN ENTITY IMPORT ASKS ABOUT** (ADR-0153). A batch is
+at most `ASK_SUBJECTS` members because each member is one `ask` subject. That figure, sixteen, was
+measured on STORY subjects on 2026-09-13. On **2026-09-26**, over the members of
+`Template:Infobox Event or Exhibition` (namespace 0, non-redirects, the four printouts
+`provider-wiki` asks for), two asks of 16 entity subjects answered 16 results each, and one of 17
+answered `200` with `error.query` and no results. `pnpm capture:live` in `provider-wiki` retakes
+it and commits the answers as `ask-entities-over-the-limit.json` and the infobox's
+`browse-events-or-exhibitions-*` captures.
 
 ## Evidence
 

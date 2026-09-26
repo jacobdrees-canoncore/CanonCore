@@ -1244,3 +1244,17 @@ and TMDB's `movie:603` sends `role`, `url` and `width`.
 
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** `quality_floor` and
 `stored_variant` are declared and unread. Both are CNCORE-372's.
+
+## And under CNCORE-373: `browse` answers a large Container in batches -- and this record STILL STAYS PROPOSED
+
+**`browse` TAKES `?after=` AND ANSWERS AN OPTIONAL `next`.** An entity infobox is too large for one
+answer (`Infobox Individual` is 23,653 pages), so `provider-wiki` answers one at most `ASK_SUBJECTS`
+members a call with a `next`, and the caller hands it back as `after` for the batch after it. The
+cursor is OPAQUE to CanonCore, which stores it and returns it and reads nothing in it; a cursor the
+provider could not have written, or one on a container that answers whole, is a `404`, as an id that
+addresses nothing is (ADR-0066).
+
+**ABSENT MEANS WHOLE, WHICH IS WHAT MAKES IT AN ADDITION** (ADR-0032). A provider that never pages
+says nothing new, and every answer written before this field existed reads correctly as a whole
+Container. `provider-tmdb` is unchanged. The run that walks batches, and why a batch withdraws
+nothing, is ADR-0135's.

@@ -1,5 +1,6 @@
 import { quotedTo } from "@canoncore/text";
 import { and, asc, eq, isNull, ne, sql } from "drizzle-orm";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId } from "./placements";
@@ -52,9 +53,6 @@ export class ImportRunRefused extends Error {}
  * connection, a disk full, a trigger raising for a reason nobody predicted.
  */
 const REFUSALS = new Set(["23505", "54000"]);
-
-/** How one Container of a run went. `pending` until it has been asked for. */
-export type ContainerOutcome = "pending" | "landed" | "refused";
 
 /**
  * Why one Container refused, in ADR-0123's two fields.
@@ -286,8 +284,8 @@ interface RepeatedId {
  *
  * STILL WALKING MEANS SOMETHING HAS NOT LANDED, not that a walk was interrupted.
  * The two are the same question because of what a Credential does when it lapses
- * (ADR-0122): it does not stop a run, it makes every remaining Container refuse.
- * So a run whose tail refused is exactly as unfinished as one whose tail was
+ * (ADR-0122): it makes the Container in flight refuse, and since CNCORE-373 the
+ * walk stops there and leaves the rest `pending`. So a run whose tail refused is exactly as unfinished as one whose tail was
  * never reached, and the Owner renewing their Credential and re-running the same
  * list is the case this whole rung exists for.
  *
@@ -345,13 +343,10 @@ async function theRunStillWalkingThisList(
 async function askAgainForWhatHasNotLanded(db: Database, runId: string): Promise<void> {
   await db
     .update(importRunContainers)
-    .set({
-      outcome: "pending",
-      placements: null,
-      quarantinedValues: null,
-      reasonText: null,
-      reasonWrote: null,
-    })
+    // THE BATCH CURSOR AND THE COUNTS STAY (CNCORE-373). They are what already
+    // LANDED of a Container walked in batches, which a refusal did not undo, so
+    // asking again starts from the batch that refused rather than the first.
+    .set({ outcome: "pending", reasonText: null, reasonWrote: null })
     .where(
       and(
         eq(importRunContainers.runId, runId),
@@ -440,13 +435,17 @@ function asRunContainer(row: typeof importRunContainers.$inferSelect): RunContai
 export async function nextPendingContainer(
   db: Database,
   runId: string,
-): Promise<{ externalId: string; providerIdentity: string; pending: number } | undefined> {
+): Promise<
+  | { externalId: string; providerIdentity: string; batchCursor: string | null; pending: number }
+  | undefined
+> {
   const { rows } = await db.execute<{
     external_id: string;
     provider_identity: string;
+    batch_cursor: string | null;
     pending: string;
   }>(sql`
-    select c."external_id", r."provider_identity",
+    select c."external_id", r."provider_identity", c."batch_cursor",
            -- COUNTED BEFORE THE LIMIT, which is what a window function does: it
            -- answers how many Containers are still to be asked for, not how many
            -- rows came back.
@@ -463,6 +462,7 @@ export async function nextPendingContainer(
   return {
     externalId: next.external_id,
     providerIdentity: next.provider_identity,
+    batchCursor: next.batch_cursor,
     // `count` comes back as a string from Postgres's bigint.
     pending: Number(next.pending),
   };
@@ -489,10 +489,43 @@ export async function recordContainerLanded(
 ): Promise<void> {
   await recordOutcome(db, runId, externalId, {
     outcome: "landed",
-    placements,
-    quarantinedValues,
+    ...addedTo({ placements, quarantinedValues }),
+    batchCursor: null,
     reasonText: null,
     reasonWrote: null,
+  });
+}
+
+/**
+ * Records that one batch of a Container landed and where the next one starts
+ * (CNCORE-373). THE CONTAINER STAYS `pending`, because it has not landed until
+ * its last batch has; what moves is the cursor, and the counts grow by what this
+ * batch wrote.
+ *
+ * WRITTEN AFTER THE BATCH COMMITS, as `recordContainerLanded` is, so an
+ * interruption between the two asks for this batch again -- which refreshes
+ * rather than doubles, because each batch is one transaction of
+ * `importBrowsedContainer` (ADR-0135).
+ */
+export async function recordBatchLanded(
+  db: Database,
+  {
+    runId,
+    externalId,
+    next,
+    placements,
+    quarantinedValues,
+  }: {
+    runId: string;
+    externalId: string;
+    next: string;
+    placements: number;
+    quarantinedValues: number;
+  },
+): Promise<void> {
+  await recordOutcome(db, runId, externalId, {
+    ...addedTo({ placements, quarantinedValues }),
+    batchCursor: next,
   });
 }
 
@@ -504,6 +537,11 @@ export async function recordContainerLanded(
  * still worth asking for, and a walk that stopped at the first one would make a
  * corpus import hostage to a single deleted page. What makes a partial import
  * visible rather than silent is this row, read back beside the ones that landed.
+ * The one exception is a lapsed Credential, which the router stops the walk on,
+ * because it makes every Container after this one refuse too (CNCORE-373).
+ *
+ * WHAT EARLIER BATCHES WROTE IS LEFT STANDING, and so is where the next batch
+ * starts: a refusal costs the batch it was in, not the batches that landed.
  *
  * THE REASON IS REQUIRED, and migration 18 refuses a `refused` row without one.
  * A refusal the Owner cannot read is a refusal they cannot act on, which is the
@@ -515,23 +553,33 @@ export async function recordContainerRefused(
 ): Promise<void> {
   await recordOutcome(db, runId, externalId, {
     outcome: "refused",
-    placements: null,
-    quarantinedValues: null,
     reasonText: reason.text,
     reasonWrote: reason.wrote,
   });
+}
+
+/** Counts that grow by what one answer wrote, from nothing on the first. */
+function addedTo({
+  placements,
+  quarantinedValues,
+}: {
+  placements: number;
+  quarantinedValues: number;
+}) {
+  return {
+    placements: sql`coalesce(${importRunContainers.placements}, 0) + ${placements}`,
+    quarantinedValues: sql`coalesce(${importRunContainers.quarantinedValues}, 0) + ${quarantinedValues}`,
+  };
 }
 
 async function recordOutcome(
   db: Database,
   runId: string,
   externalId: string,
-  written: {
-    outcome: ContainerOutcome;
-    placements: number | null;
-    quarantinedValues: number | null;
-    reasonText: string | null;
-    reasonWrote: string | null;
+  // THE OUTCOME NARROWED BACK TO ITS THREE WORDS, since the column is `text`
+  // and Drizzle's own set type would take any string.
+  written: Omit<PgUpdateSetSource<typeof importRunContainers>, "outcome"> & {
+    outcome?: "landed" | "refused";
   },
 ): Promise<void> {
   const updated = await db

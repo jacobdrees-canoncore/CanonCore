@@ -264,6 +264,7 @@ describe("walking a run", () => {
     expect(await nextPendingContainer(db, run.id)).toEqual({
       externalId: "105893",
       providerIdentity: provider,
+      batchCursor: null,
       pending: 2,
     });
   });
@@ -476,10 +477,11 @@ describe("what a run's Containers will not hold", () => {
     ).toBe("import_run_containers_outcome_is_known");
   });
   /**
-   * THE EQUIVALENCE RUNS BOTH WAYS, which is the half a nullable column would
-   * lose. A row saying it landed while holding no counts is a run that cannot
-   * say what it wrote, and the rung's own sentence calls that the row "this
-   * database will not hold".
+   * ONE WAY SINCE MIGRATION 27, where migration 18 held it both ways. A row
+   * saying it landed while holding no counts is a run that cannot say what it
+   * wrote, and the rung's own sentence calls that the row "this database will
+   * not hold". The other direction went because a Container walked in batches
+   * counts what its batches wrote while it is still `pending` (CNCORE-373).
    */
   it("refuses a Container that landed without saying what it wrote", async () => {
     const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
@@ -492,6 +494,42 @@ describe("what a run's Containers will not hold", () => {
           .where(eq(importRunContainers.runId, run.id)),
       ),
     ).toBe("import_run_containers_landed_counts_what_it_wrote");
+  });
+
+  /**
+   * THE TWO COUNTS ARRIVE TOGETHER (migration 27). A row counting Placements
+   * with no count of what it held back reads as a batch that held back nothing,
+   * which is the "silently" CNCORE-29 refused.
+   */
+  it("refuses one count without the other", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ placements: 3 })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_counts_come_together");
+  });
+
+  /**
+   * A CONTAINER WITH A BATCH STILL TO ASK FOR HAS NOT LANDED (migration 27).
+   * `landed` is what stops a resume asking again, so a landed row holding a
+   * cursor would strand every batch after it.
+   */
+  it("refuses a Container that landed with a batch still to ask for", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ outcome: "landed", placements: 2, quarantinedValues: 0, batchCursor: "batch-1" })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_landed_has_no_batch_left");
   });
 
   /**

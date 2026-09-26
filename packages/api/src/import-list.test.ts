@@ -103,7 +103,7 @@ const aContainerOf = (id: string) => ({
 async function aStubProviderCounting(
   ids: string[],
   counted: { atOnce: number; inFlight: number },
-  { operations = ["search", "lookup", "browse"] } = {},
+  { operations = ["search", "lookup", "browse"], lapsed = false } = {},
 ) {
   const containers = new Map(ids.map((id) => [id, aContainerOf(id)]));
   const server = createServer((request, response) => {
@@ -125,7 +125,21 @@ async function aStubProviderCounting(
         max_cache_age: 2592000,
         images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
         attribution: null,
+        // A LAPSED CREDENTIAL, as the Provider says it in its manifest (ADR-0122).
+        ...(lapsed
+          ? {
+              credential: {
+                label: "A tardis.wiki session",
+                unlock_path: "/unlock",
+                state: "expired",
+                state_changed_at: null,
+              },
+            }
+          : {}),
       });
+    }
+    if (path.startsWith("/browse/") && lapsed) {
+      return answer({ error: "tardis.wiki refused the session", provider: "provider-wiki" }, 503);
     }
     if (path.startsWith("/browse/")) {
       const id = path.slice("/browse/".length);
@@ -273,6 +287,27 @@ describe("importContainerList", () => {
     );
 
     expect(opened).toEqual({ runId, landed: 1, toAskFor: 1 });
+  });
+  /**
+   * A LAPSED CREDENTIAL ENDS THE WALK (CNCORE-373). Every Container after the
+   * one it refused would refuse the same way, so the driver stops rather than
+   * spending the rest of the list on refusals the Owner then has to read past;
+   * what is left stays `pending` for the same command to carry on with.
+   */
+  it("stops at a lapsed Credential without asking for the rest of the list", async () => {
+    const counted = counting();
+    const containerIds = ["402219", "226288"];
+    const baseUrl = await aStubProviderCounting(containerIds, counted, { lapsed: true });
+
+    const stepped: string[] = [];
+    const report = await importContainerList(
+      client,
+      { baseUrl, containerIds },
+      { onStepped: (step) => stepped.push(`${step.containerId} ${step.answer}`) },
+    );
+
+    expect(stepped).toEqual(["402219 stopped"]);
+    expect(report.containers.map((container) => container.outcome)).toEqual(["refused", "pending"]);
   });
 });
 

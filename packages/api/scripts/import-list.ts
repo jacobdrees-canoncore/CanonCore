@@ -116,13 +116,25 @@ const report = await importContainerList(
      */
     onStepped: (step) => {
       const done = containerIds.length - step.remaining;
-      const where = `[${done}/${containerIds.length}]`;
-      console.log(
-        step.answer === "landed"
-          ? `${where} ${step.containerId}: ${step.placements} placements` +
-              (step.quarantinedValues > 0 ? `, ${step.quarantinedValues} quarantined` : "")
-          : `${where} ${step.containerId}: REFUSED (${step.reason.wrote}) ${step.reason.text}`,
-      );
+      const where = `[${done}/${containerIds.length}] ${step.containerId}`;
+      const quarantined = (count: number) => (count > 0 ? `, ${count} quarantined` : "");
+      switch (step.answer) {
+        case "landed":
+          return console.log(
+            `${where}: ${step.placements} placements${quarantined(step.quarantinedValues)}`,
+          );
+        // A BATCH IS A LINE TOO (CNCORE-373): an infobox of 23,653 pages is
+        // ~1,500 of them, and a Container with no line until its last batch
+        // would be as silent as a command that printed only at the end.
+        case "batch":
+          return console.log(
+            `${where}: a batch of ${step.placements} placements${quarantined(step.quarantinedValues)}, more to come`,
+          );
+        case "stopped":
+          return console.log(`${where}: STOPPED ${step.reason.text}`);
+        case "refused":
+          return console.log(`${where}: REFUSED (${step.reason.wrote}) ${step.reason.text}`);
+      }
     },
   },
 ).catch((cause: unknown) => {
@@ -144,8 +156,10 @@ for (const container of refused) {
   }
 }
 // WHAT IS STILL PENDING IS NOT NOTHING: a run that was interrupted leaves them,
-// and the same command carries on from there rather than from the beginning.
+// and the same command carries on from there rather than from the beginning --
+// from the batch it stopped on, for a Container walked in batches (CNCORE-373),
+// which is why this does not say they were never asked for.
 const pending = report.containers.filter((container) => container.outcome === "pending").length;
-if (pending > 0) console.log(`  ${pending} never asked for; run this again to carry on`);
+if (pending > 0) console.log(`  ${pending} not yet landed; run this again to carry on`);
 
 process.exit(refused.length === 0 ? 0 : 1);

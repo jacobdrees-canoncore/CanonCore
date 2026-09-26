@@ -321,7 +321,24 @@ export interface ImportedContainer {
  */
 export async function importBrowsedContainer(
   db: Database,
-  { provider, browsed }: { provider: ImportingProvider; browsed: ProvidedContainer },
+  {
+    provider,
+    browsed,
+    batch = false,
+  }: {
+    provider: ImportingProvider;
+    browsed: ProvidedContainer;
+    /**
+     * WHETHER THIS IS ONE BATCH OF A CONTAINER RATHER THAN ALL OF IT (CNCORE-373).
+     * A batch writes what it holds and WITHDRAWS NOTHING: what it leaves out is
+     * the other batches, not what the source stopped asserting, so withdrawing
+     * against it would take every earlier batch back off the Container.
+     *
+     * TODO(CNCORE-437): a Container walked in batches never withdraws, because
+     * nothing holds its whole membership at once. ADR-0135 records the gap.
+     */
+    batch?: boolean;
+  },
 ): Promise<ImportedContainer> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
@@ -390,12 +407,14 @@ export async function importBrowsedContainer(
       writtenPlacements.push({ itemId, placementId });
     }
 
-    await withdrawPlacementsNotAsserted(tx, {
-      ownerId,
-      containerId,
-      sourceId,
-      asserted: writtenPlacements.map((placement) => placement.placementId),
-    });
+    if (!batch) {
+      await withdrawPlacementsNotAsserted(tx, {
+        ownerId,
+        containerId,
+        sourceId,
+        asserted: writtenPlacements.map((placement) => placement.placementId),
+      });
+    }
 
     return { containerId, placements: writtenPlacements, quarantinedValues };
   });

@@ -64,8 +64,11 @@ export interface ProviderClient {
    * container. OPTIONAL OF A PROVIDER (ADR-0033), so a caller asks the manifest
    * whether this one offers it before calling -- the client itself does not,
    * because "may I" and "how" are two questions and only the second is here.
+   *
+   * `after` IS THE `next` A PREVIOUS BATCH OF THIS CONTAINER ANSWERED
+   * (CNCORE-373), handed back verbatim.
    */
-  browse(id: string): Promise<CmppBrowse | null>;
+  browse(id: string, after?: string): Promise<CmppBrowse | null>;
   /**
    * The containers the provider's source asserts, as records. OPTIONAL OF A
    * PROVIDER and declared, as `browse` is (ADR-0033), so a caller asks the
@@ -437,7 +440,12 @@ export function createProviderClient({
     // `PATIENCE` carries the measurements; what belongs here is that the two go
     // together -- an operation gets the longer cap BECAUSE it returns an ordering
     // whose size is the source's business rather than this client's.
-    browse: (id) => readOrNull(`/browse/${encodeURIComponent(id)}`, cmppBrowse, "patient"),
+    browse: (id, after) =>
+      readOrNull(
+        `/browse/${encodeURIComponent(id)}${after === undefined ? "" : `?after=${encodeURIComponent(after)}`}`,
+        cmppBrowse,
+        "patient",
+      ),
     // BRIEF, BECAUSE IT IS MEASURED AS BRIEF. `provider-wiki` answered all 465
     // of its timelines in 0.26s to first byte and 90,683 bytes on 2026-09-19,
     // beside a search's 0.25s. A provider that cannot answer its containers in
