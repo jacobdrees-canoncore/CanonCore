@@ -29,7 +29,11 @@ matches on it.
 
 **`merge-if-green.sh` refuses any PR that changes that section unless it is given
 `--standing-decisions`.** Only the dispatcher runs the gate, so only the dispatcher's own PR, written
-from the Owner's answers, can carry the flag. An agent's PR that touches the section goes back to
+from the Owner's answers, is merged with the flag. **THIS STOPS ACCIDENT, NOT INTENT**, in the
+sense [[0118-mains-history-is-append-only-and-ci-is-not-a-merge-gate]] uses: the flag is a bare
+argument anyone running the script could pass, and `main` has no required checks, so the gate is
+the dispatcher's convention. What it closes is an agent's PR changing the section and merging
+through the ordinary gate unnoticed, which is the way a permission would otherwise be granted. An agent's PR that touches the section goes back to
 its agent. The section is compared at the PR's merge-base and at the commit the gate passed, so a
 branch cut before a decision landed does not read as reverting it, and a change elsewhere in the
 file merges. A file the gate cannot read is a refusal.
@@ -48,9 +52,10 @@ the Owner asked for simply never happens.
 `atlantis.yaml` is read from the pull request itself, "similar to other CI/CD systems", and its docs
 say what follows: with custom workflows allowed, "anyone that can create a pull request to your repo
 can run arbitrary code on the Atlantis server. By default, this is not allowed." The restricted keys
-(`workflows`, `plan_requirements`, `apply_requirements` among them) can be changed from the repo
-only where the server-side `repos.yaml` grants it through `allowed_overrides`, and by default it
-grants nothing (`runatlantis.io/docs/repo-level-atlantis-yaml.html`, read 2026-09-26). Here the
+(`apply_requirements` and `workflow` among them) can be changed from the repo
+only where the server-side `repos.yaml` grants it through `allowed_overrides`
+(`runatlantis.io/docs/repo-level-atlantis-yaml.html`), whose default is `[]`, granting nothing
+(`runatlantis.io/docs/server-side-repo-config.html`), both read 2026-09-26. Here the
 section is the restricted key, and the dispatcher's flag is the server-side grant.
 
 **Why a file in this repository rather than the dispatcher's own notes:** a fresh window has to find
@@ -63,4 +68,5 @@ What the Owner's answers are. The section is empty until the first run of the ne
 this record neither pre-fills it nor says which permissions a project ought to grant.
 
 Decided by the OWNER, in a grilling session with the dispatcher on 2026-09-26, as recorded in
-CNCORE-418's PR.
+CNCORE-418's PR. The number was taken by this ticket's agent from the tree and the live branches
+on 2026-09-26, not issued by a dispatcher, so it is re-checked at every rebase.
