@@ -72,10 +72,13 @@ prefixes those terms carry, which is the next paragraph's whole subject.
 
 **THE PREFIX RULE IS NOT OPTIONAL.** A real dab term may carry a citation prefix — `TV21 125 short
 story`, `CON episode`, `DWM 30 short story` — so matching the tail alone readmits `The Long Game`,
-which is the dab term on seven pages, every one a character and not one a story. A prefix is an
-acronym or a number and never ordinary words, and that is the whole of what separates the two. A
-suffix match is wrong in the same direction as the null check, and it is the half that gets
-dropped.
+which is the dab term on seven pages, every one a character and not one a story. A suffix match is
+wrong in the same direction as the null check, and it is the half that gets dropped. **But an
+acronym or a number is not the whole of what separates the two**, which this record said until
+CNCORE-350: `Ascension (Gallifrey audio story)` is a story behind ordinary words, and 156 like it
+were refused (2026-09-26). An acronym prefix admits on the title alone, and any other prefix
+admits only where the page carries a work infobox, which is
+[[0205-a-story-is-one-rule-and-an-infobox-vouches-for-what-a-title-cannot]].
 
 ## The manifest's image fields, and their names are this record's
 
@@ -244,9 +247,10 @@ FROM m;
 ```
 
 The term list and the prefix pattern are copied verbatim from `STORY_DAB_TERMS` and `DAB_PREFIX` in
-`provider-wiki`'s `src/archive.ts`, so the figure measures the rule this record states rather than a
-paraphrase of it. That file stays the vocabulary's home: T:DAB TERM can change and no other source
-has dab terms at all, so the list appears here only inside a query that has to be runnable to be
+`provider-wiki`'s `src/archive.ts` as they stood on 2026-09-10, so the figure measures the rule this
+record stated then rather than a paraphrase of it. The vocabulary's home is now `src/story.ts`,
+beside the rest of the one story rule (CNCORE-350): T:DAB TERM can change and no other source has
+dab terms at all, so the list appears here only inside a query that has to be runnable to be
 evidence.
 
 **It is the dab-term predicate alone, isolated from the rest of that WHERE clause**, which also
@@ -376,8 +380,8 @@ FROM refs JOIN pages f ON f.title = refs.fname AND f.ns = 6;
 -- 7981 | 7908
 ```
 
-`<story dab term>` is `storyDabTermSql` from `provider-wiki`'s `src/archive.ts`, which stays the
-vocabulary's home for the reason the section above gives. The join above is shown matching
+`<story dab term>` was `storyDabTermSql` from `provider-wiki`'s `src/archive.ts`, the SQL copy of the
+rule that CNCORE-350 deleted when `storyKind` became the only one. The join above is shown matching
 `refs.fname` exactly, which is the version that was wrong; the shipped one wraps it in
 `fileTitleSql`. It is left here as written so the corrected figures and the query that produced the
 wrong ones stay legible together.

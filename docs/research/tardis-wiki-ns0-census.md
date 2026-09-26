@@ -156,9 +156,12 @@ Without the cut, 77,997 in-universe pages also reach The Hub, because `T:CAT`'s 
 is worth knowing before anyone reads the raw graph and concludes the policy is dead.
 
 **`Non-DWU material` matters to the provider.** It holds licensed material the wiki does not treat
-as a valid source, and `T:TREE` names `Dr. Who and the Daleks (theatrical film)` as an example. That
-page carries a story dab term, so `isStoryPage` admits it. **The provider is importing pages the
-wiki itself classes as outside its universe**, and nothing downstream can tell.
+as a valid source. `T:TREE` names `Dr. Who and the Daleks (theatrical film)` as an example, but in
+prose only: the walk of the category does not reach that page (CNCORE-350, 2026-09-26).
+`Doctor Who and Crayola (TV story)` is one the walk does reach, and it carries a story dab term, so
+`isStoryPage` admitted it. **The provider was importing 650 of the 2,053 pages the wiki classes as
+outside its universe** (CNCORE-350, 2026-09-26), and nothing downstream could tell. ADR-0205 made
+`storyKind` refuse the branch.
 
 ## Disambiguation pages: 1,344, and two mechanisms agree exactly
 
@@ -189,10 +192,13 @@ B reproduces `measure-live.ts`'s own figure under *THE POPULATION, DEFINED ONCE*
 11,297 on 2026-09-13, and this pass reads **11,307**, +10 in eight days. So the divergence is
 between the two rules, not between two measurements.
 
-### `DAB_PREFIX` is too strict, and it costs about a thousand stories
+### The dab rule refuses 1,003 story-infobox pages, and `DAB_PREFIX` alone 156 in-universe works
 
 1,003 pages carry a story infobox (`Infobox Story SMW` 508, `Infobox Story` 495) that the dab rule
-rejects. `DAB_PREFIX` is `^[A-Z0-9]+( [A-Z0-9]+)*$`, which admits only all-caps or numeric prefixes:
+rejects **for any reason**, including the no-parenthetical and missing-vocabulary rows below.
+`DAB_PREFIX` ALONE refused 534 pages (CNCORE-350, 2026-09-26): 334 under `Non-DWU material`, where
+`Unproduced sources` puts `The Hand of Omega (unproduced TV story)`, 156 in-universe works, and 44
+characters and objects. ADR-0205 has the table. `DAB_PREFIX` is `^[A-Z0-9]+( [A-Z0-9]+)*$`, which admits only all-caps or numeric prefixes:
 
 | rejected title | why |
 |---|---|
