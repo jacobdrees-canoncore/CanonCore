@@ -246,6 +246,25 @@ ATTEMPT** -- a rehearsal of the same run an hour earlier did too, in 5.4 minutes
 says why the wiki refused on 2026-09-15 and not now, so the resume procedure above stays the
 answer to a storm rather than something this retires.
 
+**AND THE INFOBOX THAT RUN BROWSED THROUGH WAS TAKEN BACK OUT BY HAND (CNCORE-432).** The run
+above stored `Template:Infobox Event or Conflict` as a Container, the one place all 555 of its Time
+spans appeared; ADR-0033 now stores an infobox as nothing. The code does not retract one stored
+before that, so on 2026-09-26 at 21:53Z, after a dump, the install was corrected in one transaction:
+the 555 claims and 555 Placements in it tombstoned, then the Container itself. Counted with
+`deleted_at is null`:
+
+| | before | after |
+|---|---:|---:|
+| Items titled `Template:` | 1 | 0 |
+| Containers | 466 | 465 |
+| Placements | 31,464 | 30,909 |
+| Time spans | 555 | 555 |
+| Time spans in any ordering | 555 | 0 |
+
+`Infobox Event or Exhibition` and its 40 pages were already tombstoned, at 21:25Z, under CNCORE-431,
+which is why Time spans read 555 rather than the 595 above. `/?kind=time_span` then read "Showing
+items 1 to 100 of 555" with no `Template:` on the page.
+
 ## The catalogue survives a restart and a rename, measured with the corpus in it
 
 ADR-0132's gate is "a running instance the Owner actually opens". Both survival claims were checked

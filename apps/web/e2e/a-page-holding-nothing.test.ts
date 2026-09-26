@@ -16,12 +16,12 @@ const NON_CONTENT = /^Template:/;
  * Every Row the Listings hold, walked page by page by the id each page ended
  * on (ADR-0119), as a reader paging to the end would meet them.
  */
-async function everyRow() {
+async function everyRow(listing: "list" | "works" = "list") {
   const client = clientAt(inject("baseUrl"));
   const rows = [];
   let after: string | undefined;
   for (;;) {
-    const page = await client.catalogue.list({ limit: 100, after });
+    const page = await client.catalogue[listing]({ limit: 100, after });
     rows.push(...page.rows);
     if (page.rows.length < 100) return rows;
     after = page.rows.at(-1)?.id;
@@ -34,7 +34,7 @@ describe("a page a browse reached its members through (CNCORE-432)", () => {
   });
 
   it("titles no Container a reader sees, as a Row or as where a Row appears", async () => {
-    const rows = await everyRow();
+    const rows = [...(await everyRow()), ...(await everyRow("works"))];
     // A GREEN THAT MEANS SOMETHING: the walk met Containers, and one of the
     // infobox's pages, so the guard below ran over the catalogue it guards.
     expect(rows.filter((row) => row.isContainer).length).toBeGreaterThan(0);
@@ -51,12 +51,17 @@ describe("a page a browse reached its members through (CNCORE-432)", () => {
     const listed = await documentAt(`/?kind=time_span`);
     expect(listed.text).toContain(throughAnInfobox.member);
     expect(listed.text).not.toContain(throughAnInfobox.title);
+    // ITS OWN ROW SAYS SO, in the words a Row with no Placement uses: the text
+    // from its title up to the next Row's link is that Row.
+    const row = listed.text.split(throughAnInfobox.member)[1]?.split('href="/items/')[0];
+    expect(row).toContain("In no ordering");
 
     const rows = await everyRow();
     const member = rows.find((row) => row.title === throughAnInfobox.member);
-    expect(member?.sitsIn.total).toBe(0);
+    if (member === undefined) throw new Error(`no Row is titled ${throughAnInfobox.member}`);
+    expect(member.sitsIn.total).toBe(0);
 
-    const page = await documentAt(`/items/${member?.id}`);
+    const page = await documentAt(`/items/${member.id}`);
     expect(page.status).toBe(200);
     expect(page.text).toContain(throughAnInfobox.member);
     expect(page.text).not.toContain("Also appears in");

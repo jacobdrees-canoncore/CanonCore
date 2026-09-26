@@ -354,9 +354,7 @@ export async function importBrowsedContainer(
      */
     // THE TITLES THIS ORDERING SERVES, which is how a part says it is one of
     // several (`instalmentsOf`, CNCORE-361).
-    const siblings = [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
-      (record) => record.title,
-    );
+    const siblings = membersOf(browsed).map((record) => record.title);
     const item = async (record: ProvidedRecord) => {
       const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record, siblings });
       quarantinedValues += writtenItem.quarantinedValues;
@@ -418,11 +416,12 @@ export async function importBrowsedContainer(
  */
 export async function importBrowsedMembers(
   db: Database,
-  { provider, members }: { provider: ImportingProvider; members: ProvidedRecord[] },
+  { provider, browsed }: { provider: ImportingProvider; browsed: ProvidedContainer },
 ): Promise<{ quarantinedValues: number }> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
     const sourceId = await providerSource(tx, ownerId, provider);
+    const members = membersOf(browsed);
     const siblings = members.map((record) => record.title);
     let quarantinedValues = 0;
     for (const record of members) {
@@ -431,6 +430,11 @@ export async function importBrowsedMembers(
     }
     return { quarantinedValues };
   });
+}
+
+/** Every member a browse answered, placed or not, in the order it arrived. */
+function membersOf(browsed: ProvidedContainer): ProvidedRecord[] {
+  return [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced];
 }
 
 /**
