@@ -713,8 +713,11 @@ or neither.
 
 **`networksetup -getinfo` is not a check of that route.** On 2026-09-25 on the Owner's Mac it
 printed `IPv6 IP address: none` while `en0` held two global IPv6 addresses and carried the default
-IPv6 route. `provider-wiki`'s README now checks with `curl -6` against the wiki, where any status
-means IPv6 is live.
+IPv6 route. `provider-wiki`'s README now checks the route table: IPv6 is off when `en0` holds no global
+`inet6` address and there is no IPv6 default route out of `en0`. Measured 2026-09-26 on the Owner's
+Mac, those two were present with IPv6 on, when the minted clearance answered `403` over forced IPv4,
+and absent after `networksetup -setv6off Wi-Fi`, when it answered `200`. **`curl -6` is not a check
+either.** It answered `403` from `::ffff:172.67.147.58`, an IPv4-mapped address, in both states.
 
 **What landed, and what is left.** The lapse-write, the comparison, the two-copy unlock and the
 IPv4 route are in `jacobdrees-canoncore/provider-wiki#72`, which was open when this was
