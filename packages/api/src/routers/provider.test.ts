@@ -1428,15 +1428,23 @@ function anEpisode(season: number, episode: number, title: string, released: str
  * positions TMDB numbers them. The second has no air date, which is how TMDB
  * holds 78 of the 2,465 episodes of its three `Doctor Who` programmes
  * (2026-09-26, ADR-0128).
+ *
+ * EACH CALL'S TITLES ARE ITS OWN. Every stub is a Source of its own, and since
+ * CNCORE-361 a work another Source already holds under the same title and date
+ * lands on that Item (ADR-0026). The test database outlives the run, so a
+ * shared "Rose" would carry every earlier stub's claims, and a test ageing one
+ * Source's values would read another's still fresh.
  */
-const A_SEASON = {
-  container: A_SERIES.ordering[1]!.record,
-  ordering: [
-    { position: 1, record: anEpisode(1, 1, "Rose", ["2005-03-26"]) },
-    { position: 2, record: anEpisode(1, 2, "The End of the World", []) },
-  ],
-  unplaced: [],
-};
+function aSeason(said: string) {
+  return {
+    container: A_SERIES.ordering[1]!.record,
+    ordering: [
+      { position: 1, record: anEpisode(1, 1, `Rose ${said}`, ["2005-03-26"]) },
+      { position: 2, record: anEpisode(1, 2, `The End of the World ${said}`, []) },
+    ],
+    unplaced: [],
+  };
+}
 
 /**
  * CNCORE-375: the level under the seasons, where the volume is and where the
@@ -1444,11 +1452,24 @@ const A_SEASON = {
  * the ordering the Provider gives them.
  */
 describe("a season's episodes", () => {
-  const seriesAndSeason = () =>
-    stubProvider({}, { containers: { "tv:57243": A_SERIES, "season:57243:1": A_SEASON } });
+  /**
+   * A Provider of its own, NAMED for itself as well as titled, so a test can
+   * ask what THIS one said when another stub's Source stands behind the same
+   * Item -- a Container is a work, and matches as one (CNCORE-361).
+   */
+  async function seriesAndSeason(said = crypto.randomUUID()) {
+    const name = `provider-${said}`;
+    const baseUrl = await stubProvider(
+      {},
+      { name, containers: { "tv:57243": A_SERIES, "season:57243:1": aSeason(said) } },
+    );
+    return { baseUrl, name };
+  }
+
+  const said = crypto.randomUUID();
 
   it("arrive at the Provider's positions, and the Owner descends series, season, episode", async () => {
-    const baseUrl = await seriesAndSeason();
+    const { baseUrl } = await seriesAndSeason(said);
     const { containerId } = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "tv:57243" },
@@ -1460,8 +1481,8 @@ describe("a season's episodes", () => {
     const seasonRow = series.holds.rows.find(({ title }) => title === "Series 1");
     const season = await call(appRouter.item.get, { id: seasonRow?.itemId ?? "" }, { context });
     expect(season.holds.rows.map(({ title, position }) => [title, position])).toEqual([
-      ["Rose", 1],
-      ["The End of the World", 2],
+      [`Rose ${said}`, 1],
+      [`The End of the World ${said}`, 2],
     ]);
 
     const episode = await call(
@@ -1476,33 +1497,36 @@ describe("a season's episodes", () => {
   });
 
   async function theSeasonBrowsed() {
-    const baseUrl = await seriesAndSeason();
+    const { baseUrl, name } = await seriesAndSeason();
     const { containerId, placements } = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "season:57243:1" },
       { context },
     );
     const [rose, endOfTheWorld] = placements.map(({ itemId }) => itemId);
-    return { baseUrl, containerId, rose: rose ?? "", endOfTheWorld: endOfTheWorld ?? "" };
+    return { baseUrl, name, containerId, rose: rose ?? "", endOfTheWorld: endOfTheWorld ?? "" };
   }
 
   it("is refused on read past the Provider's ceiling, by the mechanism CNCORE-360 built", async () => {
-    const { baseUrl, containerId, rose } = await theSeasonBrowsed();
+    const { baseUrl, name, containerId, rose, endOfTheWorld } = await theSeasonBrowsed();
 
     await ageEverythingFrom(baseUrl, 31);
 
+    // Only what THIS Provider said: the season may stand on claims of others.
     const season = await call(appRouter.item.get, { id: containerId }, { context });
-    expect(season.holds.rows).toEqual([]);
+    expect(season.holds.rows.map(({ itemId }) => itemId)).toEqual(
+      expect.not.arrayContaining([rose, endOfTheWorld]),
+    );
     const episode = await call(appRouter.item.get, { id: rose }, { context });
-    expect(episode.statements.filter(({ sourceKind }) => sourceKind === "provider")).toEqual([]);
-    expect(episode.identifiers).toEqual([]);
+    expect(episode.statements.filter(({ sourceLabel }) => sourceLabel === name)).toEqual([]);
+    expect(episode.identifiers.filter(({ sourceLabel }) => sourceLabel === name)).toEqual([]);
   });
 
   it("says which of the values an import asks for the Provider gave none of", async () => {
-    const { endOfTheWorld, rose } = await theSeasonBrowsed();
+    const { name, endOfTheWorld, rose } = await theSeasonBrowsed();
 
     const undated = await call(appRouter.item.get, { id: endOfTheWorld }, { context });
-    expect(undated.notGiven).toEqual([{ property: "released", sourceLabel: MANIFEST.name }]);
+    expect(undated.notGiven).toEqual([{ property: "released", sourceLabel: name }]);
     const dated = await call(appRouter.item.get, { id: rose }, { context });
     expect(dated.notGiven).toEqual([]);
   });
