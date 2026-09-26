@@ -471,6 +471,13 @@ that claimed it. It identifies THAT PROVIDER'S record rather than the work, so t
 agreeing is evidence for matching rather than matching itself.
 _Avoid_: provider id, source id, guid
 
+**Identifier**:
+An item's id in a Scheme (IMDb `tt0133093`, TVDB), as a source asserted it. Distinct from an
+External id, which is the id a provider knows its OWN record by: an Identifier is a claim about the
+work in someone else's id space. Two providers' Identifiers agreeing is evidence for matching,
+never a match.
+_Avoid_: external id, guid, provider id
+
 **Matching**:
 Deciding which external record an item is. A separate operation from applying, with its own
 endpoint.

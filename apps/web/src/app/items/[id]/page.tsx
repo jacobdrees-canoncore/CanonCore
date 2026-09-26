@@ -623,6 +623,7 @@ export default async function ItemPage({
       */}
       {owner && <Note itemId={item.id} note={await readNote(item.id, context)} />}
       <Values statements={item.statements} />
+      <Identifiers identifiers={item.identifiers} />
       {/*
         BEFORE "Also appears in", because a container's own ordering is what a
         reader browsing into it came for, and where this item sits in OTHER
@@ -873,6 +874,46 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
             */}
             <span className="text-muted-foreground text-sm">
               <TheirWords>{statement.sourceLabel}</TheirWords>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * What this item is known as in other id spaces, and WHO said so (CNCORE-349).
+ *
+ * BESIDE THE VALUES AND NOT AMONG THEM, because an Identifier is not a
+ * Statement: it has no Property, and listing `imdb` as though it were one would
+ * tell the reader the catalogue had a field it does not have (ADR-0029). The
+ * Scheme is the provider's own word, so it is shown as their words.
+ */
+function Identifiers({ identifiers }: { identifiers: ItemOnThePage["identifiers"] }) {
+  if (identifiers.length === 0) return null;
+
+  return (
+    <section className="mt-8" aria-labelledby="identifiers">
+      <h2 id="identifiers" className="font-medium text-sm">
+        Identifiers
+      </h2>
+      <ul className="mt-2 divide-y">
+        {identifiers.map((identifier) => (
+          <li
+            key={`${identifier.scheme}:${identifier.value}:${identifier.sourceLabel}`}
+            className="flex items-baseline justify-between gap-4 py-2"
+          >
+            <span className="flex items-baseline gap-3">
+              <span className="text-muted-foreground text-sm">
+                <TheirWords>{identifier.scheme}</TheirWords>
+              </span>
+              <span>
+                <TheirWords>{identifier.value}</TheirWords>
+              </span>
+            </span>
+            <span className="text-muted-foreground text-sm">
+              <TheirWords>{identifier.sourceLabel}</TheirWords>
             </span>
           </li>
         ))}

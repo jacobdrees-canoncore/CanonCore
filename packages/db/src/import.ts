@@ -3,14 +3,7 @@ import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
 import { assertPlacement, theOwnerId } from "./placements";
-import {
-  identifiers,
-  items,
-  placementSources,
-  placements,
-  sources,
-  statements,
-} from "./schema";
+import { identifiers, items, placementSources, placements, sources, statements } from "./schema";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {

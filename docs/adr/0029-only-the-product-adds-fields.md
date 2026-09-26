@@ -39,13 +39,30 @@ built. The gap is bounded by the ladder -- every property is written there -- an
 misspelled kind reads as "no source may assert this".
 
 **NOT BUILT, AND IT IS THE HALF THIS RECORD IS NAMED FOR: the counting.** "This provider sent 340
-things we have no field for" is a number nothing computes, and there are two doors it would have to
-count at. `cmppRecord` is a plain `z.object`, so a field the contract does not name is stripped at
-parse and never reaches the catalogue. And `writeProvidedItem` asserts three properties --
-`external_id`, `title`, `released` -- out of a record that also carries `writers`, `series` and the
-provider's own finer `kind`; `import.ts` says in as many words why each of those is deliberately not
-imported, which is a decision taken well rather than a decision the owner is told about. Nothing
-tallies either loss, so the owner is never shown the choice this record says is theirs. That is the
-import path's to build and it is why this record stays `proposed`: the refusal half is enforced and
-the telling half is absent.
+things we have no field for" is a number nothing computes. There were two doors it would have had to
+count at, and since CNCORE-349 there is one.
 
+**THE DOOR A LAYER ABOVE, AT PARSE, IS OPEN (CNCORE-349).** Until then `cmppRecord` was a plain
+`z.object`, so a key it did not name was stripped before anything downstream could see it: every
+property a source defines beyond the contract, and two fields the contract itself declares,
+`images` and `external_ids`. It is a `z.looseObject` now. A source-defined key survives the parse,
+and `external_ids` is named and shaped there and written as the item's Identifiers (ADR-0078's
+as-built section says why a table and not a Property). Nothing is lost at parse any more.
+
+**THE DOOR AT THE IMPORT DROPS SIX OF THE CONTRACT'S TEN FIELDS, AND EVERY SOURCE-DEFINED KEY.**
+Measured on 2026-09-26 against `packages/contract`'s `record`, which declares `id`, `title`, `kind`,
+`released`, `writers`, `series`, `url`, `series_id`, `images` and `external_ids`. Four reach the
+catalogue: `id` as `external_id`, `title`, `released`, and `external_ids` as Identifiers. Six do
+not: `writers`, `series` and the provider's own finer `kind`, which `import.ts` says in as many
+words why it does not import; `series_id`, which `provider.containerOf` reads one click at a time
+and nothing stores; `url`; and `images`, which since CNCORE-349 survives the parse to be dropped
+here instead. This paragraph used to name only the first three at this door, and blamed the
+`z.object` for nothing it declared, so it undercounted both doors. Each drop is a decision taken
+well rather than a decision the owner is told about. Nothing tallies either loss, so the owner is
+never shown the choice this record says is theirs.
+
+**AND THIS RECORD STAYS `proposed`, WITH THE HALF THAT LANDED WRITTEN HERE.** CNCORE-349 opened the
+wire and nothing more: a claim now reaches the import to be counted, which it could not while the
+parse stripped it. The telling half this record is named for (holding the claim, counting it,
+reporting it) is CNCORE-371's. So is the reversal of the refusal half, since adopting a held
+property is the Owner defining a field, which this record's first sentence forbids.

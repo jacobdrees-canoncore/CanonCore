@@ -210,14 +210,6 @@ function expectSaysItCannotAnswer(response: Awaited<ReturnType<typeof get>>, pat
 }
 
 /**
- * Every camelCase key anywhere in a response, however deeply nested.
- *
- * Walks rather than checking the top level, because the fields most likely to
- * drift are the nested ones -- `images[].url`, `attribution.logo.data_uri`,
- * `images.stored_variant` -- and those are exactly the ones added second by
- * whichever provider needed them first.
- */
-/**
  * A key as a respelling would reduce to: no case, no separator, no plural.
  * `externalIds`, `EXTERNAL_IDS`, `externalid` and `external-id` all come to
  * `externalid`, which is what makes a respelled contract field distinguishable
@@ -230,6 +222,14 @@ function spelledAs(key: string): string {
 /** Snake_case as CMPP spells it: lower case, digits, single underscores between words. */
 const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 
+/**
+ * Every camelCase key anywhere in a response, however deeply nested.
+ *
+ * Walks rather than checking the top level, because the fields most likely to
+ * drift are the nested ones -- `images[].url`, `attribution.logo.data_uri`,
+ * `images.stored_variant` -- and those are exactly the ones added second by
+ * whichever provider needed them first.
+ */
 function camelCaseKeysIn(body: unknown, found: string[] = []): string[] {
   if (Array.isArray(body)) {
     for (const entry of body) camelCaseKeysIn(entry, found);
@@ -527,7 +527,10 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         if (cannotReachItsSource(declared)) return;
 
         const lookup = await get(participant, `/lookup/${encodeURIComponent(participant.aRecord)}`);
-        const search = await get(participant, `/search?q=${encodeURIComponent(participant.aQuery)}`);
+        const search = await get(
+          participant,
+          `/search?q=${encodeURIComponent(participant.aQuery)}`,
+        );
         const records = [lookup.body, ...searchResponse.parse(search.body).results] as Record<
           string,
           unknown

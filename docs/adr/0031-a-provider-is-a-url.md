@@ -42,8 +42,10 @@ It never fetches, builds or trusts a repository, and `provider-wiki` is its own 
 own deploy and its own lifecycle.
 
 The CMPP response schema is written twice on purpose, once in the provider and once as CanonCore's
-own consumer reading of it. The consumer's copy is deliberately not a transcription: Zod strips what
-this app does not read, so a provider declaring more than CanonCore uses stays readable.
+own consumer reading of it. The consumer's copy is deliberately not a transcription: it names only
+what this app reads, so a provider declaring more than CanonCore uses stays readable. Zod strips the
+rest everywhere except a record, which keeps a key it does not name as a property the provider's
+source defines (CNCORE-349).
 
 THE PROVIDER-TO-PROVIDER HALF HAS ONE PROVIDER SO FAR. Nothing violates it and nothing can yet, and
 the device meant to keep two providers honest without a shared package -- the contract test over both

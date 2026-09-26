@@ -521,7 +521,12 @@ describe("two imports of one record at once", () => {
     // rule and would hide this one.
     await importProvidedRecord(db, {
       provider: wikiProvider(identity),
-      record: { externalId: "warm", title: "Warming the source row", released: [], identifiers: {} },
+      record: {
+        externalId: "warm",
+        title: "Warming the source row",
+        released: [],
+        identifiers: {},
+      },
     });
 
     // Two handles, so the two imports are two connections rather than two turns
@@ -594,7 +599,12 @@ describe("the provider as a source", () => {
     });
     const second = await importProvidedRecord(db, {
       provider: wikiProvider(identity),
-      record: { externalId: "266", title: "The Power of the Daleks (TV story)", released: [], identifiers: {} },
+      record: {
+        externalId: "266",
+        title: "The Power of the Daleks (TV story)",
+        released: [],
+        identifiers: {},
+      },
     });
 
     expect(first.itemId).not.toBe(second.itemId);
@@ -623,7 +633,12 @@ describe("an import that cannot finish", () => {
     const refused = await refusal(
       importProvidedRecord(db, {
         provider: wikiProvider("http://127.0.0.1:9003"),
-        record: { externalId: "1", title: null as unknown as string, released: [], identifiers: {} },
+        record: {
+          externalId: "1",
+          title: null as unknown as string,
+          released: [],
+          identifiers: {},
+        },
       }),
     );
 
@@ -1052,7 +1067,12 @@ describe("a date that is not EDTF", () => {
    */
   it("reports a bad date again on a refresh, rather than reporting a clean import", async () => {
     const provider = wikiProvider("http://127.0.0.1:9407");
-    const record = { externalId: "9407", title: "Still undated", released: ["soon", "1966"], identifiers: {} };
+    const record = {
+      externalId: "9407",
+      title: "Still undated",
+      released: ["soon", "1966"],
+      identifiers: {},
+    };
 
     expect((await importProvidedRecord(db, { provider, record })).quarantinedValues).toBe(1);
     expect((await importProvidedRecord(db, { provider, record })).quarantinedValues).toBe(1);
@@ -1070,7 +1090,12 @@ describe("a date that is not EDTF", () => {
    */
   it("marks a value it already holds but has never checked", async () => {
     const provider = wikiProvider("http://127.0.0.1:9408");
-    const record = { externalId: "9408", title: "Written before the check", released: ["soon"], identifiers: {} };
+    const record = {
+      externalId: "9408",
+      title: "Written before the check",
+      released: ["soon"],
+      identifiers: {},
+    };
     const { itemId } = await importProvidedRecord(db, { provider, record });
 
     await db
@@ -1124,7 +1149,12 @@ describe("a date that is not EDTF", () => {
    */
   it("checks against the level the catalogue declares, not one held in code", async () => {
     const provider = wikiProvider("http://127.0.0.1:9421");
-    const record = { externalId: "9421", title: "Perhaps 1984", released: ["1984?"], identifiers: {} };
+    const record = {
+      externalId: "9421",
+      title: "Perhaps 1984",
+      released: ["1984?"],
+      identifiers: {},
+    };
 
     await declaring("released", { format: "edtf", level: 0 }, async () => {
       const { itemId, quarantinedValues } = await importProvidedRecord(db, { provider, record });
@@ -1155,7 +1185,12 @@ describe("a date that is not EDTF", () => {
    */
   it("releases a value a loosened rule now admits", async () => {
     const provider = wikiProvider("http://127.0.0.1:9422");
-    const record = { externalId: "9422", title: "Perhaps 1984, again", released: ["1984?"], identifiers: {} };
+    const record = {
+      externalId: "9422",
+      title: "Perhaps 1984, again",
+      released: ["1984?"],
+      identifiers: {},
+    };
 
     await declaring("released", { format: "edtf", level: 0 }, async () => {
       const held = await importProvidedRecord(db, { provider, record });
@@ -1189,7 +1224,12 @@ describe("a date that is not EDTF", () => {
    */
   it("refuses the import outright when a declaration names a check it cannot run", async () => {
     const provider = wikiProvider("http://127.0.0.1:9423");
-    const record = { externalId: "9423", title: "Unrunnable", released: ["1966-10-08"], identifiers: {} };
+    const record = {
+      externalId: "9423",
+      title: "Unrunnable",
+      released: ["1966-10-08"],
+      identifiers: {},
+    };
 
     await declaring("released", { format: "iso8601" }, async () => {
       await expect(importProvidedRecord(db, { provider, record })).rejects.toThrow(
@@ -1204,12 +1244,22 @@ describe("a date that is not EDTF", () => {
     const { quarantinedValues } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9406"),
       browsed: {
-        container: { externalId: "9406", title: "Category:Dated badly", released: ["shortly"], identifiers: {} },
+        container: {
+          externalId: "9406",
+          title: "Category:Dated badly",
+          released: ["shortly"],
+          identifiers: {},
+        },
         ordering: [
           { position: 1, record: NIGHT },
-          { position: 2, record: { externalId: "9406-2", title: "One", released: ["soon"], identifiers: {} } },
+          {
+            position: 2,
+            record: { externalId: "9406-2", title: "One", released: ["soon"], identifiers: {} },
+          },
         ],
-        unplaced: [{ externalId: "9406-3", title: "Two", released: ["12/03/66", "1999"], identifiers: {} }],
+        unplaced: [
+          { externalId: "9406-3", title: "Two", released: ["12/03/66", "1999"], identifiers: {} },
+        ],
       },
     });
 
@@ -1228,10 +1278,23 @@ describe("a date that is not EDTF", () => {
     const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9403"),
       browsed: {
-        container: { externalId: "9403", title: "Category:Dated badly", released: [], identifiers: {} },
+        container: {
+          externalId: "9403",
+          title: "Category:Dated badly",
+          released: [],
+          identifiers: {},
+        },
         ordering: [
           { position: 1, record: NIGHT },
-          { position: 2, record: { externalId: "9403-2", title: "Undatable", released: ["soon"], identifiers: {} } },
+          {
+            position: 2,
+            record: {
+              externalId: "9403-2",
+              title: "Undatable",
+              released: ["soon"],
+              identifiers: {},
+            },
+          },
           { position: 3, record: DAY },
         ],
         unplaced: [],
@@ -1285,7 +1348,12 @@ describe("purging everything one provider ever said", () => {
     const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:1", title: "A collection", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:1",
+          title: "A collection",
+          released: [],
+          identifiers: {},
+        },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
       },
@@ -1452,7 +1520,12 @@ describe("purging everything one provider ever said", () => {
     await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:5", title: "A collection", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:5",
+          title: "A collection",
+          released: [],
+          identifiers: {},
+        },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
       },
@@ -1505,7 +1578,12 @@ describe("previewing what a purge would take", () => {
     const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:11", title: "A collection", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:11",
+          title: "A collection",
+          released: [],
+          identifiers: {},
+        },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
       },
@@ -1559,14 +1637,27 @@ describe("previewing what a purge would take", () => {
     const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:12", title: "A collection", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:12",
+          title: "A collection",
+          released: [],
+          identifiers: {},
+        },
         ordering: [
           { position: 1, record: TENTH_PLANET },
           {
             position: 2,
-            record: { externalId: "266", title: "The Power of the Daleks", released: [], identifiers: {} },
+            record: {
+              externalId: "266",
+              title: "The Power of the Daleks",
+              released: [],
+              identifiers: {},
+            },
           },
-          { position: 3, record: { externalId: "267", title: "The Highlanders", released: [], identifiers: {} } },
+          {
+            position: 3,
+            record: { externalId: "267", title: "The Highlanders", released: [], identifiers: {} },
+          },
         ],
         unplaced: [],
       },
@@ -1722,7 +1813,12 @@ describe("which attribution one item's page owes", () => {
     const { placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:9", title: "A collection", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:9",
+          title: "A collection",
+          released: [],
+          identifiers: {},
+        },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
       },
@@ -1747,7 +1843,12 @@ describe("which attribution one item's page owes", () => {
     const { containerId } = await importBrowsedContainer(db, {
       provider,
       browsed: {
-        container: { externalId: "collection:7", title: "A collection TMDB titled", released: [], identifiers: {} },
+        container: {
+          externalId: "collection:7",
+          title: "A collection TMDB titled",
+          released: [],
+          identifiers: {},
+        },
         ordering: [],
         unplaced: [],
       },

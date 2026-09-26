@@ -178,8 +178,9 @@ export type CmppBrowse = z.infer<typeof cmppBrowse>;
  * reading of it rather than an import of it -- the same arrangement the record
  * and browse schemas above are under. That package writes the SPECIFICATION and
  * depends on no `@canoncore/*` package so it cannot reach this one by accident
- * (ADR-0103); this is a CONSUMER'S copy, which strips unknown keys where the
- * specification keeps them. A single schema serving both would make the
+ * (ADR-0103); this is a CONSUMER'S copy, which strips an unknown key on the
+ * response where the specification keeps it -- and keeps one on each record,
+ * since CNCORE-349, as a property the source defines. A single schema serving both would make the
  * contract test prove that two providers satisfy CanonCore, which is a much
  * weaker claim than that they satisfy one contract.
  */

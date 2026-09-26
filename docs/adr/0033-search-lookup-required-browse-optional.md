@@ -1132,3 +1132,28 @@ Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-c
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
 Eight sections have now said so.
+
+## And under CNCORE-349: the consumer stops stripping a record -- and this record STILL STAYS PROPOSED
+
+**UNKNOWN KEYS WERE PERMITTED BY THE CONTRACT AND STRIPPED BY THE CONSUMER.** This record lets a
+provider declare more than it is asked for, and `packages/contract`'s `record` has always been a
+`looseObject`. But CanonCore's own `cmppRecord` was a `z.object`, so a provider ahead of the
+contract was well formed on the wire and invisible the moment CanonCore read it. `external_ids`,
+a field this record's snake_case paragraph names, was stripped the same way `series_id` was before
+CNCORE-187. `cmppRecord` is a `z.looseObject` now: a key the contract does not name reaches the app
+as a property the provider's SOURCE defines, and `external_ids` is read, shaped and written as the
+item's Identifiers.
+
+**THE CASING RULE ABOVE BINDS A SOURCE-DEFINED NAME TOO, AND THE CONTRACT TEST HOLDS IT.** "It may
+not spell them in another casing" was written about the fields this contract names. A property the
+source defines is snake_case as well, so that a later contract adopting it needs no respelling. The
+suite's `its keys` puts every record key to one of two tests. A key the contract names is held to
+that field's own shape; a key it does not is held to snake_case AND to not reducing to a contract
+field once case, separator and plural are taken away. That second test is what tells
+`production_code` from `externalIds`, which a shape check alone could not: both parse. A fourth
+witness, a provider ahead of the contract, sends both an `external_ids` and a source-defined key,
+because neither real provider sends the second, and `the open wire` fails if nothing under test
+sent either, or if everything did.
+
+**NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added: a provider sending
+neither is unaffected, which is `provider-wiki`'s every record, and it stays conformant.

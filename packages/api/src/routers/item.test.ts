@@ -91,6 +91,9 @@ describe("item.get", () => {
       // rejects as a name for a list of placements.
       "holds",
       "id",
+      // WHAT THIS ITEM IS KNOWN AS IN OTHER ID SPACES, with who said so
+      // (CNCORE-349). Red here when it was added, the enumeration working again.
+      "identifiers",
       "isContainer",
       "isOrdered",
       "kind",

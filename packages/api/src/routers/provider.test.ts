@@ -613,7 +613,11 @@ describe("a record's Identifiers", () => {
   it("are none for a record sending none, which is every record of a source with one id space", async () => {
     const baseUrl = await stubProvider();
 
-    const { itemId } = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
 
     expect((await call(appRouter.item.get, { id: itemId }, { context })).identifiers).toEqual([]);
   });

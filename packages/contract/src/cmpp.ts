@@ -12,7 +12,8 @@ import { z } from "zod";
  * IT IS DELIBERATELY NOT `@canoncore/providers`' SCHEMA, and this package depends
  * on no `@canoncore/*` package at all so that it cannot become one by accident.
  * That schema is a CONSUMER'S -- "what this app reads" -- and it strips unknown
- * keys, widens where the app does not care, and omits fields nothing renders yet.
+ * keys everywhere but a record (CNCORE-349), widens where the app does not
+ * care, and omits fields nothing renders yet.
  * Holding two providers to it would prove they both satisfy CanonCore, which is a
  * different and much weaker claim than that they satisfy one contract.
  *
