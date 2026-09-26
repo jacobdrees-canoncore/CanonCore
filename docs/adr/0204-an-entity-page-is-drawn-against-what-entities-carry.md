@@ -26,7 +26,8 @@ That is where somebody laying out a page already is, which a note under `docs/re
 Every page anybody on this project has looked at closely is a story page, and a story page is the
 rich half of the source. Counted on 2026-09-26 over the live wiki with the method below, a story
 page carries a median of 11 of the wiki's SMW properties, housekeeping aside, and an entity page
-carries 3. The entity pages are 39,209 of them, against 11,310 story pages. A page laid out against
+carries 3, and the table below shows entity pages outnumbering story pages more than three to one. A
+page laid out against
 a story renders mostly empty on the population it is actually for, and that failure reads as a
 defect in the import rather than as a design taken against the wrong population.
 [[0077-work-browsing-excludes-entities-by-kind]] is why entity surfaces exist at all: they answer
@@ -91,17 +92,18 @@ while the import population is **39,173** subjects, "and the difference is the t
 two infoboxes". **Measurement refuses the second half.** The three ns-0 pages carrying two infoboxes
 on 2026-09-26 are `Interference (novel)`, `Children in Need 1983 (TV story)` and
 `The Visual Dictionary (reference book)`, and each pairs `Infobox Story SMW` with a production
-infobox. None is an entity page, and no entity page carries two entity infoboxes. Those three are
-the gap between the census's 58,849 typed pages, counted per population, and its 58,846 pages
-carrying an infobox.
+infobox. None is an entity page, and no entity page carries two entity infoboxes. The census counted
+three such pages on 2026-09-21 without naming them, which matches the gap between its 58,849 typed
+pages, counted per population, and its 58,846 pages carrying an infobox. That they are the same
+three is inferred from the count, not checked.
 
 The census's own tables are consistent with a different reading of the entity gap: its field-level
 inventory counts Concept at 3,249 pages where its partition counts 3,246, and those two walks were
 taken at different times on a wiki the census records renaming pages as it ran. The raw walks were
 deleted with the census dataset, so that is stated as consistent and not as proved.
 
-**This record uses 39,209**, the entity population on 2026-09-26, which is both its transclusion
-count and its page count. The ticket's own sentence was corrected on Linear when this record landed.
+**This record uses the entity population in the table above**, taken on 2026-09-26, which is both
+its transclusion count and its page count. The ticket's own sentence was corrected on Linear when this record landed.
 
 ## What is built, and why this stays proposed
 

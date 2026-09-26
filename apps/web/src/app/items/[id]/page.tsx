@@ -836,10 +836,10 @@ async function Groups({
  * three terms the projection uses -- so the first row for `title` is always the
  * one in the heading above.
  *
- * A ROW FOR EVERY VALUE THE ITEM CARRIES AND FOR NOTHING IT DOES NOT. A median
- * entity page on the wiki carries three properties to a story's eleven, so a
- * slot drawn for a value an Item lacks is empty on most of the catalogue
- * (ADR-0204, whose census is `.claude/rules/entity-surfaces.md`).
+ * A ROW FOR EVERY VALUE THE ITEM CARRIES AND FOR NOTHING IT DOES NOT. An
+ * entity page carries far fewer values than a story page, so a slot drawn for
+ * a value an Item lacks is empty on most of the catalogue (ADR-0204, whose
+ * dated census is `.claude/rules/entity-surfaces.md`).
  */
 function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
   if (statements.length === 0) return null;

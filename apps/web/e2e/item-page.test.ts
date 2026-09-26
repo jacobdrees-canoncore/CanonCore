@@ -157,8 +157,8 @@ describe("the kind, in the reader's words", () => {
 /**
  * THE THIN ENTITY IS THE NORMAL PAGE, NOT ITS EMPTY STATE (CNCORE-377, ADR-0204).
  *
- * An entity page on the wiki carries about four properties where a story
- * carries eighteen, and the record states the census. So an Item carrying a
+ * An entity page on the wiki carries a fraction of what a story page does, and
+ * ADR-0204 holds the census, dated and counted. So an Item carrying a
  * title, a kind and its Placements and nothing else is the page most entity
  * readers land on, and it has to read as a whole page: every row it shows is a
  * value the Item carries, and nothing is drawn for a property it does not.

@@ -13,7 +13,7 @@ gets laid out so nobody has to go looking for it.
 Every figure below was counted on 2026-09-26 over the live Tardis Wiki's **39,209 entity pages**:
 the ns-0, non-redirect pages transcluding one of the eleven entity infoboxes that
 `docs/research/tardis-wiki-ns0-census.md` maps onto the six entity kinds. No entity page carries
-two of them, so 39,209 is both the transclusion count and the page count. "Carry" means at least
+two of them, so that is both the transclusion count and the page count. "Carry" means at least
 one value in `Special:ExportRDF`, counted over the population's own pages and not over the SMW
 subobjects the export also returns. That section, "Entity fill, re-measured under CNCORE-377",
 holds the method, the negative controls and the long tail under 1%.
@@ -25,7 +25,8 @@ page carries 11. 41.9% of entity pages carry two or fewer. So the layout most en
 is a title, a kind, its Placements and a value or two, and that layout is drawn first and agreed as
 the common one: a row for every value the Item carries and for nothing it does not, and an image
 where one exists. `apps/web/e2e/item-page.test.ts`, under "an entity carrying a title, a kind and
-its Placements, and nothing else", goes red if a page draws a slot the Item cannot fill.
+its Placements, and nothing else", goes red if a page draws a Values row or an image frame the Item
+cannot fill. A slot drawn anywhere else on the page is not caught, so this file is the rule there.
 
 ## What entities carry, 1% of pages or more
 
@@ -67,10 +68,10 @@ layout that wants one has to show the census is wrong first.
 
 ## The 20 properties all three populations share
 
-Counted 2026-09-26 over the same three populations: 39,209 entity, 11,310 story and 8,371
-production pages. These are the only SMW properties a surface spanning the whole catalogue can
-expect to meet on every kind of page. **Shared is not present:** on entity pages only `Has image`
-clears 20%, so a spanning surface still assumes nothing beyond a title, a kind and Placements.
+Counted 2026-09-26 over the entity population above, 11,310 story pages and 8,371 production
+pages. These are the only SMW properties a surface spanning the whole catalogue can
+expect to meet on every kind of page. **Shared is not present:** on entity pages, housekeeping aside,
+only `Has image` clears 20%, so a spanning surface still assumes nothing beyond a title, a kind and Placements.
 
 `Conductor`, `Confidential`, `Corresponding Wikipedia link`, `Display title of`, `Featuring`,
 `Has image`, `Has vid`, `Imdb`, `Interviewee`, `Modification date#aux`, `Music`, `Network`,
