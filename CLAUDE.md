@@ -121,7 +121,7 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   on writes that LANDED and `linear_no_linked_issue` on a worktree that IS bound.
   `docs/agents/issue-tracker.md`.
 - **Labelling or triaging one** — `docs/agents/triage-labels.md`. Roles are workspace labels, `wontfix`
-  is Canceled, `to-spec` / `provider-repo` / `skills-repo` are kinds not roles.
+  is Canceled, `to-spec` / `provider-repo` / `skills-repo` / `spike` are kinds not roles.
 - **Adding a term or a record** — one `CONTEXT.md`, one `docs/adr/`, both at root. `docs/agents/domain.md`.
 
 ## Working substrate
@@ -173,14 +173,14 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
   asked for by name — never by inference from a wide frontier.
 - Dispatch from the main worktree, which is how this repo builds by default: a child worktree per
   ticket, created with `--linear-issue CNCORE-<n> --agent claude --prompt "/implement"` and nothing
-  more in the prompt. The binding is the brief — `--current` resolves the ticket, so there is no
-  task spec to keep in step with it — but a brief is CONFIRMED WHERE IT LANDS, never at the call
-  that sent it, so check the binding before the agent needs it: `monitor.sh` emits `UNBOUND` for a
-  worktree carrying none (ADR-0162). Each slice lands on `main` behind its own PR, because a
-  slice waiting on an integration branch is not demoable on its own (ADR-0051). Recompute the
-  frontier from the tracker as each PR merges, because no DAG is doing it here — **then STOP.
-  Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises removing ITS worktree,
-  not creating the next: four agents went out on "recalculate", 2026-09-11.
+  more, or `/research` for a ticket labelled `spike`. The binding is the brief — `--current`
+  resolves the ticket, so there is no task spec to keep in step with it — but a brief is CONFIRMED
+  WHERE IT LANDS, never at the call that sent it, so check the binding before the agent needs it:
+  `monitor.sh` emits `UNBOUND` for a worktree carrying none (ADR-0162). Each slice lands on `main`
+  behind its own PR, because a slice waiting on an integration branch is not demoable on its own
+  (ADR-0051). Recompute the frontier from the tracker as each PR merges, because no DAG is doing it
+  here — **then STOP. Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises
+  removing ITS worktree, not creating the next: four agents went out on "recalculate", 2026-09-11.
 
 **Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` cleans up
 only a worktree it created itself and never creates one here. As the PR merges, retire it with
