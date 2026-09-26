@@ -267,17 +267,12 @@ describe("the contract's operations", () => {
  * the catalogue spells them -- `time_span`, never `Time span`.
  */
 describe("the contract's item kind", () => {
-  it.each([
-    "work",
-    "person",
-    "organisation",
-    "place",
-    "time_span",
-    "character",
-    "concept",
-  ])("admits %s, one of the seven", (itemKind) => {
-    expect(record.safeParse({ ...A_RECORD, item_kind: itemKind }).success).toBe(true);
-  });
+  it.each(["work", "person", "organisation", "place", "time_span", "character", "concept"])(
+    "admits %s, one of the seven",
+    (itemKind) => {
+      expect(record.safeParse({ ...A_RECORD, item_kind: itemKind }).success).toBe(true);
+    },
+  );
 
   it.each([
     ["Time span", "the reader's label rather than the key"],
