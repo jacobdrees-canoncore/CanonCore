@@ -54,9 +54,13 @@ fixed. The mechanism is kind-agnostic (a statement takes any item), which is why
 this is an absent CALLER rather than an absent capability. It arrives with the
 slice that first imports an entity.
 
-**NOT BUILT: ids AGREEING across providers.** That is ADR-0026's operation, and
-it stays unbuilt behind this one. This record's mapping is what its identifiers
-have to exist for.
+**BUILT FOR WORKS UNDER CNCORE-361, NOT FOR PEOPLE: two providers' records AGREEING
+about one Item.** That is ADR-0026's operation. A browse now lands a work another
+provider already holds on that provider's Item, which then carries both providers'
+external ids -- one Item, two mappings, as this record's shape allows by construction.
+It scores titles and dates, not identifier agreement, because the wiki's stories
+carry no shared identifier (CNCORE-368's finding). People are CNCORE-362's. This
+record's mapping is what those identifiers had to exist for.
 
 **BUILT, UNDER CNCORE-31: ONE PROVIDER'S ID IS HELD TO ONE ITEM BY THE
 DATABASE.** An earlier draft of this section said the find-or-create's own

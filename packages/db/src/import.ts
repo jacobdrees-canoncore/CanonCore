@@ -161,8 +161,9 @@ export interface ImportedRecord {
  * reason ADR-0026 gives: "this provider's record 265 is the item we already made
  * from this provider's record 265" is one party, one namespace and no judgement,
  * where deciding that two DIFFERENT providers' records describe one work needs a
- * score, a threshold and a review queue. None of that is built, and none of it
- * is needed here.
+ * score, a threshold and a review queue. A browse does that since CNCORE-361
+ * (`matchArrivingWork`); a lookup names no Container to read a part count from,
+ * so it never matches, and needs none of it.
  */
 export async function importProvidedRecord(
   db: Database,
@@ -702,7 +703,7 @@ async function insertProvidedItem(
  * id is unique in ITS OWN namespace and nowhere else, so two providers both
  * calling something `265` are two records about two items until something
  * decides otherwise -- and deciding that is matching, which is ADR-0026's
- * operation and is not built.
+ * operation, `matchArrivingWork`'s since CNCORE-361, and not this.
  *
  * IT HONOURS THE TOMBSTONE (ADR-0075), joining `items` for no other reason. An
  * item the owner deleted is gone to every reader, so a re-import must not write

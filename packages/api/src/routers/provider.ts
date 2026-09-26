@@ -1021,10 +1021,10 @@ export const provider = {
    * THE WHOLE OPERATION AT ONCE, and that is a statement about where the
    * project is rather than a design. ADR-0026 makes MATCHING and APPLYING two
    * operations with two endpoints, precisely so a separation living only in a
-   * screen design does not get collapsed by the next screen design. Neither
-   * exists yet: nothing scores a candidate and nothing chooses among a record's
-   * values, so there is nothing for the split to separate. When the first of
-   * them lands it takes its own procedure, and this one is what it replaces.
+   * screen design does not get collapsed by the next screen design. Matching
+   * exists since CNCORE-361, but only inside `browse` and not here: a lookup
+   * never matches, and matching has no procedure of its own yet, which is the
+   * half of ADR-0026 left unbuilt. Nothing chooses among a record's values.
    *
    * NO CREDENTIAL, ANYWHERE ON THIS PATH (ADR-0035). The instance supplies its
    * own, and the wiki provider needs none at all -- no key, no rate limit, no

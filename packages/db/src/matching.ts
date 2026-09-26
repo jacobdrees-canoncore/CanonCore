@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
@@ -278,21 +278,39 @@ export interface PartsHeldElsewhere {
  * that source's claim (ADR-0036).
  */
 export async function findPartsHeldElsewhere(
-  db: Database | Transaction,
+  db: Database,
   itemId: string,
 ): Promise<PartsHeldElsewhere[]> {
-  return db
-    .select({ sourceLabel: sources.label, parts: partDisagreements.parts })
+  return (await partsHeldBy(db, [itemId])).get(itemId) ?? [];
+}
+
+/** The same read for several Items at once, keyed by Item. */
+async function partsHeldBy(
+  db: Database,
+  itemIds: string[],
+): Promise<Map<string, PartsHeldElsewhere[]>> {
+  const held = new Map<string, PartsHeldElsewhere[]>();
+  if (itemIds.length === 0) return held;
+  const rows = await db
+    .select({
+      itemId: partDisagreements.itemId,
+      sourceLabel: sources.label,
+      parts: partDisagreements.parts,
+    })
     .from(partDisagreements)
     .innerJoin(sources, eq(sources.id, partDisagreements.sourceId))
     .where(
       and(
-        eq(partDisagreements.itemId, itemId),
+        inArray(partDisagreements.itemId, itemIds),
         isNull(partDisagreements.deletedAt),
         insideItsCeiling(partDisagreements.observedAt),
       ),
     )
     .orderBy(sources.sourceOrder);
+  for (const { itemId, sourceLabel, parts } of rows) {
+    held.set(itemId, [...(held.get(itemId) ?? []), { sourceLabel, parts }]);
+  }
+  return held;
 }
 
 /** A match offered on one Item: the other Item, and what the scorer saw. */
@@ -334,14 +352,17 @@ export async function findMatchCandidatesOfItem(
       and other.deleted_at is null
     order by pair.score desc, other.id
   `);
-  return Promise.all(
-    found.rows.map(async (row) => ({
-      itemId: row.other,
-      title: row.title,
-      score: row.score,
-      // An offered pair never disagrees about parts: that is a zero, discarded.
-      signals: { title: row.title_signal, released: row.released_signal, parts: "agree" as const },
-      partsHeldElsewhere: await findPartsHeldElsewhere(db, row.other),
-    })),
+  // ONE READ FOR EVERY ROW'S PARTS, never one per row.
+  const held = await partsHeldBy(
+    db,
+    found.rows.map((row) => row.other),
   );
+  return found.rows.map((row) => ({
+    itemId: row.other,
+    title: row.title,
+    score: row.score,
+    // An offered pair never disagrees about parts: that is a zero, discarded.
+    signals: { title: row.title_signal, released: row.released_signal, parts: "agree" as const },
+    partsHeldElsewhere: held.get(row.other) ?? [],
+  }));
 }

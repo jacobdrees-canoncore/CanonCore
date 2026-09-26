@@ -1315,9 +1315,9 @@ const MATRIX_COLLECTION = "collection:2344";
  * TMDB's own API on 2026-09-26.
  *
  * NOT `tv:57243`, which is the programme the rest of this suite reaches for.
- * `multi-placement.test.ts` writes two of that programme's seasons straight into
- * the catalogue under the TMDB source, and a browse of the programme here would
- * mint the same external ids first, which one Item per external id refuses.
+ * `multi-placement.test.ts` browses three of that programme's seasons itself
+ * (CNCORE-361), and a browse of the programme here would give each of those
+ * seasons a second parent that file's assertions did not come to read.
  */
 const DOCTOR_WHO_1963 = "tv:121";
 
@@ -1469,6 +1469,10 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
       return answer(collection, 200);
     }
+    const browsed = path.startsWith("/browse/")
+      ? decodeURIComponent(path.slice("/browse/".length))
+      : "";
+    if (Object.hasOwn(TMDB_SEASONS, browsed)) return answer(TMDB_SEASONS[browsed], 200);
     if (path === `/browse/${encodeURIComponent(DOCTOR_WHO_1963)}`) {
       return answer(programme, 200);
     }
@@ -1478,6 +1482,109 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     }
     return answer({ error: "no such record" }, 404);
   });
+}
+
+/**
+ * THE SEASONS `multi-placement.test.ts` AND `works-match.test.ts` BROWSE, as the
+ * real image answers them (CNCORE-361). In CI the real image answers and this is
+ * not used; here it stands in for it.
+ *
+ * READ FROM TMDB'S OWN API ON 2026-09-26, ids, titles and air dates alike, and
+ * CACHED TMDB CONTENT UNDER ADR-0036's CEILING for that reason. A season is served
+ * whole, or as the true prefix of itself where it is long -- Specials holds 199
+ * and `tv/121` season 4 holds 43 -- so every position here is the one the real
+ * image gives: `provider-tmdb` numbers a season's members by their order in it.
+ */
+const TMDB_SEASONS: Record<string, unknown> = {
+  "season:57243:0": aTmdbSeason(57243, 0, "Specials", "2005-11-18", [
+    [1008917, "Children in Need: Born Again", "2005-11-18"],
+    [1008918, "The Christmas Invasion", "2005-12-25"],
+    [969304, "Attack of the Graske", "2005-12-25"],
+    [1008547, "The Runaway Bride", "2006-12-25"],
+  ]),
+  "season:57243:1": aTmdbSeason(57243, 1, "Series 1", "2005-03-26", [
+    [941474, "Rose", "2005-03-26"],
+    [941475, "The End of the World", "2005-04-02"],
+    [968589, "The Unquiet Dead", "2005-04-09"],
+    [968590, "Aliens of London (1)", "2005-04-16"],
+    [968592, "World War Three (2)", "2005-04-23"],
+    [968595, "Dalek", "2005-04-30"],
+    [968596, "The Long Game", "2005-05-07"],
+    [968597, "Father's Day", "2005-05-14"],
+    [968598, "The Empty Child (1)", "2005-05-21"],
+    [968599, "The Doctor Dances (2)", "2005-05-28"],
+    [968600, "Boom Town", "2005-06-04"],
+    [968601, "Bad Wolf (1)", "2005-06-11"],
+    [968602, "The Parting of the Ways (2)", "2005-06-18"],
+  ]),
+  "season:57243:2": aTmdbSeason(57243, 2, "Series 2", "2006-04-15", [
+    [974836, "New Earth", "2006-04-15"],
+    [941479, "Tooth and Claw", "2006-04-22"],
+    [941480, "School Reunion", "2006-04-29"],
+    [941481, "The Girl in the Fireplace", "2006-05-06"],
+    [941482, "Rise of the Cybermen (1)", "2006-05-13"],
+    [941483, "The Age of Steel (2)", "2006-05-20"],
+    [941490, "The Idiot's Lantern", "2006-05-27"],
+    [941484, "The Impossible Planet (1)", "2006-06-03"],
+    [941485, "The Satan Pit (2)", "2006-06-10"],
+    [941486, "Love & Monsters", "2006-06-17"],
+    [941487, "Fear Her", "2006-06-24"],
+    [941488, "Army of Ghosts (1)", "2006-07-01"],
+    [941489, "Doomsday (2)", "2006-07-08"],
+  ]),
+  "season:121:4": aTmdbSeason(121, 4, "Season 4", "1966-09-10", [
+    [165594, "The Smugglers (1)", "1966-09-10"],
+    [165592, "The Smugglers (2)", "1966-09-17"],
+    [165589, "The Smugglers (3)", "1966-09-24"],
+    [165603, "The Smugglers (4)", "1966-10-01"],
+    [165600, "The Tenth Planet (1)", "1966-10-08"],
+    [165598, "The Tenth Planet (2)", "1966-10-15"],
+    [975874, "The Tenth Planet (3)", "1966-10-22"],
+    [165609, "The Tenth Planet (4)", "1966-10-29"],
+  ]),
+};
+
+/** One season as `provider-tmdb` browses it: the season, then its episodes in its order. */
+function aTmdbSeason(
+  series: number,
+  season: number,
+  title: string,
+  released: string,
+  episodes: [id: number, title: string, released: string][],
+) {
+  const programme = "Doctor Who";
+  return {
+    container: {
+      id: `season:${series}:${season}`,
+      title,
+      kind: "season",
+      released: [released],
+      writers: [],
+      series: programme,
+      series_id: `tv:${series}`,
+      url: `https://www.themoviedb.org/tv/${series}/season/${season}`,
+      images: [],
+      external_ids: {},
+      is_container: true,
+    },
+    ordering: episodes.map(([id, episodeTitle, aired], at) => ({
+      position: at + 1,
+      record: {
+        id: `episode:${series}:${season}:${at + 1}`,
+        title: episodeTitle,
+        kind: "episode",
+        released: [aired],
+        writers: [],
+        series: programme,
+        series_id: `tv:${series}`,
+        url: `https://www.themoviedb.org/tv/${series}/season/${season}/episode/${at + 1}`,
+        images: [],
+        external_ids: { tmdb: String(id) },
+        is_container: false,
+      },
+    })),
+    unplaced: [],
+  };
 }
 
 /** The name the Provider below gives itself, which is what the page prints. */
