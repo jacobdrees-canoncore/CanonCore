@@ -691,6 +691,12 @@ export const identifiers = pgTable(
     // WHAT ONE ITEM IS KNOWN AS, which is the read the Item page makes and the
     // one a refresh makes of its own source's rows.
     index("identifiers_item").on(t.itemId),
+    // ONE VALUE PER SCHEME PER SOURCE, because `external_ids` is a map keyed by
+    // scheme. Partial on the tombstone, as migration 5's is, so a value the
+    // source withdrew does not refuse the one it sends instead.
+    uniqueIndex("identifiers_one_value_per_scheme")
+      .on(t.itemId, t.sourceId, t.scheme)
+      .where(sql`${t.deletedAt} is null`),
   ],
 );
 

@@ -28,6 +28,12 @@ import { boundedProse } from "./reason";
  * unknown key is a provider describing ITSELF, not a claim about a work.
  */
 
+/** The longest an id in another id space may be, in characters. See `external_ids`. */
+const MAX_ID_CHARS = 255;
+
+/** The most schemes one record may carry ids in. See `external_ids`. */
+const MAX_SCHEMES = 16;
+
 /**
  * A candidate match, or one record by id. Metadata and URLs, never media bytes.
  *
@@ -114,9 +120,20 @@ export const cmppRecord = z.looseObject({
    * DEFAULTED TO EMPTY, because a source with one id space -- the wiki's -- has
    * nothing to put here and is fully conformant sending nothing. SHAPED, not
    * merely kept: the loose record would carry a malformed one through as an
-   * unknown value, and this is a field the catalogue writes (`writeProvidedIds`).
+   * unknown value, and this is a field the catalogue writes (`assertIdentifiers`).
+   *
+   * AND BOUNDED, because each entry becomes a row and a line on the Item page.
+   * An empty scheme or value names no id at all. 255 is the ceiling a container
+   * id already has here (`CONTAINER_ID_MAX_LENGTH`), for the same reason: it is
+   * an id, and IMDb's run to ten characters. Sixteen schemes is five times what
+   * `provider-tmdb` files (`tmdb`, `imdb`, `tvdb`) and still finite, so a record
+   * carrying a thousand writes a thousand rows nowhere. Past either, the record
+   * is refused whole, as a malformed one is.
    */
-  external_ids: z.record(z.string(), z.string()).default({}),
+  external_ids: z
+    .record(z.string().min(1).max(MAX_ID_CHARS), z.string().min(1).max(MAX_ID_CHARS))
+    .refine((ids) => Object.keys(ids).length <= MAX_SCHEMES, "at most sixteen schemes")
+    .default({}),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;
@@ -180,9 +197,9 @@ export type CmppBrowse = z.infer<typeof cmppBrowse>;
  * depends on no `@canoncore/*` package so it cannot reach this one by accident
  * (ADR-0103); this is a CONSUMER'S copy, which strips an unknown key on the
  * response where the specification keeps it -- and keeps one on each record,
- * since CNCORE-349, as a property the source defines. A single schema serving both would make the
- * contract test prove that two providers satisfy CanonCore, which is a much
- * weaker claim than that they satisfy one contract.
+ * since CNCORE-349, as a property the source defines. A single schema serving
+ * both would make the contract test prove that two providers satisfy
+ * CanonCore, which is a much weaker claim than that they satisfy one contract.
  */
 export const cmppSearch = z.object({ results: z.array(cmppRecord) });
 

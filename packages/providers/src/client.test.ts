@@ -480,9 +480,18 @@ describe("the CMPP client", () => {
     await expect(client.lookup("265")).resolves.toMatchObject({ external_ids: {} });
   });
 
-  it("refuses ids in other id spaces that are not shaped as the contract declares them", async () => {
+  it.each([
+    ["a value that is not a string", { imdb: 133093 }],
+    ["an empty scheme", { "": "tt0133093" }],
+    ["an empty value", { imdb: "" }],
+    ["a value no id is as long as", { imdb: "t".repeat(256) }],
+    [
+      "more schemes than any source files",
+      Object.fromEntries(Array.from({ length: 17 }, (_, at) => [`scheme_${at}`, String(at)])),
+    ],
+  ])("refuses ids in other id spaces carrying %s", async (_, external_ids) => {
     const baseUrl = await stubProvider((_, response) =>
-      json(response, { ...TENTH_PLANET, external_ids: { imdb: 133093 } }),
+      json(response, { ...TENTH_PLANET, external_ids }),
     );
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 

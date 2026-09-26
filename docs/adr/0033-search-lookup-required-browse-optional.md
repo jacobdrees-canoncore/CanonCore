@@ -1144,6 +1144,11 @@ CNCORE-187. `cmppRecord` is a `z.looseObject` now: a key the contract does not n
 as a property the provider's SOURCE defines, and `external_ids` is read, shaped and written as the
 item's Identifiers.
 
+**A MALFORMED `external_ids` NOW REFUSES THE RECORD, WHERE IT USED TO VANISH.** Stripped, a
+malformed one cost nothing because nothing read it. Read, it is held to the contract's shape and to
+the consumer's own bounds: non-empty, at most 255 characters each, at most sixteen schemes. Past
+those the record is refused whole, as any malformed record is, because each entry becomes a row.
+
 **THE CASING RULE ABOVE BINDS A SOURCE-DEFINED NAME TOO, AND THE CONTRACT TEST HOLDS IT.** "It may
 not spell them in another casing" was written about the fields this contract names. A property the
 source defines is snake_case as well, so that a later contract adopting it needs no respelling. The

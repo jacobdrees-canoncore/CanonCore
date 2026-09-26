@@ -17,8 +17,8 @@
 -- value are ADR-0026's evidence that they describe one work. Nothing here acts
 -- on that evidence; this rung only keeps it.
 --
--- STRATEGY (ADR-0047 asks every rung to state one): IT ADDS. One table and one
--- index; no existing row is read or rewritten. It backfills nothing, because
+-- STRATEGY (ADR-0047 asks every rung to state one): IT ADDS. One table and two
+-- indexes; no existing row is read or rewritten. It backfills nothing, because
 -- nothing kept the ids it would backfill from -- they were stripped at parse --
 -- so an Item imported before this rung gains its Identifiers on its next import.
 
@@ -41,6 +41,11 @@ ALTER TABLE "identifiers" ADD CONSTRAINT "identifiers_item_id_items_id_fk" FOREI
 ALTER TABLE "identifiers" ADD CONSTRAINT "identifiers_source_id_sources_id_fk" FOREIGN KEY ("source_id") REFERENCES "public"."sources"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "identifiers" ADD CONSTRAINT "identifiers_merge_id_merges_id_fk" FOREIGN KEY ("merge_id") REFERENCES "public"."merges"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "identifiers_item" ON "identifiers" USING btree ("item_id");--> statement-breakpoint
+-- ONE VALUE PER SCHEME PER SOURCE: CMPP's `external_ids` is a map keyed by
+-- scheme, so two live rows for one (item, source, scheme) are two answers where
+-- the provider gave one. Partial on the tombstone, as migration 5's index is,
+-- so a withdrawn value does not refuse the one sent in its place.
+CREATE UNIQUE INDEX "identifiers_one_value_per_scheme" ON "identifiers" USING btree ("item_id","source_id","scheme") WHERE "identifiers"."deleted_at" is null;--> statement-breakpoint
 -- ADR-0075. `updated_at` and the change sequence advance by trigger rather than
 -- by whoever writes the row, as on every table.
 CREATE TRIGGER "identifiers_touch" BEFORE UPDATE ON "identifiers" FOR EACH ROW EXECUTE FUNCTION touch_row();

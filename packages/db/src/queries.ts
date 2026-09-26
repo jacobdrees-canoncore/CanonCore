@@ -705,9 +705,9 @@ export interface IdentifierOfItem {
  * What one item is known as in other id spaces, each with the source that said
  * so -- the reader of what `importProvidedRecord` writes into `identifiers`.
  *
- * EVERY SOURCE'S ROW IS RETURNED, and two agreeing is the point rather than a
- * duplicate to fold: it is ADR-0026's evidence, and folding it here would decide
- * the question that record keeps for matching. Ordered by scheme, then by the
+ * EVERY SOURCE'S ROW IS RETURNED, and two agreeing is the point rather than
+ * a redundant row to fold: it is ADR-0026's evidence, and folding it here would
+ * decide the question that record keeps for matching. Ordered by scheme, then by the
  * instance's source order, so one scheme's claims read together.
  */
 export async function findIdentifiersOfItem(

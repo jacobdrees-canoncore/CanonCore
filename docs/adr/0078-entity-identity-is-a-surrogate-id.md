@@ -123,7 +123,9 @@ it. Deciding those two are one work is matching.
 `external_ids` carries a record's id in someone else's space, keyed by Scheme: `provider-tmdb`
 sends `{ tmdb: "603", imdb: "tt0133093" }` for The Matrix. Migration 23 writes those to a table of
 their own, `identifiers`, one row per (item, source, scheme, value), sourced like a Statement and
-withdrawn by tombstone on a refresh. `item.get` reads them back and the Item page lists them.
+withdrawn by tombstone on a refresh. `identifiers_one_value_per_scheme` holds one live value per
+(item, source, scheme), because `external_ids` is a map keyed by scheme and a provider gives one
+answer per scheme. `item.get` reads them back and the Item page lists them.
 
 **NOT THE `external_id` PROPERTY, BECAUSE MIGRATION 5 WOULD REFUSE THEM.** That property is the id a
 provider knows ITS OWN record by, and the partial unique index holds one (source, value) to one

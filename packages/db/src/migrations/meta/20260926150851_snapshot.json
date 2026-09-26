@@ -1,5 +1,5 @@
 {
-  "id": "26fc4dc3-f57e-4b0c-b75f-95715cbec2a0",
+  "id": "3ecd43ab-ced7-4476-9b60-a4cc39345bbe",
   "prevId": "f183a13e-de1a-4f77-9086-5e847b908aa6",
   "version": "7",
   "dialect": "postgresql",
@@ -704,6 +704,34 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "identifiers_one_value_per_scheme": {
+          "name": "identifiers_one_value_per_scheme",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scheme",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"identifiers\".\"deleted_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
