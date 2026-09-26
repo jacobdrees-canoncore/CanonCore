@@ -189,6 +189,7 @@ describe("an Owner title meeting a re-import", () => {
     identity: "http://127.0.0.1:8301",
     label: "provider-wiki",
     attribution: null,
+    maxCacheAge: null,
   };
 
   it("stands after the provider says its own title again", async () => {

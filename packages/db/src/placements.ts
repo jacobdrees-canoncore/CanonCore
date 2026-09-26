@@ -86,8 +86,12 @@ export async function assertPlacement(
   await writer
     .insert(placementSources)
     .values({ ownerId, placementId, sourceId })
-    .onConflictDoNothing({
+    // SAID AGAIN, SO TAKEN AGAIN. `observed_at` is the moment the source made
+    // this claim, and a read refuses one older than the source's declared
+    // ceiling (ADR-0036, CNCORE-360): a re-browse is the source saying it now.
+    .onConflictDoUpdate({
       target: [placementSources.ownerId, placementSources.placementId, placementSources.sourceId],
+      set: { observedAt: sql`now()` },
     });
 
   return placementId;

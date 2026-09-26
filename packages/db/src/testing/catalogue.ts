@@ -36,7 +36,13 @@ export async function theOwner(db: Database): Promise<string> {
 
 /** The owner's own source: kind `owner`, first in the global order (ADR-0025). */
 export async function ownerSource(db: Database): Promise<string> {
-  const [source] = await db.select().from(sources).where(eq(sources.kind, "owner"));
+  // THE ID ALONE, because a suite that stops the ladder at an early rung reads
+  // through this too, and a bare `select()` names every column the schema has
+  // today -- `max_cache_age` (migration 24) among them, which that rung lacks.
+  const [source] = await db
+    .select({ id: sources.id })
+    .from(sources)
+    .where(eq(sources.kind, "owner"));
   if (!source) throw new Error("migration 1 seeds the owner as a source; none found");
   return source.id;
 }

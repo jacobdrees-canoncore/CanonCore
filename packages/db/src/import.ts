@@ -28,6 +28,16 @@ export interface ImportingProvider {
     notice: string;
     logo?: { data_uri: string; alt: string } | null;
   } | null;
+  /**
+   * The longest this source lets a value it said be kept, in seconds, as its
+   * manifest declares `max_cache_age`, or `null` where it declares none
+   * (ADR-0036, CNCORE-360).
+   *
+   * REQUIRED FOR `attribution`'s REASON. It is written onto the source row on
+   * every import, so a caller that could omit it would clear a stored ceiling
+   * and every value that source ever said would be kept forever on read.
+   */
+  maxCacheAge: number | null;
 }
 
 /**
@@ -497,6 +507,18 @@ async function assertIdentifiers(
       .where(inArray(identifiers.id, withdrawn));
   }
 
+  // Said again, so taken again: `observed_at` is what a read holds against the
+  // source's declared ceiling (ADR-0036, CNCORE-360).
+  const retaken = held
+    .filter(({ scheme, value }) => Object.hasOwn(sent, scheme) && sent[scheme] === value)
+    .map(({ id }) => id);
+  if (retaken.length > 0) {
+    await tx
+      .update(identifiers)
+      .set({ observedAt: sql`now()` })
+      .where(inArray(identifiers.id, retaken));
+  }
+
   const fresh = Object.entries(sent).filter(
     ([scheme, value]) => !held.some((row) => row.scheme === scheme && row.value === value),
   );
@@ -607,6 +629,8 @@ async function providerSource(
     attributionNotice: provider.attribution?.notice ?? null,
     attributionLogo: provider.attribution?.logo?.data_uri ?? null,
     attributionLogoAlt: provider.attribution?.logo?.alt ?? null,
+    // Rewritten with the notice and for its reason: a Provider may revise it.
+    maxCacheAge: provider.maxCacheAge,
   };
 
   const [existing] = await tx

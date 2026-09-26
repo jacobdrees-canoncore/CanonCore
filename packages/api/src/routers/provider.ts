@@ -372,7 +372,13 @@ async function browseIntoCatalogue(
  * showing none.
  */
 function providerFrom(baseUrl: string, manifest: CmppManifest) {
-  return { identity: baseUrl, label: manifest.name, attribution: manifest.attribution };
+  return {
+    identity: baseUrl,
+    label: manifest.name,
+    attribution: manifest.attribution,
+    // Read off the manifest on every import for the attribution's reason (ADR-0036).
+    maxCacheAge: manifest.max_cache_age ?? null,
+  };
 }
 
 /**

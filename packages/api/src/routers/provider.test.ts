@@ -1,11 +1,19 @@
 import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { type Database, items, sources, writeProviderSettings } from "@canoncore/db";
+import {
+  type Database,
+  identifiers,
+  items,
+  placementSources,
+  sources,
+  statements,
+  writeProviderSettings,
+} from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { A_NARROWING } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
@@ -220,6 +228,8 @@ async function stubProvider(
     attribution = null as typeof ATTRIBUTION | null,
     /** What the provider calls itself, for a test about what it may call itself. */
     name = MANIFEST.name,
+    /** Seconds, or `null` for a source declaring no ceiling (ADR-0036). */
+    maxCacheAge = MANIFEST.max_cache_age as number | null,
     /**
      * Every path this provider was asked for, in order, for a caller that needs
      * to assert what was NOT asked.
@@ -240,7 +250,15 @@ async function stubProvider(
     };
     const path = request.url ?? "/";
     asked.push(path);
-    if (path === "/") return json({ ...MANIFEST, name, operations, attribution });
+    if (path === "/") {
+      return json({
+        ...MANIFEST,
+        name,
+        operations,
+        attribution,
+        max_cache_age: maxCacheAge ?? undefined,
+      });
+    }
     // A PROVIDER THAT DECLINES THE OPERATION HAS NOTHING AT THIS PATH, which is
     // the `404` both real providers answer and ADR-0033 requires of a decliner.
     if (path === "/containers" && operations.includes("containers")) {
@@ -1084,6 +1102,108 @@ describe("a series and its seasons", () => {
       "Day of the Vashta Nerada (audio story)",
       "Night of the Vashta Nerada (audio story)",
     ]);
+  });
+});
+
+/**
+ * Everything one Provider stored, made to have been taken `days` ago.
+ *
+ * AGED RATHER THAN WAITED FOR, which is the only way a six-month ceiling is
+ * testable. It reaches the rows directly because the moment a value was taken
+ * is the thing under test, and no procedure sets it to the past.
+ */
+async function ageEverythingFrom(baseUrl: string, days: number) {
+  const [source] = await db.select().from(sources).where(eq(sources.identity, baseUrl));
+  if (!source) throw new Error(`nothing was imported from ${baseUrl}`);
+  const taken = sql`now() - make_interval(days => ${days})`;
+  await db.update(statements).set({ observedAt: taken }).where(eq(statements.sourceId, source.id));
+  await db
+    .update(identifiers)
+    .set({ observedAt: taken })
+    .where(eq(identifiers.sourceId, source.id));
+  await db
+    .update(placementSources)
+    .set({ observedAt: taken })
+    .where(eq(placementSources.sourceId, source.id));
+}
+
+/**
+ * ADR-0036: TMDB forbids caching "any information" for longer than six months,
+ * and declares it as `max_cache_age`. Until CNCORE-360 nothing read the
+ * declaration, so the ceiling was honoured by not caching. Now every stored
+ * value carries the moment it was taken, and a read refuses one older than its
+ * Provider allows.
+ */
+describe("a Provider's cache ceiling", () => {
+  // `MANIFEST` declares thirty days.
+  const record = { ...TENTH_PLANET, external_ids: { imdb: "tt0000265" } };
+
+  async function importedAndBrowsed(options: { maxCacheAge?: number | null } = {}) {
+    const baseUrl = await stubProvider({ "265": record }, options);
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+    const { containerId } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+    return { baseUrl, itemId, containerId };
+  }
+
+  const fromTheProvider = (item: { statements: { sourceKind: string }[] }) =>
+    item.statements.filter(({ sourceKind }) => sourceKind === "provider");
+
+  it("refuses on read every value stored past the age the Provider declares", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+
+    await ageEverythingFrom(baseUrl, 31);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item)).toEqual([]);
+    expect(item.identifiers).toEqual([]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toEqual([]);
+  });
+
+  it("serves what was stored inside that age", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+
+    await ageEverythingFrom(baseUrl, 29);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
+  });
+
+  it("takes a value afresh when the Provider says it again", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed();
+    await ageEverythingFrom(baseUrl, 31);
+
+    await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+    await call(appRouter.provider.browse, { baseUrl, containerId: "388305" }, { context });
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers.map(({ scheme }) => scheme)).toEqual(["imdb"]);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
+  });
+
+  it("refuses nothing from a Provider that declares no ceiling", async () => {
+    const { baseUrl, itemId, containerId } = await importedAndBrowsed({ maxCacheAge: null });
+
+    await ageEverythingFrom(baseUrl, 3650);
+
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+    expect(fromTheProvider(item).length).toBeGreaterThan(0);
+    expect(item.identifiers).toHaveLength(1);
+    const container = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(container.holds.rows).toHaveLength(2);
   });
 });
 

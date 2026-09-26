@@ -110,6 +110,11 @@ export async function assertClaims(
     );
 
   const withdrawn: string[] = [];
+  // Rows this source says AGAIN, whose `observed_at` moves to now: that column
+  // is the moment the claim was taken, and a read refuses one older than the
+  // source's declared ceiling (ADR-0036, CNCORE-360). Left where it was, a value
+  // TMDB repeats every week would expire six months after it FIRST said it.
+  const retaken: string[] = [];
   const fresh: (typeof statements.$inferInsert)[] = [];
   // Rows this source still claims whose value its property cannot hold, and
   // which are not marked yet. See `quarantine` below for why they exist.
@@ -135,6 +140,9 @@ export async function assertClaims(
 
     withdrawn.push(
       ...holds.filter((statement) => !wanted.includes(statement.value)).map(({ id }) => id),
+    );
+    retaken.push(
+      ...holds.filter((statement) => wanted.includes(statement.value)).map(({ id }) => id),
     );
 
     const refused = (value: string) => check !== undefined && !check(value);
@@ -194,6 +202,12 @@ export async function assertClaims(
       .update(statements)
       .set({ deletedAt: sql`now()` })
       .where(inArray(statements.id, withdrawn));
+  }
+  if (retaken.length > 0) {
+    await tx
+      .update(statements)
+      .set({ observedAt: sql`now()` })
+      .where(inArray(statements.id, retaken));
   }
   if (quarantine.length > 0) {
     await tx
