@@ -453,6 +453,42 @@ describe("the CMPP client", () => {
     await expect(client.lookup("265")).resolves.toMatchObject({ series_id: null });
   });
 
+  it("keeps a record's ids in other id spaces, and what its source defines beyond the contract", async () => {
+    /*
+     * BOTH WERE STRIPPED HERE, the way `series_id` was before CNCORE-187:
+     * `external_ids` is a field the contract declares and `production_code` one
+     * it does not name, and a consumer schema dropping both at parse made a
+     * Provider ahead of the contract invisible the moment CanonCore read it
+     * (CNCORE-349). The ids are the real ones: `tt0133093` is The Matrix.
+     */
+    const baseUrl = await stubProvider((request, response) => {
+      if (request.url === "/lookup/movie%3A603") {
+        return json(response, {
+          ...THE_MATRIX,
+          external_ids: { tmdb: "603", imdb: "tt0133093" },
+          production_code: "4B",
+        });
+      }
+      json(response, TENTH_PLANET);
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const kept = await client.lookup("movie:603");
+    expect(kept?.external_ids).toEqual({ tmdb: "603", imdb: "tt0133093" });
+    expect(kept).toMatchObject({ production_code: "4B" });
+    // AND A RECORD SENDING NEITHER READS AS HOLDING NO OTHER ID, which is the wiki's every record.
+    await expect(client.lookup("265")).resolves.toMatchObject({ external_ids: {} });
+  });
+
+  it("refuses ids in other id spaces that are not shaped as the contract declares them", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { ...TENTH_PLANET, external_ids: { imdb: 133093 } }),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.lookup("265")).rejects.toThrow();
+  });
+
   it("answers with nothing for an id the provider does not hold", async () => {
     const baseUrl = await stubProvider((_, response) => json(response, { error: "no" }, 404));
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });

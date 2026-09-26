@@ -16,9 +16,16 @@ import { boundedProse } from "./reason";
  * over HTTP and holds them to one shape.
  *
  * This copy is a CONSUMER'S, which is why it is not a transcription of the
- * provider's. Zod strips unknown keys, so a provider that declares more than
- * CanonCore reads is fine and stays fine; what is written here is only what
- * this app depends on.
+ * provider's: what is written here is only what this app depends on. A provider
+ * that declares more than CanonCore reads is fine and stays fine.
+ *
+ * A RECORD IS THE ONE PLACE THAT "MORE" IS KEPT RATHER THAN STRIPPED
+ * (CNCORE-349). A key the contract does not name is a property the provider's
+ * SOURCE defines, and stripping it at parse made a provider ahead of the
+ * contract invisible the moment CanonCore read it, so nothing downstream could
+ * even count what it was losing (ADR-0029). `cmppRecord` is therefore a
+ * `z.looseObject`, and every other schema here still strips: a manifest's
+ * unknown key is a provider describing ITSELF, not a claim about a work.
  */
 
 /**
@@ -30,7 +37,7 @@ import { boundedProse } from "./reason";
  * under that name would collide with the catalogue's own meaning on arrival.
  * It is not a closed set either: `TV21 125 short story` is a real value.
  */
-export const cmppRecord = z.object({
+export const cmppRecord = z.looseObject({
   id: z.string().min(1),
   title: z.string().min(1),
   kind: z.string().min(1),
@@ -99,6 +106,17 @@ export const cmppRecord = z.object({
    * because the scheme is read from the parse rather than from the string.
    */
   url: z.url({ protocol: /^https?$/ }),
+  /**
+   * This record's id in OTHER id spaces, keyed by scheme -- `{ imdb: "tt0133093" }`.
+   * The contract declares it and this schema stripped it until CNCORE-349, the
+   * same edit `series_id` had under CNCORE-187.
+   *
+   * DEFAULTED TO EMPTY, because a source with one id space -- the wiki's -- has
+   * nothing to put here and is fully conformant sending nothing. SHAPED, not
+   * merely kept: the loose record would carry a malformed one through as an
+   * unknown value, and this is a field the catalogue writes (`writeProvidedIds`).
+   */
+  external_ids: z.record(z.string(), z.string()).default({}),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;
