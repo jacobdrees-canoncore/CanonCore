@@ -399,6 +399,8 @@ function asProvided(record: CmppRecord) {
     // THE IDS IN OTHER ID SPACES, which the consumer schema stripped until
     // CNCORE-349. Carried as the provider keyed them, Scheme by Scheme.
     identifiers: record.external_ids,
+    // THE CATALOGUE'S KIND, which the provider maps from its own (CNCORE-367).
+    itemKind: record.item_kind,
   };
 }
 

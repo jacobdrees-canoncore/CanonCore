@@ -125,9 +125,21 @@ const MEASURED = {
    * list truncates without this number.
    */
   mostOrderings: 45,
+  /**
+   * THE FIRST ENTITY KIND, CNCORE-367's WALKING SKELETON: 595 Time spans, the
+   * pages carrying `Infobox Event or Conflict` (555 of its 560, five being
+   * under the wiki's out-of-universe branch) or `Infobox Event or Exhibition`
+   * (40), counted from the live wiki on 2026-09-26 into a DEVELOPMENT install
+   * and read back through the kind filter (ADR-0137). The Owner's install
+   * holds them once it is rebuilt; until then this reddens there, which is the
+   * rebuild being owed rather than the suite being wrong. 580 is the floor
+   * convention above: a little under, so an edit to the wiki does not redden it.
+   */
+  timeSpans: 580,
 };
 
 let census: CorpusCensus;
+let client: AppRouterClient;
 
 /*
  * THE WHOLE SUITE SKIPS WHEN NO INSTALL WAS NAMED, rather than each test
@@ -141,7 +153,7 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
   beforeAll(async () => {
     // AT is defined here: the describe is skipped otherwise.
     refuseAnythingButLoopback(AT as string);
-    const client = createORPCClient<AppRouterClient>(new RPCLink({ url: `${AT}/api/rpc` }));
+    client = createORPCClient<AppRouterClient>(new RPCLink({ url: `${AT}/api/rpc` }));
     census = await readCorpusCensus(client, {
       onOrderingsFound: ({ orderings, items }) =>
         console.log(`  ${items} Items in the catalogue, ${orderings} of them Orderings`),
@@ -189,5 +201,16 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
     expect(census.itemsPlaced).toBeGreaterThanOrEqual(MEASURED.itemsPlaced);
     expect(census.mostPlaced?.orderings).toBeGreaterThanOrEqual(MEASURED.mostOrderings);
     expect(census.orderingsPlaced).toBe(0);
+  });
+
+  /*
+   * THROUGH THE KIND FILTER A READER USES, rather than a count of rows: the
+   * claim is that a reader narrowing to Time span finds them, and the filter's
+   * own `total` is the number it shows them (CNCORE-367).
+   */
+  it("holds the Time spans the wiki types, found by narrowing to their kind", async () => {
+    const narrowed = await client.catalogue.list({ kind: "time_span", limit: 1 });
+    expect(narrowed.total).toBeGreaterThanOrEqual(MEASURED.timeSpans);
+    expect(narrowed.rows[0]?.kind).toBe("Time span");
   });
 });

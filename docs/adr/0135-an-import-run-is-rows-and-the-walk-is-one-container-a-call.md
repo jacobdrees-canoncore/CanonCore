@@ -176,6 +176,26 @@ already spells the `.ts` out.** That is also what moved `SESSION_COOKIE` into `@
 is the wire contract for the router that package publishes, and it had been unreachable outside a
 request because it sat beside `next/headers`.
 
+## What the first entity import taught about resuming (CNCORE-367)
+
+**AN ENTITY INFOBOX IS ONE CONTAINER, SO A RUN OVER ONE NEEDED NOTHING NEW.** CNCORE-367 made an
+infobox browsable (ADR-0033), and a run listing `8103` and `203134` is an ordinary run at this
+record's grain: two Containers, 555 and 40 Unplaced members, one call each.
+
+**A WHOLE RUN REFUSED COST NOTHING, AND THE SAME COMMAND CARRIED IT ON.** Rehearsed on
+2026-09-26 against a development install, the first attempt refused both Containers in under a
+second: the provider was run on a host whose default route is IPv6, and the clearance is bound to
+IPv4 (`provider-wiki`'s README, CNCORE-206). Once it was run over IPv4, the same list resumed the
+SAME run and landed both. That is this record working exactly as written -- a refusal is an attempt.
+
+**WHAT IT DID NOT COVER, AND WHAT CNCORE-373 INHERITS.** The refusal did not stay in the run: the
+provider marked its session `lapsed` in the file it read, though the session was good over the
+route it was bound to. A run can resume; a credential marked lapsed by a refusal that was not about
+the credential cannot, until somebody renews or restores it. And one Container a call stops being
+the right grain for the entity kinds that follow: `Infobox Individual` alone holds 23,653 pages,
+which one browse, one transaction and ADR-0130's sixty-second cap will not take. That is the
+batch granularity CNCORE-373 is filed to give a home, and this record is where it lands.
+
 ## Evidence
 
 - **Hand-walked against a running instance, 2026-09-14**, which is ADR-0132's gate applied to a

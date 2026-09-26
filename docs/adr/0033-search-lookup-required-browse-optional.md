@@ -1162,3 +1162,27 @@ sent either, or if everything did.
 
 **NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added: a provider sending
 neither is unaffected, which is `provider-wiki`'s every record, and it stays conformant.
+
+## And under CNCORE-367: a record says which of the seven kinds it is -- and this record STILL STAYS PROPOSED
+
+**`item_kind` JOINS THE RECORD, OPTIONAL AND CLOSED.** `kind` stays the source's own word and CMPP
+still closes no list of those. `item_kind` is the other question, which of
+[[0005-seven-item-kinds]]'s seven the catalogue files the Item under, and the contract closes it to
+exactly those seven as the catalogue spells them: `time_span`, never `Time span`, and never
+`species`. The PROVIDER maps one to the other, because only it knows its vocabulary, so the
+mapping for the wiki lives in `provider-wiki`'s `ENTITY_INFOBOXES` rather than in a table here.
+Absent reads as `work`, which is what every record meant before the field existed, so a provider
+serving only works need send nothing and `provider-tmdb` is unaffected. `import.ts` writes it at
+the one site that set `items.kind`, which was `work` for every import until now.
+
+**A THIRD KIND OF PAGE IS BROWSABLE ON `provider-wiki`: AN ENTITY INFOBOX.** A timeline is found by
+its title and a category by its namespace; an infobox is found by its title in namespace 10, and
+only one that types an entity is a container. Its members are the articles that transclude it,
+every one Unplaced, because the wiki asserts no order among the pages carrying an infobox and a
+release-date order would be this provider inventing one. `containers` does not list them, for the
+reason it does not list categories: they are not containers the wiki WROTE as orderings.
+Two answer today, `Infobox Event or Conflict` (page 8103, 560 pages) and `Infobox Event or
+Exhibition` (page 203134, 40 pages), counted on 2026-09-26 over `list=embeddedin`, ns 0,
+non-redirects -- the census's 600 Time span pages.
+
+**NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added.

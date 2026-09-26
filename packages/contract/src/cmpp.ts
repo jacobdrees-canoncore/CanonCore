@@ -149,6 +149,16 @@ export const record = z.looseObject({
    * `Guid[]`, Jellyfin as `ProviderIds`.
    */
   external_ids: z.record(z.string(), z.string()).optional(),
+  /**
+   * WHICH OF THE CATALOGUE'S SEVEN KINDS THIS RECORD IS (ADR-0005, CNCORE-367),
+   * where `kind` above is the source's own word for it. The provider maps one
+   * to the other because only it knows its vocabulary; the contract closes the
+   * target, so an eighth kind is refused here rather than at a foreign key.
+   * Absent means a work, which is what every record was before this existed.
+   */
+  item_kind: z
+    .enum(["work", "person", "organisation", "place", "time_span", "character", "concept"])
+    .optional(),
 });
 
 export type CmppRecord = z.infer<typeof record>;
@@ -201,8 +211,9 @@ export const browseResponse = z.looseObject({
  * THIS SAID "EVERY CONTAINER THIS PROVIDER HOLDS", AND THE FIRST PROVIDER TO ANSWER IT
  * SHOWED THAT IS NARROWER THAN EVERY ID `browse` TAKES. Corrected in the sentence rather
  * than under it, because a note below would leave the strict reading standing as the one a
- * provider is held to. `provider-wiki` browses both a `Theory:Timeline` page and any
- * `Category:`, and lists only the first: a timeline is a container the wiki WROTE as one,
+ * provider is held to. `provider-wiki` browses a `Theory:Timeline` page, any `Category:`
+ * and, since CNCORE-367, the two infoboxes that type a Time span, and lists only the first:
+ * a timeline is a container the wiki WROTE as one,
  * over a bounded population, where a category is one that provider COMPUTES by release date
  * because a category states membership and no sequence. Every page in namespace 14 is one,
  * maintenance categories included, and a listing padded with those is worth nothing to the

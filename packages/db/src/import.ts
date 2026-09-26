@@ -49,6 +49,12 @@ export interface ProvidedRecord {
    * every record. Written as Identifiers, never as Statements: see `identifiers`.
    */
   identifiers: Record<string, string>;
+  /**
+   * Which of ADR-0005's seven kinds the Item is written under (CNCORE-367). The
+   * provider's finer word is not this: it maps its own vocabulary onto the
+   * seven, and `items.kind`'s foreign key refuses anything else.
+   */
+  itemKind: string;
 }
 
 export interface ImportedRecord {
@@ -117,8 +123,8 @@ export async function importProvidedRecord(
     const ownerId = await theOwnerId(tx);
     const sourceId = await providerSource(tx, ownerId, provider);
 
-    // ADR-0005: a story is a `work`. Not a container: what it belongs to is a
-    // placement, and nothing here holds members.
+    // Not a container: what it belongs to is a placement, and nothing here
+    // holds members. Its kind is the record's (ADR-0005, CNCORE-367).
     return writeProvidedItem(tx, { ownerId, sourceId, record });
   });
 }
@@ -397,7 +403,8 @@ async function writeProvidedItem(
     await tx.update(items).set({ isContainer: true, isOrdered: true }).where(eq(items.id, found));
   }
 
-  const itemId = found ?? (await insertProvidedItem(tx, { ownerId, container }));
+  const itemId =
+    found ?? (await insertProvidedItem(tx, { ownerId, container, kind: record.itemKind }));
 
   const quarantinedValues = await assertClaims(tx, {
     ownerId,
@@ -492,16 +499,20 @@ async function assertIdentifiers(
 
 async function insertProvidedItem(
   tx: Transaction,
-  { ownerId, container }: { ownerId: string; container: boolean },
+  { ownerId, container, kind }: { ownerId: string; container: boolean; kind: string },
 ): Promise<string> {
   const [item] = await tx
     .insert(items)
-    // ADR-0004: a container folds into `work` too -- there is no collection
-    // kind. `CONTEXT.md`'s Container headword makes `is_container` STORED
-    // rather than inferred from
-    // having members, and `browse` returns an ORDERING, so a container written
-    // from one is ordered.
-    .values({ ownerId, kind: "work", isContainer: container, isOrdered: container })
+    // THE KIND IS THE PROVIDER'S ANSWER, NOT THIS LINE'S (CNCORE-367). It was
+    // `work` for every import, which is why 8,052 Items were all Works. It is
+    // written at creation only: an Item found again keeps the kind it has,
+    // because migration 11 freezes a kind at creation. A
+    // container arrives as `work` because a provider sends none for one, and
+    // ADR-0004 folds containers into `work` -- there is no collection kind.
+    // `CONTEXT.md`'s Container headword makes `is_container` STORED rather
+    // than inferred from having members, and `browse` returns an ORDERING, so
+    // a container written from one is ordered.
+    .values({ ownerId, kind, isContainer: container, isOrdered: container })
     .returning({ id: items.id });
   if (!item) throw new Error("insert returned no item");
   return item.id;
