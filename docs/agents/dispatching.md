@@ -51,3 +51,23 @@ on the collision. Broadcast an append to it the way you broadcast a migration nu
 The skill's first step puts a pull request's load-bearing claim back to its owner. Here that
 includes the development Postgres on 55432 (ADR-0104), which answers a question about trigger or
 constraint semantics in one `docker exec` and answers it for the engine this repository runs.
+
+## Standing decisions
+
+The Owner's answers, given once and read on every pass. Only the dispatcher's own PR changes this
+section, merged with `merge-if-green.sh --standing-decisions`.
+
+### The data
+
+- **Check-in points**: CNCORE-367, CNCORE-365. Each rebuilds the Owner's install, so when one reaches
+  Done the Owner walks it and whatever builds on it pauses until the walk is done.
+- **Held-back tickets**: none.
+- **Standing permissions**:
+  - Merge a dependency bump whose provider twin has merged, after the gate passes and the diff is read.
+- **Precondition checks**:
+  - The live wiki session: the Owner confirms it before each wave that includes a wiki-gated ticket.
+    `pnpm session` in provider-wiki compares the host and provider copies but spends no request, so
+    it cannot say the wiki still accepts them; until a live check exists, this is asked.
+- **Check-in pauses**: none.
+
+Given by the Owner on 2026-09-26.
