@@ -125,6 +125,15 @@ export {
   type TaskOutcome,
   type TaskRun,
 } from "./task-runs";
+export {
+  partsOf,
+  scoreWorkMatch,
+  WORK_MATCH_BARS,
+  type WorkEvidence,
+  type WorkMatchScore,
+  type WorkMatchSignals,
+  type WorkMatchVerdict,
+} from "./works-match";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**
