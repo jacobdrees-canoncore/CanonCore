@@ -835,6 +835,11 @@ async function Groups({
  * Competing values for one property are all listed, winner first, by the same
  * three terms the projection uses -- so the first row for `title` is always the
  * one in the heading above.
+ *
+ * A ROW FOR EVERY VALUE THE ITEM CARRIES AND FOR NOTHING IT DOES NOT. An
+ * entity page carries far fewer values than a story page, so a slot drawn for
+ * a value an Item lacks is empty on most of the catalogue (ADR-0204, whose
+ * dated census is `.claude/rules/entity-surfaces.md`).
  */
 function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
   if (statements.length === 0) return null;
