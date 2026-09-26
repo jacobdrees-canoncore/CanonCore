@@ -900,6 +900,65 @@ describe("a provider whose dates are not EDTF", () => {
 });
 
 /**
+ * AN ENTITY ARRIVES AS WHAT IT IS (CNCORE-367). A Provider says which of
+ * ADR-0005's seven kinds a record is in `item_kind`, and the Item is written
+ * under that kind rather than under `work`, which every import wrote before.
+ *
+ * SHAPED AS `provider-wiki` ANSWERS A BROWSE OF AN ENTITY INFOBOX: the wiki
+ * asserts no order among the pages that carry one, so every member is
+ * Unplaced. The titles are real Event pages; the ids are this stub's own.
+ */
+const EVENTS = {
+  container: {
+    id: "900001",
+    title: "Template:Infobox Event or Exhibition",
+    kind: "infobox",
+    released: [],
+    writers: [],
+    series: null,
+    url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Exhibition",
+  },
+  ordering: [],
+  unplaced: ["Doctor Who Experience", "Doctor Who Live"].map((title, at) => ({
+    id: String(900002 + at),
+    title,
+    kind: "event",
+    item_kind: "time_span",
+    released: [],
+    writers: [],
+    series: null,
+    url: `https://tardis.wiki/wiki/${title.replaceAll(" ", "_")}`,
+  })),
+};
+
+describe("a record's item kind", () => {
+  it("files each member under the kind its Provider named, where the kind filter finds it", async () => {
+    const baseUrl = await stubProvider({}, { containers: { "900001": EVENTS } });
+
+    const { placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "900001" },
+      { context },
+    );
+    const members = placements.map((placement) => placement.itemId);
+    expect(members).toHaveLength(2);
+
+    const narrowed = await call(
+      appRouter.catalogue.list,
+      { kind: "time_span", limit: 100 },
+      { context },
+    );
+    for (const id of members) {
+      expect((await call(appRouter.item.get, { id }, { context })).kind).toBe("Time span");
+      expect(narrowed.rows).toContainEqual(expect.objectContaining({ id, kind: "Time span" }));
+    }
+    // And the question "what can I watch" still leaves them out (ADR-0077).
+    const works = await call(appRouter.catalogue.works, { limit: 100 }, { context });
+    expect(works.rows.map((row) => row.id)).toEqual(expect.not.arrayContaining(members));
+  });
+});
+
+/**
  * ADR-0033: "a third party's licence terms stay declared fields rather than
  * special cases in our core", and ADR-0036 is the licence that makes it concrete.
  * The app takes the obligation off the manifest and writes it beside the source

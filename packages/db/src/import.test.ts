@@ -43,6 +43,7 @@ const TENTH_PLANET = {
   title: "The Tenth Planet (TV story)",
   released: ["1966-10-08"],
   identifiers: {},
+  itemKind: "work",
 };
 
 const wikiProvider = (identity = "http://127.0.0.1:8080") => ({
@@ -261,6 +262,7 @@ describe("importing one record from a provider", () => {
         title: "Horror of Glam Rock (audio story)",
         released: ["2007-01-07", "2007-03"],
         identifiers: {},
+        itemKind: "work",
       },
     });
 
@@ -298,7 +300,13 @@ describe("importing one record from a provider", () => {
   it("writes no released statement when the provider holds no date", async () => {
     const { itemId } = await importProvidedRecord(db, {
       provider: wikiProvider(),
-      record: { externalId: "1", title: "Undated", released: [], identifiers: {} },
+      record: {
+        externalId: "1",
+        title: "Undated",
+        released: [],
+        identifiers: {},
+        itemKind: "work",
+      },
     });
 
     const claims = await claimsAbout(itemId);
@@ -351,7 +359,12 @@ describe("finding a record again by the id its provider knows it by", () => {
    */
   it("takes the provider's new title and stops holding the one it withdrew", async () => {
     const identity = "http://127.0.0.1:9203";
-    const record = { externalId: "265", released: ["1966-10-08"], identifiers: {} };
+    const record = {
+      externalId: "265",
+      released: ["1966-10-08"],
+      identifiers: {},
+      itemKind: "work",
+    };
 
     const { itemId } = await importProvidedRecord(db, {
       provider: wikiProvider(identity),
@@ -384,7 +397,13 @@ describe("finding a record again by the id its provider knows it by", () => {
    * provider's own id identifies its own record.
    */
   it("keeps two providers' records apart even when they share an id", async () => {
-    const record = { externalId: "265", title: "The Tenth Planet", released: [], identifiers: {} };
+    const record = {
+      externalId: "265",
+      title: "The Tenth Planet",
+      released: [],
+      identifiers: {},
+      itemKind: "work",
+    };
 
     const wiki = await importProvidedRecord(db, {
       provider: wikiProvider("http://127.0.0.1:9204"),
@@ -526,6 +545,7 @@ describe("two imports of one record at once", () => {
         title: "Warming the source row",
         released: [],
         identifiers: {},
+        itemKind: "work",
       },
     });
 
@@ -604,6 +624,7 @@ describe("the provider as a source", () => {
         title: "The Power of the Daleks (TV story)",
         released: [],
         identifiers: {},
+        itemKind: "work",
       },
     });
 
@@ -638,6 +659,7 @@ describe("an import that cannot finish", () => {
           title: null as unknown as string,
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
       }),
     );
@@ -662,12 +684,14 @@ const NIGHT = {
   title: "Night of the Vashta Nerada (audio story)",
   released: ["2017-07-27"],
   identifiers: {},
+  itemKind: "work",
 };
 const DAY = {
   externalId: "222478",
   title: "Day of the Vashta Nerada (audio story)",
   released: ["2017-07-27"],
   identifiers: {},
+  itemKind: "work",
 };
 /**
  * Operation Dusk carries no release date at all, so the archive's own ordering
@@ -680,6 +704,7 @@ const OPERATION_DUSK = {
   title: "Operation Dusk (audio story)",
   released: [],
   identifiers: {},
+  itemKind: "work",
 };
 const VASHTA_NERADA = {
   container: {
@@ -687,6 +712,7 @@ const VASHTA_NERADA = {
     title: "Category:Vashta Nerada audio stories",
     released: [],
     identifiers: {},
+    itemKind: "work",
   },
   ordering: [
     { position: 1, record: NIGHT },
@@ -1016,7 +1042,13 @@ describe("a date that is not EDTF", () => {
   it("keeps the value and marks it, rather than storing it as a date", async () => {
     const { itemId } = await importProvidedRecord(db, {
       provider: wikiProvider("http://127.0.0.1:9401"),
-      record: { externalId: "9401", title: "Coming Soon", released: ["soon"], identifiers: {} },
+      record: {
+        externalId: "9401",
+        title: "Coming Soon",
+        released: ["soon"],
+        identifiers: {},
+        itemKind: "work",
+      },
     });
 
     expect(await claimsAbout(itemId)).toContainEqual(
@@ -1050,6 +1082,7 @@ describe("a date that is not EDTF", () => {
         title: "Two bad, one good",
         released: ["soon", "12/03/66", "1966-10-08"],
         identifiers: {},
+        itemKind: "work",
       },
     });
     expect(dirty.quarantinedValues).toBe(2);
@@ -1072,6 +1105,7 @@ describe("a date that is not EDTF", () => {
       title: "Still undated",
       released: ["soon", "1966"],
       identifiers: {},
+      itemKind: "work",
     };
 
     expect((await importProvidedRecord(db, { provider, record })).quarantinedValues).toBe(1);
@@ -1095,6 +1129,7 @@ describe("a date that is not EDTF", () => {
       title: "Written before the check",
       released: ["soon"],
       identifiers: {},
+      itemKind: "work",
     };
     const { itemId } = await importProvidedRecord(db, { provider, record });
 
@@ -1123,7 +1158,13 @@ describe("a date that is not EDTF", () => {
    */
   it("stops holding a value back when the catalogue withdraws the declaration", async () => {
     const provider = wikiProvider("http://127.0.0.1:9420");
-    const record = { externalId: "9420", title: "Undeclared", released: ["soon"], identifiers: {} };
+    const record = {
+      externalId: "9420",
+      title: "Undeclared",
+      released: ["soon"],
+      identifiers: {},
+      itemKind: "work",
+    };
 
     await declaring("released", {}, async () => {
       const { itemId, quarantinedValues } = await importProvidedRecord(db, { provider, record });
@@ -1154,6 +1195,7 @@ describe("a date that is not EDTF", () => {
       title: "Perhaps 1984",
       released: ["1984?"],
       identifiers: {},
+      itemKind: "work",
     };
 
     await declaring("released", { format: "edtf", level: 0 }, async () => {
@@ -1190,6 +1232,7 @@ describe("a date that is not EDTF", () => {
       title: "Perhaps 1984, again",
       released: ["1984?"],
       identifiers: {},
+      itemKind: "work",
     };
 
     await declaring("released", { format: "edtf", level: 0 }, async () => {
@@ -1229,6 +1272,7 @@ describe("a date that is not EDTF", () => {
       title: "Unrunnable",
       released: ["1966-10-08"],
       identifiers: {},
+      itemKind: "work",
     };
 
     await declaring("released", { format: "iso8601" }, async () => {
@@ -1249,16 +1293,29 @@ describe("a date that is not EDTF", () => {
           title: "Category:Dated badly",
           released: ["shortly"],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [
           { position: 1, record: NIGHT },
           {
             position: 2,
-            record: { externalId: "9406-2", title: "One", released: ["soon"], identifiers: {} },
+            record: {
+              externalId: "9406-2",
+              title: "One",
+              released: ["soon"],
+              identifiers: {},
+              itemKind: "work",
+            },
           },
         ],
         unplaced: [
-          { externalId: "9406-3", title: "Two", released: ["12/03/66", "1999"], identifiers: {} },
+          {
+            externalId: "9406-3",
+            title: "Two",
+            released: ["12/03/66", "1999"],
+            identifiers: {},
+            itemKind: "work",
+          },
         ],
       },
     });
@@ -1283,6 +1340,7 @@ describe("a date that is not EDTF", () => {
           title: "Category:Dated badly",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [
           { position: 1, record: NIGHT },
@@ -1293,6 +1351,7 @@ describe("a date that is not EDTF", () => {
               title: "Undatable",
               released: ["soon"],
               identifiers: {},
+              itemKind: "work",
             },
           },
           { position: 3, record: DAY },
@@ -1353,6 +1412,7 @@ describe("purging everything one provider ever said", () => {
           title: "A collection",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
@@ -1525,6 +1585,7 @@ describe("purging everything one provider ever said", () => {
           title: "A collection",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
@@ -1583,6 +1644,7 @@ describe("previewing what a purge would take", () => {
           title: "A collection",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
@@ -1642,6 +1704,7 @@ describe("previewing what a purge would take", () => {
           title: "A collection",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [
           { position: 1, record: TENTH_PLANET },
@@ -1652,11 +1715,18 @@ describe("previewing what a purge would take", () => {
               title: "The Power of the Daleks",
               released: [],
               identifiers: {},
+              itemKind: "work",
             },
           },
           {
             position: 3,
-            record: { externalId: "267", title: "The Highlanders", released: [], identifiers: {} },
+            record: {
+              externalId: "267",
+              title: "The Highlanders",
+              released: [],
+              identifiers: {},
+              itemKind: "work",
+            },
           },
         ],
         unplaced: [],
@@ -1690,7 +1760,13 @@ describe("previewing what a purge would take", () => {
     // a delete would still be refused: `value_item_id` carries no cascade.
     const { itemId: theValue } = await importProvidedRecord(db, {
       provider,
-      record: { externalId: "268", title: "The Underwater Menace", released: [], identifiers: {} },
+      record: {
+        externalId: "268",
+        title: "The Underwater Menace",
+        released: [],
+        identifiers: {},
+        itemKind: "work",
+      },
     });
     await aStatement(db, {
       subjectItemId: await anItemTitled(db, "A story the owner says is based on it"),
@@ -1818,6 +1894,7 @@ describe("which attribution one item's page owes", () => {
           title: "A collection",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [{ position: 1, record: TENTH_PLANET }],
         unplaced: [],
@@ -1848,6 +1925,7 @@ describe("which attribution one item's page owes", () => {
           title: "A collection TMDB titled",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [],
         unplaced: [],
@@ -1903,6 +1981,7 @@ describe("which attribution one item's page owes", () => {
           title: "A collection the other instance titled",
           released: [],
           identifiers: {},
+          itemKind: "work",
         },
         ordering: [],
         unplaced: [],

@@ -183,6 +183,7 @@ describe("an Owner title meeting a re-import", () => {
     title: "The Tenth Planet (TV story)",
     released: [],
     identifiers: {},
+    itemKind: "work",
   };
   const PROVIDER = {
     identity: "http://127.0.0.1:8301",

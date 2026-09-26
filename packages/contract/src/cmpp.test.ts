@@ -257,3 +257,37 @@ describe("the contract's operations", () => {
     ).toBe(false);
   });
 });
+
+/**
+ * `item_kind` IS THE CATALOGUE'S KIND, where `kind` is the source's (CNCORE-367).
+ *
+ * The source's `Event or Conflict` is its own word and CMPP closes no list of
+ * those. What the catalogue files an Item under is ADR-0005's closed seven, so
+ * a provider saying which one it means is held to exactly those, spelled as
+ * the catalogue spells them -- `time_span`, never `Time span`.
+ */
+describe("the contract's item kind", () => {
+  it.each([
+    "work",
+    "person",
+    "organisation",
+    "place",
+    "time_span",
+    "character",
+    "concept",
+  ])("admits %s, one of the seven", (itemKind) => {
+    expect(record.safeParse({ ...A_RECORD, item_kind: itemKind }).success).toBe(true);
+  });
+
+  it.each([
+    ["Time span", "the reader's label rather than the key"],
+    ["species", "ADR-0005 folds species into character and refuses an eighth kind"],
+    ["TV story", "the source's own word, which is what `kind` carries"],
+  ])("refuses %s: %s", (itemKind) => {
+    expect(record.safeParse({ ...A_RECORD, item_kind: itemKind }).success).toBe(false);
+  });
+
+  it("is optional, so a provider serving only works need not say so", () => {
+    expect(record.safeParse(A_RECORD).success).toBe(true);
+  });
+});

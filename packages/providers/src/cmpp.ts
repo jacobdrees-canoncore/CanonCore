@@ -134,6 +134,15 @@ export const cmppRecord = z.looseObject({
     .record(z.string().min(1).max(MAX_ID_CHARS), z.string().min(1).max(MAX_ID_CHARS))
     .refine((ids) => Object.keys(ids).length <= MAX_SCHEMES, "at most sixteen schemes")
     .default({}),
+  /**
+   * WHICH OF ADR-0005's SEVEN KINDS THE ITEM IS FILED UNDER (CNCORE-367), where
+   * `kind` above is the provider's own word. The contract closes the set; this
+   * defaults an absent one to `work` because that is what a record meant before
+   * the field existed, and every record a story-only source sends still is.
+   */
+  item_kind: z
+    .enum(["work", "person", "organisation", "place", "time_span", "character", "concept"])
+    .default("work"),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;

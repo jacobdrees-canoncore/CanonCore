@@ -149,6 +149,16 @@ export const record = z.looseObject({
    * `Guid[]`, Jellyfin as `ProviderIds`.
    */
   external_ids: z.record(z.string(), z.string()).optional(),
+  /**
+   * WHICH OF THE CATALOGUE'S SEVEN KINDS THIS RECORD IS (ADR-0005, CNCORE-367),
+   * where `kind` above is the source's own word for it. The provider maps one
+   * to the other because only it knows its vocabulary; the contract closes the
+   * target, so an eighth kind is refused here rather than at a foreign key.
+   * Absent means a work, which is what every record was before this existed.
+   */
+  item_kind: z
+    .enum(["work", "person", "organisation", "place", "time_span", "character", "concept"])
+    .optional(),
 });
 
 export type CmppRecord = z.infer<typeof record>;
