@@ -39,7 +39,13 @@ import {
   theBuildServing,
 } from "./instance";
 import { aProviderThatFloodsItsName, FLOOD, onLoopback, searchOver, searchStatus } from "./stubs";
-import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixture";
+import {
+  CONTAINERS,
+  EVENTS_OR_CONFLICTS,
+  TENTH_PLANET,
+  TIMELINES,
+  WIKI_MANIFEST,
+} from "./wiki-fixture";
 
 /**
  * An RPC client that has logged in, for the fixtures this harness fills through
@@ -1102,6 +1108,12 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
     baseUrl: providerUrl,
     containerId: "388305",
   });
+  // THE PAGE THAT HOLDS NOTHING (CNCORE-432), browsed onto the instance every
+  // reader-facing file asks, since that is where a `Template:` title would show.
+  const eventsOrConflicts = await client.provider.browse({
+    baseUrl: providerUrl,
+    containerId: EVENTS_OR_CONFLICTS.container.id,
+  });
 
   // FOUND BY TITLE rather than by index. The placements come back in the order
   // the provider gave them, so `placements[2]` would work -- and would also pass
@@ -1176,6 +1188,16 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       unplacedIn: "Category:Vashta Nerada audio stories",
       /** That container's own id, for a test that opens it. */
       unplacedInId: stored(vashtaNerada.containerId),
+      /**
+       * A browse through `Template:Infobox Event or Conflict`, which says it
+       * holds nothing (CNCORE-432): what it stored, which should be no
+       * Container, and one of the pages it reached.
+       */
+      throughAnInfobox: {
+        containerId: eventsOrConflicts.containerId,
+        title: EVENTS_OR_CONFLICTS.container.title,
+        member: "Siege of Trenzalore",
+      },
     },
     close: () => db.$client.end(),
   };
@@ -3063,6 +3085,7 @@ declare module "vitest" {
       unplacedIn: string;
       importedContainerId: string;
       unplacedInId: string;
+      throughAnInfobox: { containerId: string | null; title: string; member: string };
     };
   }
 }

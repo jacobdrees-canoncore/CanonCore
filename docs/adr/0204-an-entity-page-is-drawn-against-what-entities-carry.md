@@ -10,7 +10,8 @@ page. Three rules follow from it:
 - **The thin page is the normal layout, not the empty state.** An Item carrying a title, a kind, its
   Placements and a value or two is the page most entity readers meet, so it is drawn first as a
   whole page: a row for every value the Item carries, nothing for a property it does not, and its
-  image where one exists.
+  image where one exists. Its Placements are often NONE: an entity reached through its infobox is
+  in no ordering until a source places it, since the infobox is stored as nothing (CNCORE-432).
 - **Nothing on an entity layout is a property the census counts on story pages alone.** A layout
   that wants one has to show the census is wrong first.
 - **A surface spanning the whole catalogue assumes a title, a kind and Placements, and nothing

@@ -1180,15 +1180,26 @@ the one site that set `items.kind`, which was `work` for every import until now.
 
 **A THIRD KIND OF PAGE IS BROWSABLE ON `provider-wiki`: AN ENTITY INFOBOX.** A timeline is found by
 its title and a category by its namespace; an infobox is found by its title in namespace 10, and
-only one that types an entity is a container. Its members are the articles that transclude it,
-every one Unplaced, because the wiki asserts no order among the pages carrying an infobox and a
-release-date order would be this provider inventing one. `containers` does not list them, for the
+only one that types an entity is browsable. **IT IS NOT A CONTAINER, which this sentence said
+until CNCORE-432**: the browse answers the infobox with `is_container: false`, because it is how
+the pages were reached rather than an ordering anybody wrote, and CanonCore stores no Container for
+a browsed record saying so. Stored, it was the one place every Time span "Also appears in", titled
+`Template:Infobox Event or Conflict`. Its pages are the articles that transclude it, each written
+as an Item in no ordering, because the wiki asserts no order among the pages carrying an infobox
+and a release-date order would be this provider inventing one. `containers` does not list them, for the
 reason it does not list categories: they are not containers the wiki WROTE as orderings.
 Two answer today, `Infobox Event or Conflict` (page 8103, 560 pages) and `Infobox Event or
 Exhibition` (page 203134, 40 pages), counted on 2026-09-26 over `list=embeddedin`, ns 0,
 non-redirects -- the census's 600 Time span pages.
 
 **NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added.
+
+**AND `is_container: false` IS READ, WHERE ABSENT IS NOT (CNCORE-432).** The contract always had
+the field optional; the consumer defaulted it to `false`, which made "the source did not say" and
+"the source says this holds nothing" one value. It no longer defaults. Absent still never turns a
+Container off. `false` on the record a browse was asked for is the only place it changes anything:
+the members are written through the same door, with no Placement, and the browse answers a `null`
+Container. On any other record `false` reads as absent. NO VERSION MOVES for this either.
 
 ## And under CNCORE-360: a record may say it holds others -- and this record STILL STAYS PROPOSED
 

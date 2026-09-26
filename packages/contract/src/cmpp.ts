@@ -163,7 +163,10 @@ export const record = z.looseObject({
    * Whether this record HOLDS others, and so can be browsed. A season named in
    * its series' ordering arrives without its episodes, so a consumer has no
    * other way to know it is a container rather than a story (CNCORE-360).
-   * Jellyfin's `IsFolder`. Absent says nothing, and is conformant.
+   * Jellyfin's `IsFolder`. Absent says nothing, and is conformant. `false` on
+   * the record a browse was asked for says the page holds nothing -- how its
+   * members are reached, not an ordering -- and CanonCore stores no Container
+   * for it (CNCORE-432).
    */
   is_container: z.boolean().optional(),
 });
