@@ -311,6 +311,15 @@ describe("importContainerList", () => {
   });
 });
 
+/**
+ * WHERE A SILENT RE-IMPORT WOULD HIDE. A run is resumed by matching the list it
+ * is walking, so a reader that answered a different list for the same file --
+ * one trailing blank line, one stray space -- would not resume: it would
+ * silently open a SECOND run over all 465 Containers and browse every one of
+ * them again, spending a third party's time on work already done (ADR-0131).
+ * That is why this is a tested function rather than three lines inside a
+ * script.
+ */
 describe("theContainerIdsIn", () => {
   it("takes one Container id a line", () => {
     expect(theContainerIdsIn("249643\n105893\n226288")).toEqual(["249643", "105893", "226288"]);

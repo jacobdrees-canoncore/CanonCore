@@ -36,6 +36,7 @@ import {
   searchProviders,
 } from "@canoncore/providers";
 import { A_NARROWING } from "@canoncore/schemas";
+import { quotedTo } from "@canoncore/text";
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
@@ -677,6 +678,9 @@ interface OverlongId {
   at: number;
 }
 
+/** ADR-0123's ceiling for a value a refusal interpolates, taken rather than chosen again. */
+const NAME_IN_A_SENTENCE = 80;
+
 /**
  * THE PROVIDER'S OWN NAME IF IT NOW REPORTS ITS CREDENTIAL LAPSED, asked after
  * a browse refused (CNCORE-373).
@@ -759,7 +763,10 @@ async function oneContainerIntoTheCatalogue(
       return {
         refused: {
           wrote: "canoncore",
-          text: `${lapsed}'s Credential has lapsed. Renew it, then run the same list again to carry on from this batch.`,
+          // THE NAME IS BOUNDED WHERE IT ENTERS THE SENTENCE (ADR-0123), at the 80
+          // a value interpolated into a refusal gets, so the sentence stays under
+          // a reason's 300 whatever a Provider calls itself.
+          text: `${quotedTo(lapsed, NAME_IN_A_SENTENCE, "a Provider's name")}'s Credential has lapsed. Renew it, then run the same list again to carry on from this batch.`,
         },
         lapsed: true,
       };

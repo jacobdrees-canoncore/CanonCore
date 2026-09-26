@@ -88,7 +88,9 @@ this record's rule meeting ADR-0017's.** A removal tombstones the PLACEMENT and 
 `placement_sources` standing. The owner taking a member out of their own ordering is not a provider
 withdrawing its claim, and ADR-0017 lets a source take back only what it said itself -- so marking
 the provider's row deleted would put words in its mouth, and would be indistinguishable later from
-the withdrawal `import.ts` performs when a provider really does stop asserting a member. The member
+the withdrawal `import.ts` performs when a provider really does stop asserting a member -- a
+withdrawal a Container walked in BATCHES does not yet get, since CNCORE-373, because no single batch
+holds the whole membership; CNCORE-437 builds it (ADR-0135). The member
 therefore comes back from an undo with its origin intact, and the undo is a single-row clear.
 
 **The review queue this record hands staleness to still does not exist** ([[0027-two-thresholds-and-a-review-queue]]).

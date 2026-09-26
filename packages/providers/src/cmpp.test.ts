@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { cmppManifest, cmppRecord, REASON_MAX_LENGTH } from "./index";
+import { cmppBrowse, cmppManifest, cmppRecord, REASON_MAX_LENGTH } from "./index";
 
 /** A record that parses, so a case below differs from it in exactly one field. */
 const A_RECORD = {
@@ -334,3 +334,32 @@ function bareStringsIn(schema: z.ZodType, path = ""): string[] {
     `the walk does not know ${schema.constructor.name} at \`${path}\`; decide how it reads`,
   );
 }
+
+/**
+ * A BATCH'S CURSOR IS STORED AND SENT BACK IN A URL (CNCORE-373), so it is
+ * bounded like an id: a provider handing over a cursor no id could be is
+ * refused at parse rather than written to the run's row.
+ */
+describe("the cursor a batch carries on from", () => {
+  const aBatch = (next: string) => ({
+    container: {
+      id: "203134",
+      title: "Template:Infobox Event or Exhibition",
+      kind: "infobox",
+      released: [],
+      writers: [],
+      series: null,
+      url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Exhibition",
+    },
+    ordering: [],
+    next,
+  });
+
+  it("is taken as the provider wrote it, up to an id's length", () => {
+    expect(cmppBrowse.parse(aBatch("c".repeat(255))).next).toBe("c".repeat(255));
+  });
+
+  it("is refused past it", () => {
+    expect(cmppBrowse.safeParse(aBatch("c".repeat(256))).success).toBe(false);
+  });
+});

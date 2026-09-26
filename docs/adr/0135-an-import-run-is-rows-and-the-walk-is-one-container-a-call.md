@@ -12,7 +12,8 @@ status: accepted
 > **EXTENDED TO A SECOND GRANULARITY UNDER CNCORE-373, 2026-09-26: A BATCH.** Migration 27 holds
 > where a Container walked in batches has got to, and `importNextContainer` asks for one batch a
 > call. That one IS a cross-repo pair: `provider-wiki` answers an infobox in batches, and its PR
-> is linked from this one's. The half left is withdrawal (CNCORE-437), below.
+> is linked from this one's. What is left is ADR-0061's withdrawal for such a Container (CNCORE-437),
+> below; this record's own mechanism, resuming, is whole at both grains.
 
 Importing the wiki's corpus is 465 Containers. `browse` takes ONE container id (ADR-0033) and CMPP
 had no operation answering "which Containers do you have", so before this the corpus was 465 form
@@ -227,7 +228,9 @@ states of a Container holds of a batch:
 **A BATCH IS WHOLLY IN OR WHOLLY ABSENT, AND IT WITHDRAWS NOTHING.** Each batch is one transaction
 of `importBrowsedContainer`, which is what makes asking for a batch again refresh rather than
 double. But what a batch leaves out is the other batches, not what the source stopped asserting, so
-withdrawal (ADR-0078) is skipped for a batch. **THAT IS THE HALF NOT BUILT:** a Container walked in
+withdrawal (ADR-0061) is skipped for a batch. **THAT IS THE HALF NOT BUILT, AND IT IS ADR-0061'S
+RATHER THAN THIS RECORD'S:** resumption at batch grain is whole, and what is missing is the
+withdrawal a whole browse performs. A Container walked in
 batches never takes back a Placement its Source stopped asserting. CNCORE-437 carries it, and a
 `TODO` at `importBrowsedContainer`'s `batch` parameter names that ticket. Nothing that withdrew
 before stops withdrawing: only an infobox answers in batches, and infoboxes arrived under CNCORE-367.

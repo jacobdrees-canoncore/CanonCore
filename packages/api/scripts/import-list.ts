@@ -156,8 +156,10 @@ for (const container of refused) {
   }
 }
 // WHAT IS STILL PENDING IS NOT NOTHING: a run that was interrupted leaves them,
-// and the same command carries on from there rather than from the beginning.
+// and the same command carries on from there rather than from the beginning --
+// from the batch it stopped on, for a Container walked in batches (CNCORE-373),
+// which is why this does not say they were never asked for.
 const pending = report.containers.filter((container) => container.outcome === "pending").length;
-if (pending > 0) console.log(`  ${pending} never asked for; run this again to carry on`);
+if (pending > 0) console.log(`  ${pending} not yet landed; run this again to carry on`);
 
 process.exit(refused.length === 0 ? 0 : 1);

@@ -576,7 +576,11 @@ async function recordOutcome(
   db: Database,
   runId: string,
   externalId: string,
-  written: PgUpdateSetSource<typeof importRunContainers>,
+  // THE OUTCOME NARROWED BACK TO ITS THREE WORDS, since the column is `text`
+  // and Drizzle's own set type would take any string.
+  written: Omit<PgUpdateSetSource<typeof importRunContainers>, "outcome"> & {
+    outcome?: "landed" | "refused";
+  },
 ): Promise<void> {
   const updated = await db
     .update(importRunContainers)

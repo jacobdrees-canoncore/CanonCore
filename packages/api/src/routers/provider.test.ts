@@ -3384,6 +3384,8 @@ interface BatchingProvider {
   /** The cursor whose browse lapses the Credential, as a refusal from the wiki does. */
   lapsesAt: string | undefined;
   credential: { state: "valid" | "expired" };
+  /** What the Provider calls itself in its manifest. */
+  name: string;
 }
 
 async function aBatchingProvider(): Promise<BatchingProvider> {
@@ -3393,6 +3395,7 @@ async function aBatchingProvider(): Promise<BatchingProvider> {
     empty: new Set(),
     lapsesAt: undefined,
     credential: { state: "valid" },
+    name: MANIFEST.name,
   };
   const server = createServer((request, response) => {
     const json = (body: unknown, status = 200) => {
@@ -3403,6 +3406,7 @@ async function aBatchingProvider(): Promise<BatchingProvider> {
     if (url.pathname === "/") {
       return json({
         ...MANIFEST,
+        name: stub.name,
         operations: ["search", "lookup", "browse"],
         credential: {
           label: "A tardis.wiki session",
@@ -3556,6 +3560,26 @@ describe("a Container that answers in batches", () => {
 
     expect(carried.map((stepped) => stepped.answer)).toEqual(["batch", "landed", "landed", "done"]);
     expect(provider.browsedAfter).toEqual(["", "batch-1", "batch-1", "batch-2", "whole-1"]);
+  });
+
+  /**
+   * THE LAPSE IS NAMED IN A SENTENCE OF CANONCORE'S THAT CARRIES THE PROVIDER'S
+   * NAME, so the name is bounded where it enters it (ADR-0123). Unbounded, a
+   * name at the manifest's own ceiling pushed the sentence past a reason's 300,
+   * and the step failed its own output schema after the row was written.
+   */
+  it("names a lapse in a sentence that fits a reason, however long the Provider's name", async () => {
+    const provider = await aBatchingProvider();
+    provider.name = "p".repeat(REASON_MAX_LENGTH);
+    provider.lapsesAt = "";
+    const { runId } = await begin(provider.baseUrl);
+
+    const stepped = await step(runId);
+
+    expect(stepped.answer).toBe("stopped");
+    if (stepped.answer !== "stopped") return;
+    expect(stepped.reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    expect(stepped.reason.text).toContain("Credential has lapsed");
   });
 
   /**

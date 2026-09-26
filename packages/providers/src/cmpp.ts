@@ -251,7 +251,9 @@ export const cmppBrowse = z.object({
    * answer from a provider that never pages -- so its absence reads as "whole".
    * OPAQUE: CanonCore stores it and hands it back, and never reads it.
    */
-  next: z.string().min(1).optional(),
+  // BOUNDED LIKE AN ID, because it is stored and sent back in a URL: a
+  // cursor from a broken or hostile provider is refused rather than kept.
+  next: z.string().min(1).max(MAX_ID_CHARS).optional(),
 });
 
 export type CmppPlacement = z.infer<typeof cmppPlacement>;

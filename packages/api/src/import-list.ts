@@ -95,10 +95,12 @@ export interface WalkingTheList {
  * the corpus's eleven minutes of browsing is not something to ask an Owner to
  * spend twice, nor a Provider to serve twice.
  *
- * A REFUSAL DOES NOT STOP IT. One Container the Provider will not answer for is
- * one Container, and the 464 after it are still worth asking for -- the reason
- * is written down against the Container that refused, and the report at the end
- * is where the Owner reads which ones those were.
+ * A REFUSAL DOES NOT STOP IT, BUT A LAPSED CREDENTIAL DOES (CNCORE-373). One
+ * Container the Provider will not answer for is one Container, and the 464
+ * after it are still worth asking for -- the reason is written down against the
+ * Container that refused, and the report at the end is where the Owner reads
+ * which ones those were. A lapse is the exception because every Container after
+ * it would refuse the same way, so the step answers `stopped` and the walk ends.
  */
 export async function importContainerList(
   client: AppRouterClient,
