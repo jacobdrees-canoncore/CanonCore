@@ -1154,7 +1154,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
        * this the ordering the provider actually wrote rather than one found by
        * searching the page for a title.
        */
-      importedContainerId: missingEpisodes.containerId,
+      importedContainerId: missingEpisodes.containerId!,
       /*
        * SECOND, NOT THIRD, AND THAT IS THE FIXTURE MOVING RATHER THAN A TYPO.
        * ADR-0057 moved the fixture era to new Who and cut the missing-episode
@@ -1175,7 +1175,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       unplaced: operationDusk,
       unplacedIn: "Category:Vashta Nerada audio stories",
       /** That container's own id, for a test that opens it. */
-      unplacedInId: vashtaNerada.containerId,
+      unplacedInId: vashtaNerada.containerId!,
     },
     close: () => db.$client.end(),
   };
@@ -1775,7 +1775,7 @@ async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
   });
   const season = placements[0]?.itemId;
   if (season === undefined) throw new Error(`${DOCTOR_WHO_1963} arrived with no seasons`);
-  return { series: containerId, season };
+  return { series: containerId!, season };
 }
 
 /**
@@ -1821,7 +1821,7 @@ async function twoInstancesOfOneProvider(baseUrl: string, databaseUrl: string) {
     const owner = await ownerSource(db);
     // PAST THE COLLECTION'S OWN TWO, so this row is the owner's addition rather
     // than a position either browse already claimed.
-    for (const containerId of [one.containerId, two.containerId]) {
+    for (const containerId of [one.containerId!, two.containerId!]) {
       await assertPlacement(db, { containerId, itemId, position: 9, sourceId: owner });
     }
 

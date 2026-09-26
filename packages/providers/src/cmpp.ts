@@ -191,11 +191,15 @@ export const cmppRecord = z.looseObject({
    * with none of its episodes, so nothing else in the answer could tell it from
    * a story. Jellyfin's `IsFolder` is the same fact on the same kind of record.
    *
-   * DEFAULTED TO FALSE, and false says only that the source did not say so:
-   * the catalogue turns a Container ON when told and never off, because a
-   * record that omits this is not evidence a Container stopped being one.
+   * NOT DEFAULTED, because absent and `false` answer different questions.
+   * Absent says the source did not say, and the catalogue turns a Container ON
+   * when told and never off, because a record that omits this is not evidence a
+   * Container stopped being one. `false` on the record a browse was ASKED FOR is
+   * the source saying the page it was browsed through holds nothing -- an entity
+   * infobox, which is how its members are reached and not an ordering anybody
+   * wrote -- so the catalogue stores no Container for it (CNCORE-432).
    */
-  is_container: z.boolean().default(false),
+  is_container: z.boolean().optional(),
   /**
    * Every image the source files against this record, as references (ADR-0031).
    * Which of them are FETCHED is `picturesToFetch`'s, under the manifest's

@@ -7,6 +7,7 @@ import {
   type ImportedRecord,
   ImportRunRefused,
   importBrowsedContainer,
+  importBrowsedMembers,
   importProvidedRecord,
   nextPendingContainer,
   type PurgedProvider,
@@ -341,6 +342,12 @@ async function browseIfOffered(
 }
 
 /**
+ * What a browse wrote: an `ImportedContainer`, or its members alone where the
+ * page browsed said it holds nothing and no Container was stored (CNCORE-432).
+ */
+type Browsed = Omit<ImportedContainer, "containerId"> & { containerId: string | null };
+
+/**
  * Reaching a provider's `browse` and writing the container and ordering it
  * answers, as a plain function.
  *
@@ -377,7 +384,7 @@ async function browseIntoCatalogue(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, containerId }: BrowseRequest,
-): Promise<ImportedContainer | null> {
+): Promise<Browsed | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
     const attempt = await askingTheProvider(() => browseIfOffered(client, containerId));
@@ -393,6 +400,18 @@ async function browseIntoCatalogue(
     }
     const browsed = attempt.browsed;
     if (!browsed) return null;
+
+    // THE PAGE SAYS IT HOLDS NOTHING, so it was how the members were reached
+    // and is stored as nothing: `importBrowsedMembers` says why (CNCORE-432).
+    if (browsed.container.is_container === false) {
+      const { quarantinedValues } = await importBrowsedMembers(db, {
+        provider: providerFrom(baseUrl, attempt.manifest),
+        members: [...browsed.ordering.map(({ record }) => record), ...browsed.unplaced].map(
+          asProvided,
+        ),
+      });
+      return { containerId: null, placements: [], quarantinedValues };
+    }
 
     return await importBrowsedContainer(db, {
       provider: providerFrom(baseUrl, attempt.manifest),
@@ -682,7 +701,7 @@ async function oneContainerIntoTheCatalogue(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, containerId }: BrowseRequest,
-): Promise<{ landed: ImportedContainer } | { refused: FailureReason }> {
+): Promise<{ landed: Browsed } | { refused: FailureReason }> {
   try {
     const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId });
     if (browsed) return { landed: browsed };
@@ -1616,7 +1635,8 @@ export const provider = {
     )
     .output(
       z.object({
-        containerId: z.uuid(),
+        /** `null` where the page browsed said it holds nothing (CNCORE-432). */
+        containerId: z.uuid().nullable(),
         /**
          * Every placement written, container-side. The placement id is here for
          * the same reason `?via=` carries one (ADR-0066): it names the ordering
@@ -1932,8 +1952,11 @@ export const provider = {
           answer: z.literal("landed"),
           /** The Provider's own id, as the Owner listed it. */
           containerId: z.string().min(1),
-          /** The Container as this catalogue now holds it. */
-          itemId: z.uuid(),
+          /**
+           * The Container as this catalogue now holds it, or `null` where the
+           * page said it holds nothing and none was stored (CNCORE-432).
+           */
+          itemId: z.uuid().nullable(),
           placements: z.number().int().nonnegative(),
           quarantinedValues: z.number().int().nonnegative(),
           /** How many Containers are still to be asked for after this one. */

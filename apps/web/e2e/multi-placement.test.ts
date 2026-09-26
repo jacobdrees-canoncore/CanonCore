@@ -123,14 +123,14 @@ beforeAll(async () => {
     baseUrl: inject("providerWikiUrl"),
     containerId: SERIES_2,
   });
-  wikiSeries2 = browsed.containerId;
+  wikiSeries2 = browsed.containerId!;
   series2Items = await itemsByTitle(browsed.placements);
 
   const series1 = await client.provider.browse({
     baseUrl: inject("providerWikiUrl"),
     containerId: SERIES_1,
   });
-  wikiSeries1 = series1.containerId;
+  wikiSeries1 = series1.containerId!;
   const roseId = (await itemsByTitle(series1.placements)).get("Rose (TV story)");
   if (roseId === undefined) throw new Error("the browse of Series 1 placed no Rose");
   rose = roseId;
@@ -152,11 +152,11 @@ beforeAll(async () => {
    */
   const tmdb = inject("providerTmdbUrl");
   tmdbSeason1 = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SEASON_1.id }))
-    .containerId;
+    .containerId!;
   tmdbSeason2 = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SEASON_2.id }))
-    .containerId;
+    .containerId!;
   tmdbSpecials = (await client.provider.browse({ baseUrl: tmdb, containerId: TMDB_SPECIALS.id }))
-    .containerId;
+    .containerId!;
 });
 
 describe("two sources that agree", () => {

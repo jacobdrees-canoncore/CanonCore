@@ -34,6 +34,7 @@ export {
   type ImportedRecord,
   type ImportingProvider,
   importBrowsedContainer,
+  importBrowsedMembers,
   importProvidedRecord,
   type ProvidedContainer,
   type ProvidedRecord,
