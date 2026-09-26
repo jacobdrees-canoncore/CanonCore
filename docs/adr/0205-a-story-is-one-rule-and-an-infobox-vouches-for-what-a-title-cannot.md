@@ -42,7 +42,7 @@ already admits carry. Among the pages that rule refused, every other infobox was
 
 **The provider was importing pages the source says are outside its universe.** `Doctor Who and
 Crayola (TV story)` has a real story dab term and sits in `Non-DWU television stories`. Nothing
-downstream could tell it from a canonical story.
+downstream could tell it from an in-universe story.
 
 ## Measured
 
