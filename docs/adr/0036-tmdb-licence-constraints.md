@@ -73,12 +73,12 @@ and no per-table policy, because every row that can carry a claim already names 
 the owner also placed somewhere, or put in a Group, survives, untitled — either is the owner's claim,
 and a provider's licence ending has no bearing on it. (The Group half is CNCORE-232's, below.)
 
-**NOT BUILT: the six-month ceiling.** `max_cache_age` is declared by `provider-tmdb` at 180 days and
-is READ BY NOTHING. There is no image store and no cached value with an age, so there is nothing yet
-for a read-time check to check — but "TMDB forbids caching for longer than 6 months" is the first
-sentence of this record, and today the app honours it only by not caching. That is compliance by
-absence rather than by mechanism, and the day something stores a value or an image is the day it
-stops being enough. Whatever does that closes this record.
+**HALF BUILT SINCE CNCORE-360: the six-month ceiling.** `max_cache_age` is declared by
+`provider-tmdb` at 180 days, and until CNCORE-360 it was read by nothing: the app honoured the
+ceiling only by not caching, which is compliance by absence rather than by mechanism. It is READ
+ON THE ITEM PAGE'S CLAIMS now, and NOT on the projected columns. "Under CNCORE-360" below says
+which reads refuse an expired value and which cannot, and it is why this record is still
+`proposed`.
 
 **AND CNCORE-9 IS THE FIRST THING TO STORE ONE, SO THE CEILING IS NOW LIVE RATHER THAN
 HYPOTHETICAL.** That ticket hardcodes TMDB's season and episode numbers as the expected positions of
@@ -270,5 +270,69 @@ since the Group's tombstone arrived in the same change as the first: without tha
 clause, the Item that outlived its Group is kept (`keptItems` 1 where 0 is right), and widening
 the sweep to every dead membership among the candidates makes the put answer a fresh id.
 
-**THIS RECORD STAYS PROPOSED.** CNCORE-232 completes the purge half. The six-month ceiling above is
-still read by nothing, and that is what closes this record.
+**THIS RECORD STAYS PROPOSED.** CNCORE-232 completes the purge half. The six-month ceiling is read
+since CNCORE-360, but not on the projected columns, which is what still holds this record open (see
+"Under CNCORE-360" below).
+
+## Under CNCORE-360: the ceiling is read, on every read that can see a claim's age
+
+CNCORE-360 is the day this record's own sentence names: "the day something stores a value or an
+image is the day it stops being enough". It stores TMDB's programmes and their seasons as Containers
+of their own, at scale, so the ceiling had to become a mechanism in the same change.
+
+**BUILT: every stored value carries the moment it was taken.** That column already existed on two of
+the three tables that hold a Provider's claims. ADR-0012 lists `observed_at` among a claim's
+attributes, and migration 1 put it on `statements` and `placement_sources`. An Identifier (migration
+23) had none, and migration 24 gives it one. The column was set on insert and NEVER refreshed, so a
+value TMDB repeats every week would have expired six months after TMDB FIRST said it. Now
+`assertClaims`, `assertPlacement` and `assertIdentifiers` each move it to `now()` on a row the
+source says again. The cost is that a re-import rewrites every row it confirms: `updated_at` and the
+change sequence advance with it, where before an unchanged row was left alone.
+
+**BUILT: the source keeps its ceiling.** `sources.max_cache_age` (migration 24) is taken off the
+manifest on every import, beside the attribution and for its reason: a Provider may revise it.
+`ImportingProvider.maxCacheAge` is REQUIRED, `null` included, for the reason the attribution is:
+a caller that could omit it would clear a stored ceiling and keep that source's values forever.
+
+**BUILT: a read refuses a claim taken longer ago than its source allows.** The check is one
+predicate, `insideItsCeiling` in `packages/db/src/queries.ts`, and it compares the claim's own
+`observed_at` with its own source's `max_cache_age` at the moment of the read. So no job has to have
+run, and a value nobody touched for six months is refused by the first read after it. It stands in:
+
+- `findStatementsOfItem`, the claims an Item page lists;
+- `findIdentifiersOfItem`, its ids in other schemes;
+- `standingBehindThePlacement`, so an expired claim does not name who placed a Placement;
+- `whatItHolds` and `whatItSitsIn`, through `STILL_HELD`. A Placement whose every standing claim
+  has expired is refused from a Container's Members, from an Item's orderings, and from the counts
+  a catalogue Row reports off those two. A Placement nobody stands behind at all is still shown,
+  which is the read path's standing rule and is not this record's to change.
+
+A source declaring no ceiling is never refused. That covers the Owner and `provider-wiki` as the
+tests stub it. Asserted at the router in process (ADR-0103), in `provider.test.ts`, "a Provider's
+cache ceiling". Values are aged by moving `observed_at` into the past, never by waiting. Mutation-
+checked, each run and read: deleting the check from the statements read, the Identifiers read or
+`whatItHolds`, not writing the ceiling onto the source, and not refreshing `observed_at` in any of
+the three writers each turns exactly one of the four tests red.
+
+**NOT BUILT, AND IT IS WHY THIS RECORD STAYS `proposed`: the projected columns.** `items.title` and
+`items.sort_name` are written by `winning_literal` when a statement changes (ADR-0014). They are a
+snapshot, not a read, and time passing changes no row, so nothing can re-project an expired title
+at the moment it expires. Every listing, the catalogue search and an Item page's own heading read
+`items.title`. So a title TMDB gave seven months ago and has not said since is refused from the
+page's list of claims AND STILL SHOWN AS THE ITEM'S NAME. That is the largest cached value a read-
+time check does not reach, and it is TMDB Content as squarely as a season number is. `holds_work`
+is the same shape one level over, a projection of Placements, and it is not refreshed by expiry
+either.
+
+**AND THREE SMALLER GAPS, each named so none is assumed covered:**
+
+- A source row written before migration 24 holds `max_cache_age` NULL, so it is never refused,
+  until that Provider's next import writes the value. Nothing kept the ceiling to backfill it from.
+- `findItemsProvided`, the read that tells a search which candidates are already held, maps
+  TMDB's ids to Items without the check. It shows no TMDB Content, but it does read a claim.
+- Artwork: there is no image store yet (CNCORE-358), and expiring a stored picture is CNCORE-372's
+  by that ticket's own criterion. The test literals above are still two acts to purge, not one.
+
+**NOT SETTLED, still:** the two clauses to put to TMDB before a public demo ships. CNCORE-360 touched
+neither, and the commercial-use question and paragraph 1.C's AI restriction remain dispositions
+rather than answers.

@@ -1130,8 +1130,9 @@ that cannot BE an identity addresses nothing — rather than as a container whos
 Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-call]]).
 
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
-`max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
-Eight sections have now said so.
+The image policy travels the wire from two providers and is read by nothing. Eight sections said the
+same of `max_cache_age` too, and it is read since CNCORE-360: a claim taken longer ago than its
+source declares is refused on read ([[0036-tmdb-licence-constraints]], "Under CNCORE-360").
 
 ## And under CNCORE-349: the consumer stops stripping a record -- and this record STILL STAYS PROPOSED
 
@@ -1186,3 +1187,27 @@ Exhibition` (page 203134, 40 pages), counted on 2026-09-26 over `list=embeddedin
 non-redirects -- the census's 600 Time span pages.
 
 **NO VERSION MOVES** ([[0032-cmpp-versions-array]]). Nothing required was added.
+
+## And under CNCORE-360: a record may say it holds others -- and this record STILL STAYS PROPOSED
+
+**A CONTAINER NAMED INSIDE ANOTHER'S ORDERING HAD NO WAY TO SAY WHAT IT WAS.** Browsing a TMDB
+programme answers its seasons as the ordering, and a season arrives without its episodes. That is
+right, because `browse` answers ONE container, and the episodes are the season's own browse
+(CNCORE-375). But `CONTEXT.md`'s **Container** is "stored, never inferred from having members", so a
+season with none in hand looked exactly like a story. `kind` is the source's open taxonomy and cannot
+be read as "holds others", and `series_id` points up, not down.
+
+**SO A RECORD MAY CARRY `is_container`**, optional and boolean, in `packages/contract`'s `record` and
+in CanonCore's consumer `cmppRecord`, where it defaults to `false`. Jellyfin marks the same fact on
+every item as `IsFolder`. `provider-tmdb` sends it on every record: `true` for a programme, a season
+and a collection, and `false` for a film and an episode
+([provider-tmdb#40](https://github.com/jacobdrees-canoncore/provider-tmdb/pull/40)). `provider-wiki`
+sends none and stays conformant. CanonCore stores a record that says so as a Container, and only ever
+turns that ON, because a record that omits the field says nothing about a Container ceasing to be one.
+That is the rule `writeProvidedItem` already applied to a browsed record.
+
+**NO VERSION MOVES** ([[0032-cmpp-versions-array]]): nothing required was added.
+
+**STILL `proposed`, for the image policy alone.** `max_cache_age` is read since this ticket
+([[0036-tmdb-licence-constraints]], "Under CNCORE-360"), and the policy's limit, floor and variant
+are still read by nothing.

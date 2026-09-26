@@ -157,3 +157,26 @@ The second is `unplaced` meaning the wrong thing one layer down: an ordering tha
 single member because the provider never got the dates, presented as a source that holds no dates. A
 provider must read a refusal as a refusal — the same rule ADR-0122 states about a credential, applied
 to a query limit.
+
+## Under CNCORE-360: the second Provider's programme and seasons are Containers of their own
+
+A TMDB programme browsed into the catalogue is a Container ordered the way TMDB published it, with
+specials first because TMDB files them as season 0 and returns them first. Each season is a Container
+in turn, because the record says so (`is_container`, [[0033-search-lookup-required-browse-optional]],
+"And under CNCORE-360"). So the Owner descends from a programme to a season, and the season's
+episodes are CNCORE-375's.
+
+**THE TWO PROVIDERS' ORDERINGS STAY TWO CONTAINERS, and nothing had to be built for that.** A
+Container is found again by (source, external id) and never by title, so TMDB's `Doctor Who` and a
+wiki timeline over the same stories land apart, each holding its own members in its own order. That
+is asserted at the router in process ("a series and its seasons", `provider.test.ts`), because a
+reader of this record should not have to take "nothing fuses them" on trust.
+
+**SEASON COVERAGE, STATED RATHER THAN ASSUMED.** Over the seasons TMDB lists for its three `Doctor
+Who` programmes (`tv:121`, `tv:57243` and `tv:239770`, 27 + 14 + 3 = 44 seasons), read from
+`/3/tv/{id}` on 2026-09-26, which is the answer the browse itself reads: **44 of 44** carry an
+overview and **44 of 44** a poster. The spec's 7.8% and 43.0% were counted on 2026-09-21 over a
+different population, and these figures do not replace them, since they describe the headline
+franchise alone. And WHAT THIS IMPORT HOLDS of either is **none**. No `description` Property exists
+yet, and artwork is CNCORE-358 and CNCORE-372's, so a season arrives as a title, a release date, an
+external id and its place in the programme's ordering, and nothing more.

@@ -275,6 +275,7 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
 
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
+  project.provide("attributedSeries", await browseASeriesFromTmdb(baseUrl, tmdb.url));
   const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
   owned.defer(twoInstances.close);
   project.provide("twoInstances", twoInstances.fixture);
@@ -1305,6 +1306,18 @@ const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
 const MATRIX_COLLECTION = "collection:2344";
 
 /**
+ * A programme, browsed into its own Container with its seasons as Containers in
+ * turn (CNCORE-360). `/3/tv/121` is `Doctor Who`, the 1963 programme, read from
+ * TMDB's own API on 2026-09-26.
+ *
+ * NOT `tv:57243`, which is the programme the rest of this suite reaches for.
+ * `multi-placement.test.ts` writes two of that programme's seasons straight into
+ * the catalogue under the TMDB source, and a browse of the programme here would
+ * mint the same external ids first, which one Item per external id refuses.
+ */
+const DOCTOR_WHO_1963 = "tv:121";
+
+/**
  * A stand-in for the real image, for a machine that cannot pull a private one.
  *
  * The manifest is the real one's, `attribution` included, because that is the
@@ -1408,11 +1421,52 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     ],
     unplaced: [],
   };
+  /**
+   * The programme as a browse answers it: the programme, and its seasons in
+   * TMDB's own order with specials first, each saying it is a container. Two of
+   * the real image's twenty-seven, which no assertion counts.
+   */
+  const season = (number: number, title: string, released: string) => ({
+    id: `season:121:${number}`,
+    title,
+    kind: "season",
+    released: [released],
+    writers: [],
+    series: "Doctor Who",
+    series_id: DOCTOR_WHO_1963,
+    url: `https://www.themoviedb.org/tv/121/season/${number}`,
+    images: [],
+    external_ids: {},
+    is_container: true,
+  });
+  const programme = {
+    container: {
+      id: DOCTOR_WHO_1963,
+      title: "Doctor Who",
+      kind: "tv",
+      released: ["1963-11-23"],
+      writers: [],
+      series: null,
+      series_id: null,
+      url: "https://www.themoviedb.org/tv/121",
+      images: [],
+      external_ids: { tmdb: "121" },
+      is_container: true,
+    },
+    ordering: [
+      { position: 1, record: season(0, "Specials", "1983-11-25") },
+      { position: 2, record: season(1, "Season 1", "1963-11-23") },
+    ],
+    unplaced: [],
+  };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
     if (path.startsWith("/search")) return answer(searchOver(searched, path), searchStatus(path));
     if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
       return answer(collection, 200);
+    }
+    if (path === `/browse/${encodeURIComponent(DOCTOR_WHO_1963)}`) {
+      return answer(programme, 200);
     }
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX.id)}`) return answer(record, 200);
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX_RELOADED.id)}`) {
@@ -1595,6 +1649,22 @@ async function importFromTmdb(baseUrl: string, providerUrl: string) {
     recordId: THE_MATRIX.id,
   });
   return { id: itemId, title: THE_MATRIX.title, notice: TMDB_NOTICE };
+}
+
+/**
+ * A programme and one of its seasons as the second Provider's browse lands them,
+ * each a Container page that never carried that Provider's claims before
+ * (CNCORE-360). The season is the first in the programme's ordering.
+ */
+async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
+  const client = await asTheOwner(baseUrl);
+  const { containerId, placements } = await client.provider.browse({
+    baseUrl: providerUrl,
+    containerId: DOCTOR_WHO_1963,
+  });
+  const season = placements[0]?.itemId;
+  if (season === undefined) throw new Error(`${DOCTOR_WHO_1963} arrived with no seasons`);
+  return { series: containerId, season };
 }
 
 /**
@@ -2751,6 +2821,8 @@ declare module "vitest" {
      * show a notice and a mark (ADR-0036).
      */
     attributed: { id: string; title: string; notice: string };
+    /** A programme and one of its seasons, from that same Provider (CNCORE-360). */
+    attributedSeries: { series: string; season: string };
     /** One item two instances of one provider each owe a notice on (CNCORE-130). */
     twoInstances: { id: string; notice: string };
     /**

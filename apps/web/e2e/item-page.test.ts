@@ -27,6 +27,7 @@ const twoOrigins = inject("twoOrigins");
 const imported = inject("imported");
 const browsed = inject("browsed");
 const attributed = inject("attributed");
+const attributedSeries = inject("attributedSeries");
 const twoInstances = inject("twoInstances");
 const timeSpan = inject("timeSpan");
 /**
@@ -593,6 +594,28 @@ describe("a placement the ordering could not position", () => {
 });
 
 /**
+ * THE COMPARISON TMDB's TERMS ASK FOR, read out of the served bytes: "Any use of
+ * any TMDB logos in Your Application must be less prominent than the logos or
+ * marks that primarily describe or identify Your Application."
+ *
+ * THE SIZE IS READ OUT OF THE WORDMARK'S OWN TAG, not out of the document. An
+ * earlier version took the first `font-size` anywhere in the HTML and only
+ * checked separately that the string `CanonCore</a>` existed, so it passed by
+ * layout luck: any other inline size appearing first would have been compared
+ * instead. Found in review.
+ */
+function expectTheMarkSmallerThanOurs(text: string) {
+  const wordmarkTag = text.match(/<a\b[^>]*>CanonCore<\/a>/)?.[0];
+  const ourMark = wordmarkTag?.match(/font-size:\s*(\d+)px/)?.[1];
+  const sourceMark = text.match(/<img[^>]+src="data:image\/[^"]*"[^>]*height="(\d+)"/)?.[1];
+
+  expect(wordmarkTag, "CanonCore's own wordmark is not on the page").toBeDefined();
+  expect(ourMark, "the wordmark carries no explicit size to compare against").toBeDefined();
+  expect(sourceMark, "the source's mark is not on the page").toBeDefined();
+  expect(Number(sourceMark)).toBeLessThan(Number(ourMark));
+}
+
+/**
  * ADR-0036, and the half of it a code review cannot see: the licence obligation
  * is discharged by what a READER IS SERVED, so this is the only suite in the repo
  * that can tell whether it is discharged at all.
@@ -639,20 +662,24 @@ describe("what the page owes for what it shows", () => {
   it("keeps the source's mark smaller than CanonCore's own", async () => {
     const { text } = await documentAt(`/items/${attributed.id}`);
 
-    // THE SIZE IS READ OUT OF THE WORDMARK'S OWN TAG, not out of the document.
-    // An earlier version took the first `font-size` anywhere in the HTML and only
-    // checked separately that the string `CanonCore</a>` existed, so it passed by
-    // layout luck: any other inline size appearing first would have been compared
-    // instead. Found in review.
-    const wordmarkTag = text.match(/<a\b[^>]*>CanonCore<\/a>/)?.[0];
-    const ourMark = wordmarkTag?.match(/font-size:\s*(\d+)px/)?.[1];
-    const sourceMark = text.match(/<img[^>]+src="data:image\/[^"]*"[^>]*height="(\d+)"/)?.[1];
-
-    expect(wordmarkTag, "CanonCore's own wordmark is not on the page").toBeDefined();
-    expect(ourMark, "the wordmark carries no explicit size to compare against").toBeDefined();
-    expect(sourceMark, "the source's mark is not on the page").toBeDefined();
-    expect(Number(sourceMark)).toBeLessThan(Number(ourMark));
+    expectTheMarkSmallerThanOurs(text);
   });
+
+  /**
+   * AND ON THE CONTAINER PAGES THE SECOND PROVIDER'S SERIES AND SEASONS ARRIVE AS
+   * (CNCORE-360). Those pages never carried its claims before, so the obligation
+   * has to be shown to reach them rather than assumed to hold there already.
+   */
+  it.each(["series", "season"] as const)(
+    "owes the notice and a smaller mark on a %s page too",
+    async (which) => {
+      const { status, text } = await documentAt(`/items/${attributedSeries[which]}`);
+
+      expect(status).toBe(200);
+      expect(text).toContain(attributed.notice);
+      expectTheMarkSmallerThanOurs(text);
+    },
+  );
 
   /**
    * AND NOTHING IS OWED FOR A SOURCE THAT IMPOSES NOTHING. The wiki's archive
