@@ -722,11 +722,20 @@ either.** It answered `403` from `::ffff:172.67.147.58`, an IPv4-mapped address,
 **What landed, and what is left.** The lapse-write, the comparison, the two-copy unlock and the
 IPv4 route are in `jacobdrees-canoncore/provider-wiki#72`, which was open when this was
 written. The IPv4 route includes `capture:live`'s `browse`, which goes through the provider's own
-client and is routed by setting the global dispatcher. What has NOT been seen is
-`pnpm session unlock` passing end to end on the Owner's instance with a fresh clearance. Its one
-live run, at 15:39Z, stored both copies and got `valid` from the manifest. The script's spend then
-got `403`, because the scripts were still on the default route, and that result is what led to
-forcing IPv4. The same session was refused over IPv4 by 15:58:52Z, because the Mac had changed network in
+client and is routed by setting the global dispatcher.
+
+**`pnpm session unlock` HAS BEEN SEEN PASSING END TO END on the Owner's instance, on 2026-09-26.**
+The dispatcher ran it from the `provider-wiki` worktree with a clearance the Owner minted at 13:32:11
+local over IPv4, with IPv6 off as the route table showed. It printed `PASS over forced IPv4: 200`,
+`provider  stored through http://127.0.0.1:8081/unlock`, the host copy stored,
+`provider  manifest says valid` and `host      a script's spend answered 200`. The dispatcher then
+checked each reader on its own: the manifest said `valid` at `2026-09-26T12:34:03.616Z`, the host
+file read `lapsed: false`, and a forced-IPv4 spend of the host file answered `200`. The Docker read,
+the compose parsing and the unlock sequence itself still have no tests.
+
+Its first live run, on 2026-09-25 at 15:39Z, stored both copies and got `valid` from the manifest.
+The script's spend then got `403`, because the scripts were still on the default route, and that
+result is what led to forcing IPv4. The same session was refused over IPv4 by 15:58:52Z, because the Mac had changed network in
 between, and not because of its age. That is CNCORE-206's rule doing what it says: Cloudflare binds
 a clearance to the public address that passed its challenge. **A clearance lives until the public
 address changes, which on a laptop means until it changes network.**
