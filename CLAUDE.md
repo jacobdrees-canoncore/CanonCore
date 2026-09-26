@@ -141,8 +141,8 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   `orca terminal` over an ad hoc PTY. But **read `--screen` BEFORE sending to an agent**: input to a
   PARKED agent goes to the WIDGET, where `--enter` SELECTS the option under the cursor, and mid-turn
   `--enter` queues until `ctrl+x ctrl+s` (`printf '\030\023'`) flushes it **and INTERRUPTS the turn
-  in progress**. All three answer `ok: true` (ADR-0162); ADR-0187 has the keystrokes PER SCREEN,
-  never per widget shape. **WAIT FOR THE PROMPT where it can wait**, and flush only where it cannot.
+  in progress**. All three answer `ok: true` (ADR-0162), and a parked widget is sent nothing, since
+  its question is the Owner's to answer there (ADR-0187). **WAIT FOR THE PROMPT** where it can wait.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).

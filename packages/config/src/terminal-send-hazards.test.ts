@@ -142,6 +142,13 @@ const THE_WAY_THROUGH = new RegExp(
 );
 
 /**
+ * The rule itself, as one phrase. A looser first draft -- any `send` followed
+ * later in the sentence by `nothing` -- passed "send one Enter and nothing
+ * else", the recipe it exists to refuse (CNCORE-422 review).
+ */
+const SEND_IT_NOTHING = /\b(?:is sent|send (?:it|its widget|that widget)) nothing\b/i;
+
+/**
  * The record that IS the answer, which is why it is not asked the question, as
  * the tree spells its path today.
  */
@@ -162,13 +169,12 @@ function theRecordThatAnswersIt(): string {
  * The same three documents tell a dispatcher that input to a PARKED agent goes
  * to the prompt widget, where `--enter` SELECTS the option under the cursor.
  * True, and stated as a hazard with nothing on the other side of it: a reader
- * who has only that has been told what not to do and not what to do, so the
- * options are to guess the keystrokes or to leave the agent parked. That is
- * what left the widget recipe undocumented for as long as it was, and on
- * 2026-09-21 it cost three measured messages, four by the dispatcher's own
- * count -- sent into a multi-select whose confirm
- * screen was still open, eaten in silence while `orca terminal send` answered
- * `Sent N bytes`.
+ * who has only that has been told what not to do and not what to do. On
+ * 2026-09-21 that cost three measured messages, four by the dispatcher's own
+ * count -- sent into a multi-select whose confirm screen was still open, eaten
+ * in silence while `orca terminal send` answered `Sent N bytes`. The answer is
+ * now to send the widget nothing (CNCORE-420), and the second rule below holds
+ * that sentence beside the warning.
  *
  * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
  * never the document. A pointer three sections away from the warning is the
@@ -229,259 +235,82 @@ describe("the sentence that warns about the prompt widget", () => {
       .map(({ path, beside }) => `${path}: ${beside}`);
     expect(unanswered).toStrictEqual([]);
   });
-});
 
-/**
- * THE TABLE'S SHAPE WAS THE CLAIM, AND THE CLAIM WAS WRONG (CNCORE-337).
- *
- * ADR-0187 laid its keystroke recipes out as kind DOWN the side and question
- * count ACROSS the top, which says in its structure that a count is a function
- * of those two things. Its prose said so too, in as many words. On 2026-09-21 a
- * two-question single-select submitted BOTH questions on ONE bare Enter where
- * that table says three, and the dispatcher committed an answer to a question
- * that was never rendered.
- *
- * SO THE ROW IS A MEASUREMENT, NOT A SHAPE, and this reads the table that way:
- * one row per screen somebody actually read, with the TAB BAR AT REST beside the
- * count, because that is the variable the two contradicting measurements differ
- * on and the one neither of the earlier readings wrote down.
- *
- * WHAT IT CATCHES IS THE NEXT CELL, not this correction. The record names the
- * multi-question MULTI-select as unmeasured and tells a reader to measure it
- * before driving one; the day somebody does, a count written in without the
- * screen state it was read at is the identical defect, and this reddens on it.
- */
-const REQUIRED_COLUMNS = ["kind", "questions", "tab bar at rest", "keystrokes to submit"];
-
-function keystrokeTable(): { headings: string[]; rows: Record<string, string>[] } {
-  const path = theRecordThatAnswersIt();
-  const lines = readFileSync(join(repoRoot, path), "utf8").split("\n");
-
-  const cellsOf = (line: string): string[] =>
-    line
-      .trim()
-      .replace(/^\||\|$/g, "")
-      .split("|")
-      .map((cell) => cell.trim());
-
-  // A RUN OF PIPE LINES UNDER A SEPARATOR ROW, rather than the first pipe line
-  // in the file, which is not this table. The record quotes a transcript
-  // reading `|_ Interrupted - What should Claude do instead?`, and a reader
-  // that took the first pipe line took that one -- found by writing this the
-  // obvious way and watching it report the record as holding no table at all.
-  const runs: string[][] = [[]];
-  for (const line of lines) {
-    if (line.trimStart().startsWith("|")) runs.at(-1)?.push(line);
-    else if ((runs.at(-1)?.length ?? 0) > 0) runs.push([]);
-  }
-  const run = runs.find(
-    ([, separator]) =>
-      separator !== undefined && cellsOf(separator).every((cell) => /^:?-+:?$/.test(cell)),
-  );
-
-  const [header, , ...body] = run ?? [];
-  if (header === undefined) {
-    throw new Error(
-      `${path} holds no markdown table with a separator row, so the keystroke recipes cannot be ` +
-        "read and this suite is asking nothing",
-    );
-  }
-
-  const headings = cellsOf(header).map((cell) => cell.replace(/[*`]/g, "").trim().toLowerCase());
-  const rows = body.map((line) => {
-    const cells = cellsOf(line);
-    return Object.fromEntries(headings.map((heading, at) => [heading, cells[at] ?? ""]));
-  });
-
-  // THE READER IS THE GUARD, which is `theRecordThatAnswersIt` above and
-  // `adr-records.unnumbered` in their own words: a helper that cannot answer for
-  // what it returned throws, rather than handing back something every caller
-  // then has to re-check. Three rules read this table and only one of them was
-  // asserting the shape, so a table inserted ABOVE this one in the record -- or
-  // this one reverted to the kind-by-question-count grid -- left the other two
-  // passing over a population that was not the keystroke recipes at all.
-  //
-  // THE COLUMNS ARE NAMED HERE AND NOT JUST COUNTED, because the rules below
-  // reach for them BY NAME. Renaming `kind` collapses every pair key the
-  // contradiction rule builds into one, and it would go green for the wrong
-  // reason rather than red.
-  const missing = REQUIRED_COLUMNS.filter((column) => !headings.includes(column));
-  if (missing.length > 0 || rows.length === 0) {
-    throw new Error(
-      `${path}'s first table is not the keystroke recipes: it has ${rows.length} row(s) and is ` +
-        `missing the column(s) ${missing.join(", ") || "(none)"}. Its headings are ` +
-        `${headings.join(", ")}. Every rule below reads those columns by name, so they would ` +
-        "otherwise pass over a table that answers a different question.",
-    );
-  }
-
-  return { headings, rows };
-}
-
-/** The record, flattened, for the sentences below; `keystrokeTable` reads it by line. */
-function recordText(): string {
-  return flatten(readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8"));
-}
-
-/**
- * `NOT MEASURED` IS A DECLARATION ABOUT A ROW; `NOT RECORDED` IS A FACT ABOUT A
- * CELL, and the difference is the whole of the rule below.
- *
- * Nobody has driven a multi-question multi-select, so that row declares itself
- * unmeasured in its keystrokes cell and is owed nothing. Somebody DID drive
- * CNCORE-288's widget and did not write its tab bar down, so that cell says
- * `NOT RECORDED` and the row is still a measurement.
- *
- * MEASURED, AND THE FIRST DRAFT HAD IT WRONG. That draft tested `NOT MEASURED`
- * against the whole row joined, so one cell exempted all five and a row reading
- * `| multi-select | several | NOT MEASURED | FOUR down arrows then TWO Enters |
- * CNCORE-999 |` went GREEN -- a count with no screen state, which is the exact
- * defect the block above says this catches. Found by planting it (CNCORE-337
- * review). A check green on the defect it names is worse than no check.
- */
-const DECLARES_THE_ROW_UNMEASURED = /NOT MEASURED/i;
-
-describe("ADR-0187's keystroke table", () => {
   /**
-   * BEFORE THE RULES, and it asks the one thing the reader's own throw cannot:
-   * that the reader resolves. The throw fires inside whichever rule runs first,
-   * which reports a missing column as a failure of that rule; this row says
-   * plainly that the population is the keystroke recipes.
+   * AND THE WAY THROUGH IS TO SEND IT NOTHING (CNCORE-422).
+   *
+   * Until 2026-09-26 the pointer beside this warning led to keystrokes: how
+   * many Enters get an answer through a widget at each screen. The Owner ruled
+   * that day that a parked agent's question stays in its own worktree and is
+   * answered there by the Owner, and that the dispatcher sends its widget
+   * nothing, not even navigation (CNCORE-420). A pointer can still name the
+   * right record while the sentence around it reads as a recipe, which is what
+   * `CLAUDE.md`'s "has the keystrokes PER SCREEN" did, so the rule lives beside
+   * the warning and not only in the record it names.
    */
-  it("is found in the record, under the columns the rules below read", () => {
-    expect(() => keystrokeTable()).not.toThrow();
-    expect(keystrokeTable().rows.length).toBeGreaterThan(0);
-  });
-
-  it("says what screen every count it gives was counted from", () => {
-    const { headings, rows } = keystrokeTable();
-    const first = headings[0] ?? "";
-
-    const unpinned = rows
-      // THE KEYSTROKES CELL ALONE DECLARES THE ROW, for the reason the constant
-      // above carries: read across the whole row, one `NOT MEASURED` exempted
-      // the count sitting beside it.
-      .filter((row) => !DECLARES_THE_ROW_UNMEASURED.test(row["keystrokes to submit"] ?? ""))
-      .flatMap((row) =>
-        headings.flatMap((heading) => {
-          const cell = row[heading] ?? "";
-          const label = `${row[first] ?? "(unlabelled row)"}: ${heading}`;
-          if (cell === "") return [`${label} is empty`];
-          // A ROW THAT GIVES A COUNT IS A MEASUREMENT, so no cell of it can say
-          // the measurement was not taken. `NOT RECORDED` is the word for a
-          // screen somebody saw and did not write down, and it stays lawful.
-          return DECLARES_THE_ROW_UNMEASURED.test(cell) ? [`${label} says NOT MEASURED`] : [];
-        }),
-      );
-
+  it("says beside the warning that the widget is sent nothing", () => {
+    const recipes = hazardsOwedAnAnswer()
+      .filter(({ beside }) => !SEND_IT_NOTHING.test(beside))
+      .map(({ path, beside }) => `${path}: ${beside}`);
     expect(
-      unpinned,
-      "a row of ADR-0187's keystroke table gives a keystroke count without saying what screen " +
-        "it was counted from. That is the defect CNCORE-337 measured: a count read off one " +
-        "screen state travels as a property of the widget. Either fill the cell -- with the " +
-        "reading, or with NOT RECORDED if nobody wrote it down -- or declare the whole row by " +
-        "putting NOT MEASURED in its `keystrokes to submit` cell.",
+      recipes,
+      "a sentence warning that input to a parked agent goes to its widget does not say, beside " +
+        "it, that the widget is sent nothing. Since the Owner's ruling of 2026-09-26 (CNCORE-420) " +
+        "that is the whole of the way through: the Owner answers in that agent's own worktree.",
     ).toStrictEqual([]);
   });
+});
 
-  /**
-   * THE FINDING ITSELF, HELD BY THE TABLE'S SHAPE RATHER THAN BY A SENTENCE.
-   *
-   * Two rows share `single-select` and two questions and give different counts:
-   * CNCORE-288's three Enters and CNCORE-336's one. While both stand, a reader
-   * CANNOT take a count off the kind and the question count, because the table
-   * answers that pair twice and disagrees with itself -- which is what a reader
-   * following the old grid did, on the first keystroke, to a question that was
-   * never rendered.
-   *
-   * SO DELETING EITHER ROW IS WHAT THIS REFUSES, and it is the likeliest edit:
-   * the pair reads as a duplicate to anybody tidying, and tidying it away
-   * restores a table a dispatcher can derive from. If the re-measurement this
-   * record is still waiting on DOES account for the difference, the row that
-   * goes should take this check with it and say why in the same pass.
-   */
-  it("holds one kind and question count twice, with the counts disagreeing", () => {
-    const { rows } = keystrokeTable();
+/** The record as written, line by line, for its table rows. */
+function recordSource(): string {
+  return readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8");
+}
 
-    const counts = new Map<string, Set<string>>();
-    for (const row of rows) {
-      if (DECLARES_THE_ROW_UNMEASURED.test(row["keystrokes to submit"] ?? "")) continue;
-      const pair = `${row.kind ?? ""}, ${row.questions ?? ""} question(s)`;
-      counts.set(pair, (counts.get(pair) ?? new Set()).add(row["keystrokes to submit"] ?? ""));
-    }
+/** The record flattened, for its sentences. */
+function recordText(): string {
+  return flatten(recordSource());
+}
 
-    const contradicted = [...counts].filter(([, given]) => given.size > 1).map(([pair]) => pair);
-
+/**
+ * THE KEYSTROKES ARE RETIRED, NOT KEPT AS A RECIPE NOBODY FOLLOWS (CNCORE-422).
+ *
+ * ADR-0187 held a table of keystroke counts for answering a parked agent's
+ * widget from outside it, measured screen by screen on 2026-09-21, and an
+ * attribution message the dispatcher sent once the widget closed. Four rules
+ * here guarded that table's shape (CNCORE-337). The Owner ruled on 2026-09-26
+ * that the widget is sent nothing and the question is answered in its own
+ * worktree (CNCORE-420), so there is no delivery for a table to describe.
+ *
+ * DELETED RATHER THAN KEPT AS HISTORY. A table of counts in a live record
+ * reads as a recipe whatever the paragraph above it says, and the readings
+ * survive in git where a reader who needs them can find them. So what this
+ * guards is that the table stays gone, and that the record says why in the
+ * sentence that replaced it.
+ *
+ * THE FLUSH HALF IS NOT TOUCHED, and the first describe in this file is what
+ * holds it.
+ */
+describe("ADR-0187's delivery half", () => {
+  it("holds no keystroke table", () => {
     expect(
-      contradicted.length,
-      "no pair of kind and question count is measured twice with different counts in ADR-0187, " +
-        "so the table reads as derivable from that pair again. CNCORE-336's one-Enter reading " +
-        "and CNCORE-288's three-Enter reading are both of a two-question single-select and both " +
-        "belong in it until a controlled re-measurement says which holds and why.",
-    ).toBeGreaterThan(0);
+      recordSource(),
+      "ADR-0187 holds a keystroke table again. The Owner's ruling of 2026-09-26 (CNCORE-420) " +
+        "retired answering a parked agent's widget from outside it, so a table of counts reads " +
+        "as a recipe for something nobody may do.",
+      // ANY TABLE, by its separator row, rather than the old heading: the
+      // same counts under a renamed column are the same recipe.
+    ).not.toMatch(/^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/m);
   });
 
-  /**
-   * AND THE SENTENCE BESIDE THE TABLE SAID IT TOO, which is the half the table's
-   * shape cannot hold.
-   *
-   * ADR-0187 read "the keystroke count is a property of BOTH the widget's kind
-   * and its question count", warning off the narrower assumption one level down
-   * while making the same mistake one level up. That sentence is what a
-   * dispatcher counted keystrokes from on 2026-09-21.
-   *
-   * THE OLD CLAIM IS DESCRIBED HERE AND NOT QUOTED IN THE RECORD, which is the
-   * wall `adr-as-built.test.ts` hit from the other side -- "a record correcting
-   * itself has to be able to say what it used to claim" -- taken the other way
-   * round. That suite freed the RECORD by reading its decision block; this
-   * sentence lives under a `##` heading, so there is no narrower unit to read
-   * and the correction says what it corrects in words instead. A check cannot
-   * ask for both.
-   *
-   * AND THE CORRECTION IS RECORDED rather than quietly swapped, on ADR-0081's
-   * reason: a reader who remembers the old count cannot otherwise tell a fix
-   * from a drift.
-   */
-  it("no longer offers the count as a property of the kind and the question count", () => {
-    const text = recordText();
-
-    expect(
-      text,
-      "ADR-0187 states the keystroke count as a property of the widget's kind and its question " +
-        "count again. Two measured rows of its own table disagree on exactly that pair, so the " +
-        "claim is refused by the record it sits in (CNCORE-337).",
-    ).not.toMatch(/count is a property of/i);
-
-    expect(
-      text,
-      "ADR-0187's keystroke count was corrected without the record saying so, so a reader who " +
-        "remembers the three-Enter table cannot tell a fix from a drift.",
-    ).toMatch(/CNCORE-337/);
+  it("says the 2026-09-26 ruling retired it", () => {
+    expect(recordText()).toMatch(/retired by the Owner's ruling of 2026-09-26 \(CNCORE-420\)/);
   });
 
-  /**
-   * AND THE SAME READING REFUSED THE RECORD'S ADVICE ON HOW TO READ THE SCREEN.
-   *
-   * ADR-0187 told a dispatcher the cursor row was THE ONLY THING that says
-   * whether the next Enter toggles, advances or submits. At CNCORE-336 the
-   * cursor sat on option 1 of 3 and the Enter submitted both questions, so the
-   * cursor row said nothing of the kind and the tab bar -- `Submit` ticked with
-   * neither question answered -- was carrying the answer instead.
-   *
-   * IT IS A SEPARATE CLAIM FROM THE COUNT, and reddens separately, because a
-   * correction that fixed the table and left this standing would leave a
-   * dispatcher a rule for deriving the keystroke it had just been told not to
-   * derive. `CLAUDE.md`: placed beside one, a correction leaves the old claim
-   * standing.
-   */
-  it("no longer says the cursor row alone tells a reader what the next Enter does", () => {
-    const text = recordText();
-
+  it("no longer says a parked agent's question is relayed", () => {
     expect(
-      text,
-      "ADR-0187 says the cursor row is the only thing that says what the next Enter does. " +
-        "CNCORE-336 read a cursor on option 1 of 3 and an Enter that submitted two questions, " +
-        "so the tab bar was carrying it and the cursor row was not.",
-    ).not.toMatch(/cursor row is the only thing/i);
+      recordText(),
+      "ADR-0187 still says a parked agent's question or its answer is relayed by the dispatcher. " +
+        "Since 2026-09-26 the question stays in its own worktree and the Owner answers it there.",
+    ).not.toMatch(/relay of a parked agent's question|relayed by the dispatcher/i);
   });
 });

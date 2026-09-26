@@ -122,12 +122,12 @@ behaviour is closer to Escape followed by Enter.
 merge notice to eight agents: six received it, two were sitting on an `AskUserQuestion`. Both known
 tells read clean — no `ctrl+x ctrl+s` hint, no unsent text — because the input never reached the
 box. Worse, **`--enter` on a parked agent SELECTS the option under the cursor**, and on a
-multi-select with a free-text field the text can land in the field. The way through — which
-keystrokes, in which order, at each screen somebody read, and what the widget swallows until its
-confirm screen clears — is [[0187-wait-for-the-prompt-because-the-flush-costs-the-turn]], added
-2026-09-21
-under CNCORE-306: this record stated the hazard and stopped, which is what left the recipe
-undocumented for as long as it was. Neither agent's answer was corrupted here; that was luck, not
+multi-select with a free-text field the text can land in the field. The way through, since the
+Owner's ruling of 2026-09-26 (CNCORE-420), is to send it nothing: its question is the Owner's to
+answer in that agent's own worktree
+([[0187-wait-for-the-prompt-because-the-flush-costs-the-turn]]).
+That record carried keystrokes for answering a widget from outside it, added 2026-09-21 under
+CNCORE-306 because this record stated the hazard and stopped; the ruling retired them. Neither agent's answer was corrupted here; that was luck, not
 design.
 
 ## The decision
@@ -140,13 +140,14 @@ three, and not a read that resolves against the asker instead of the subject.
 | --- | --- | --- |
 | `worktree create/set --linear-issue` | the call was accepted | `linkedLinearIssue` on the worktree |
 | `terminal send --enter`, mid-turn | bytes were written | `--screen`, with no `ctrl+x ctrl+s` hint |
-| `terminal send --enter`, parked | bytes were written | `--screen`, read BEFORE sending |
+| `terminal send --enter`, parked | bytes were written | `--screen`, read BEFORE sending, and a parked agent is then sent nothing |
 
 `--screen` is required rather than preferred: the default read returns stacked fragments rather than
 what the terminal renders, so it cannot show an input box at all.
 
 **The parked case is read before the send, not after it**, and that is the ordering this record
-fixes rather than the check. The other two are recoverable by re-sending — the MESSAGE is, at least,
+fixes rather than the check; since 2026-09-26 a read that finds the agent parked ends in no send at
+all (CNCORE-420). The other two are recoverable by re-sending — the MESSAGE is, at least,
 and that is all this sentence ever meant. A TURN a flush interrupted is not recoverable by anything,
 which is the cost corrected into this record above; re-sending the words does not give back the work
 the agent abandoned to read them. A send into a prompt widget is recoverable by neither: it may
