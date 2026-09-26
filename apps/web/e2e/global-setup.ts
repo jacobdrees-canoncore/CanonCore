@@ -279,7 +279,10 @@ async function standUp(project: TestProject, owned: AsyncDisposableStack) {
 
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
-  project.provide("attributedSeries", await browseASeriesFromTmdb(baseUrl, tmdb.url));
+  project.provide("attributedSeries", {
+    ...(await browseASeriesFromTmdb(baseUrl, tmdb.url)),
+    episode: await episodesFromTheStandIn(baseUrl),
+  });
   const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
   owned.defer(twoInstances.close);
   project.provide("twoInstances", twoInstances.fixture);
@@ -1487,8 +1490,8 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   const firstSeason = {
     container: season(1, "Season 1", "1963-11-23"),
     ordering: [
-      { position: 1, record: episode(1, "An Unearthly Child", ["1963-11-23"]) },
-      { position: 2, record: episode(2, "The Cave of Skulls", []) },
+      { position: 1, record: episode(1, "An episode the stand-in dates", ["1963-11-23"]) },
+      { position: 2, record: episode(2, "An episode the stand-in leaves undated", []) },
     ],
     unplaced: [],
   };
@@ -1795,8 +1798,7 @@ async function importFromTmdb(baseUrl: string, providerUrl: string) {
 /**
  * A programme and one of its seasons as the second Provider's browse lands them,
  * each a Container page that never carried that Provider's claims before
- * (CNCORE-360). The season is the first in the programme's ordering, and the
- * episodes are the first season's own (CNCORE-375).
+ * (CNCORE-360). The season is the first in the programme's ordering.
  */
 async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
   const client = await asTheOwner(baseUrl);
@@ -1806,16 +1808,41 @@ async function browseASeriesFromTmdb(baseUrl: string, providerUrl: string) {
   });
   const season = placements[0]?.itemId;
   if (season === undefined) throw new Error(`${DOCTOR_WHO_1963} arrived with no seasons`);
-  // AND ONE LEVEL DOWN, which is the season's own browse (CNCORE-375).
-  const episodes = await client.provider.browse({
-    baseUrl: providerUrl,
-    containerId: FIRST_SEASON,
-  });
-  const [dated, undated] = episodes.placements.map(({ itemId }) => itemId);
-  if (dated === undefined || undated === undefined) {
-    throw new Error(`${FIRST_SEASON} arrived without its two episodes`);
+  return { series: containerId, season };
+}
+
+/**
+ * Two episodes of a season's own browse, one with no release date (CNCORE-375).
+ *
+ * A STAND-IN, EVEN IN CI, WHERE `theTmdbProvider` ANSWERS A REAL IMAGE. What is
+ * under test is how CanonCore says a Provider gave none of a value, and live
+ * TMDB dates every episode of `season:121:1`: against the real image the
+ * undated episode did not exist, and the case failed on a premise rather than a
+ * defect (run 36274185046). TMDB leaves 78 of the 2,465 `Doctor Who` episodes
+ * undated (ADR-0128), and naming one here would be a fixture that breaks the day
+ * TMDB fills it.
+ *
+ * TITLED AS NO REAL EPISODE IS, because a real episode with the same title and
+ * date lands on the same Item since CNCORE-361 (ADR-0026), and the suite imports
+ * `An Unearthly Child` from the real image for multi-placement.
+ */
+async function episodesFromTheStandIn(baseUrl: string) {
+  const standIn = await stubTmdbProvider();
+  try {
+    const client = await asTheOwner(baseUrl);
+    const episodes = await client.provider.browse({
+      baseUrl: standIn.url,
+      containerId: FIRST_SEASON,
+    });
+    const [dated, undated] = episodes.placements.map(({ itemId }) => itemId);
+    if (dated === undefined || undated === undefined) {
+      throw new Error(`${FIRST_SEASON} arrived without its two episodes`);
+    }
+    return { dated, undated };
+  } finally {
+    // The rows are in the database by here, and nothing reads the manifest again.
+    await standIn.close();
   }
-  return { series: containerId, season, episode: { dated, undated } };
 }
 
 /**
@@ -3031,7 +3058,7 @@ declare module "vitest" {
     attributedSeries: {
       series: string;
       season: string;
-      /** Two of the first season's episodes, one with no release date (CNCORE-375). */
+      /** Two episodes from a stand-in, even in CI, one with no release date (CNCORE-375). */
       episode: { dated: string; undated: string };
     };
     /** One item two instances of one provider each owe a notice on (CNCORE-130). */
