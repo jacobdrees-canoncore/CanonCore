@@ -119,3 +119,27 @@ the day the thin page's test gains an entity that has one. This record flips the
 **NOT A MECHANISM, SAID PLAINLY: the story-only rule.** No check reads a layout and refuses a
 story-only property, because no entity layout yet names any property at all: the item page renders
 whatever statements an Item carries. The rule binds whoever draws the first layout that does.
+
+## Under CNCORE-375: a page says what a Provider gave none of, and draws no row for it
+
+The thin page reaches works too. TMDB's episodes are the thinnest works the catalogue holds (ADR-0128,
+"Under CNCORE-375"), and a page that simply omits a value leaves a reader unable to tell a thin
+source from a broken page. So an Item page says it in one line under its Values, such as
+"provider-tmdb holds no release date for this.", and still draws no row for the value. The first
+rule above stands: nothing is drawn for a property the Item does not carry. What is added is who
+does not hold it.
+
+**WHAT COUNTS AS "GAVE NONE" IS A FACT, NOT A GUESS.** A Provider import asks for the same properties
+on every answer, `WHAT_AN_IMPORT_ASKS_FOR` in `packages/db/src/import.ts`, which is also the list
+the import claims from, so the two cannot drift. A Provider that still stands behind the Item and
+holds no statement of one of them answered that it holds none. `findPropertiesNotGiven` reads it,
+and `item.get` answers it as `notGiven`. A Provider whose every claim has passed its ceiling is not
+asked about ([[0036-tmdb-licence-constraints]]). A value that arrived broken was given, so it is
+quarantined rather than reported. The page has one such line today, for `released`, because
+`title` and the external id are required on every record. When CNCORE-357 or CNCORE-369 add a
+property to the import, its absence reads the same way.
+
+Asserted at the router in process ("a season's episodes", `provider.test.ts`) and in the served page
+(`item-page.test.ts`, "an episode the second Provider holds thinly"). Mutation-checked: deleting the
+ceiling predicate or the held-statement exclusion from `findPropertiesNotGiven` each turned one
+router test red.

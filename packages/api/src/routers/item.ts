@@ -12,6 +12,7 @@ import {
   findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
+  findPropertiesNotGiven,
   findStatementsOfItem,
   ItemRefused,
   retitleItemByHand,
@@ -382,6 +383,7 @@ export const item = {
         statements,
         identifiers,
         artwork,
+        notGiven,
         attribution,
         instalmentsHeldElsewhere,
         matchCandidates,
@@ -428,6 +430,7 @@ export const item = {
         findStatementsOfItem(context.db, found.id),
         findIdentifiersOfItem(context.db, found.id),
         findArtworkOfItem(context.db, found.id),
+        findPropertiesNotGiven(context.db, found.id),
         findAttributionOwed(context.db, found.id),
         // ADR-0026's matcher, as it left this Item (CNCORE-361).
         findInstalmentsHeldElsewhere(context.db, found.id),
@@ -523,6 +526,7 @@ export const item = {
           attribution: picture.attribution,
           sourceLabel: picture.sourceLabel,
         })),
+        notGiven: notGiven.map(({ property, sourceLabel }) => ({ property, sourceLabel })),
         // Named field by field like the rest (ADR-0045). The source's own id and
         // the URL an owner typed for it are deliberately not among them.
         attribution: attribution.map((owed) => ({

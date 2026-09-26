@@ -623,6 +623,7 @@ export default async function ItemPage({
       {owner && <Note itemId={item.id} note={await readNote(item.id, context)} />}
       <Artwork artwork={item.artwork} />
       <Values statements={item.statements} />
+      <NotGiven notGiven={item.notGiven} />
       {/*
         UNDER THE CLAIMS, because it is a claim about them (CNCORE-361): another
         Provider holds this work as several instalments, and none was matched here.
@@ -823,6 +824,32 @@ async function Groups({
       )}
     </section>
   );
+}
+
+/**
+ * WHAT EACH PROVIDER WAS ASKED FOR AND GAVE NONE OF, one quiet line each
+ * (CNCORE-375). A field TMDB fills on a quarter of its episodes has to read as
+ * the source being thin, not as this page being broken, and an empty Values row
+ * would read as the second. So nothing is drawn for the value: the line says
+ * whose it is not (ADR-0204's thin page).
+ */
+function NotGiven({ notGiven }: { notGiven: ItemOnThePage["notGiven"] }) {
+  if (notGiven.length === 0) return null;
+
+  return (
+    <ul className="mt-2 text-muted-foreground text-sm">
+      {notGiven.map(({ property, sourceLabel }) => (
+        <li key={`${property}:${sourceLabel}`}>
+          <TheirWords>{sourceLabel}</TheirWords> holds no {whatIsNotHeld(property)} for this.
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A property as the thing a source may hold none of: "no release date". */
+function whatIsNotHeld(property: string): string {
+  return property === "released" ? "release date" : propertyLabel(property).toLowerCase();
 }
 
 /**

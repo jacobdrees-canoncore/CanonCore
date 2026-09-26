@@ -1387,6 +1387,118 @@ describe("works matched across Providers", () => {
   });
 });
 
+/** An episode as `provider-tmdb` browses it out of its season. */
+function anEpisode(season: number, episode: number, title: string, released: string[]) {
+  return {
+    id: `episode:57243:${season}:${episode}`,
+    title,
+    kind: "episode",
+    released,
+    writers: [],
+    series: "Doctor Who",
+    series_id: "tv:57243",
+    url: `https://www.themoviedb.org/tv/57243/season/${season}/episode/${episode}`,
+    is_container: false,
+    external_ids: { tmdb: String(1000 * season + episode) },
+  };
+}
+
+/**
+ * A season as its own browse answers it: the season, and its episodes at the
+ * positions TMDB numbers them. The second has no air date, which is how TMDB
+ * holds 78 of the 2,465 episodes of its three `Doctor Who` programmes
+ * (2026-09-26, ADR-0128).
+ */
+const A_SEASON = {
+  container: A_SERIES.ordering[1]!.record,
+  ordering: [
+    { position: 1, record: anEpisode(1, 1, "Rose", ["2005-03-26"]) },
+    { position: 2, record: anEpisode(1, 2, "The End of the World", []) },
+  ],
+  unplaced: [],
+};
+
+/**
+ * CNCORE-375: the level under the seasons, where the volume is and where the
+ * source thins out. A season's episodes arrive by browsing the season, which is
+ * the ordering the Provider gives them.
+ */
+describe("a season's episodes", () => {
+  const seriesAndSeason = () =>
+    stubProvider({}, { containers: { "tv:57243": A_SERIES, "season:57243:1": A_SEASON } });
+
+  it("arrive at the Provider's positions, and the Owner descends series, season, episode", async () => {
+    const baseUrl = await seriesAndSeason();
+    const { containerId } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "tv:57243" },
+      { context },
+    );
+    await call(appRouter.provider.browse, { baseUrl, containerId: "season:57243:1" }, { context });
+
+    const series = await call(appRouter.item.get, { id: containerId }, { context });
+    const seasonRow = series.holds.rows.find(({ title }) => title === "Series 1");
+    const season = await call(appRouter.item.get, { id: seasonRow?.itemId ?? "" }, { context });
+    expect(season.holds.rows.map(({ title, position }) => [title, position])).toEqual([
+      ["Rose", 1],
+      ["The End of the World", 2],
+    ]);
+
+    const episode = await call(
+      appRouter.item.get,
+      { id: season.holds.rows[0]?.itemId ?? "" },
+      { context },
+    );
+    expect(episode.isContainer).toBe(false);
+    expect(episode.placements.rows.map(({ containerTitle }) => containerTitle)).toEqual([
+      "Series 1",
+    ]);
+  });
+
+  async function theSeasonBrowsed() {
+    const baseUrl = await seriesAndSeason();
+    const { containerId, placements } = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: "season:57243:1" },
+      { context },
+    );
+    const [rose, endOfTheWorld] = placements.map(({ itemId }) => itemId);
+    return { baseUrl, containerId, rose: rose ?? "", endOfTheWorld: endOfTheWorld ?? "" };
+  }
+
+  it("is refused on read past the Provider's ceiling, by the mechanism CNCORE-360 built", async () => {
+    const { baseUrl, containerId, rose } = await theSeasonBrowsed();
+
+    await ageEverythingFrom(baseUrl, 31);
+
+    const season = await call(appRouter.item.get, { id: containerId }, { context });
+    expect(season.holds.rows).toEqual([]);
+    const episode = await call(appRouter.item.get, { id: rose }, { context });
+    expect(episode.statements.filter(({ sourceKind }) => sourceKind === "provider")).toEqual([]);
+    expect(episode.identifiers).toEqual([]);
+  });
+
+  it("says which of the values an import asks for the Provider gave none of", async () => {
+    const { endOfTheWorld, rose } = await theSeasonBrowsed();
+
+    const undated = await call(appRouter.item.get, { id: endOfTheWorld }, { context });
+    expect(undated.notGiven).toEqual([{ property: "released", sourceLabel: MANIFEST.name }]);
+    const dated = await call(appRouter.item.get, { id: rose }, { context });
+    expect(dated.notGiven).toEqual([]);
+  });
+
+  it("says nothing of a Provider whose every value has passed its ceiling", async () => {
+    // What it did not give is a claim about what it said, and nothing it said
+    // may still be read.
+    const { baseUrl, endOfTheWorld } = await theSeasonBrowsed();
+
+    await ageEverythingFrom(baseUrl, 31);
+
+    const undated = await call(appRouter.item.get, { id: endOfTheWorld }, { context });
+    expect(undated.notGiven).toEqual([]);
+  });
+});
+
 /**
  * Everything one Provider stored, made to have been taken `days` ago.
  *

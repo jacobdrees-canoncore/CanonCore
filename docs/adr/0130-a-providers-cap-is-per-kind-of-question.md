@@ -138,3 +138,25 @@ more. A suite proving that a browse outlives what a search dies at therefore can
 milliseconds; it costs ~2s, which is why `createProviderClient` takes the two caps as an override
 that only that test passes. Production's ten and sixty seconds are far above the granularity and
 unaffected.
+
+## Under CNCORE-375: the largest browse, re-measured at episode volume
+
+Episodes are the project's largest import, so the rate TMDB tolerates is re-decided here with a figure
+rather than inherited from the programme and season browses above. The population is the 44 seasons
+of TMDB's three `Doctor Who` programmes, walked one Container a call through `importNextContainer`,
+through a local `provider-tmdb` at its `main` (`4976aaa`) and into a Postgres of this
+branch, on 2026-09-26:
+
+- **The largest single browse is `season:121:0`**, the 1963 programme's specials, at **1,398
+  episodes**. Every season's browse answered through the provider in under 0.19s, this one included, and it took
+  **10.7s end to end** through the router, which is the catalogue writing 1,398 Placements.
+- **All 44 landed and none refused**, 2,465 Placements, in **21.7s** for the whole walk. The median
+  season took 0.21s.
+- **No 429 in 88 requests to TMDB** (a season and its programme's title per browse): about 13 a
+  second when browsed back to back without writing, and about 4 a second through the walk.
+
+**SO NOTHING MOVES.** TMDB states its limit as "somewhere in the 40 requests per second range", and
+the walk, one Container a call, spends a tenth of that because the catalogue's writes pace it. The
+sixty-second cap bounds the provider's answer, and TMDB's slowest was a three-hundredth of it. A
+concurrent walk would reach TMDB's limit before it reached ours, which is one more reason the walk
+stays one at a time.

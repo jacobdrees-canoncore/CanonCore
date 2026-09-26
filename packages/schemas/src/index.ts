@@ -569,6 +569,13 @@ export const itemPublic = z.object({
   /** Matches offered on this Item and not yet decided (ADR-0027, CNCORE-361). */
   matchCandidates: z.array(matchCandidatePublic),
   /**
+   * WHAT A PROVIDER WAS ASKED FOR AND GAVE NONE OF (CNCORE-375), so a page can
+   * say the source does not hold it rather than leave a reader to guess that
+   * something is broken. One entry per property and Provider, the property by
+   * its name as `statements` carries it.
+   */
+  notGiven: z.array(z.object({ property: z.string(), sourceLabel: z.string() })),
+  /**
    * What this page owes for showing the above (ADR-0036).
    *
    * READ OFF THE CLAIMS, not listed anywhere: an item owes TMDB a notice because
