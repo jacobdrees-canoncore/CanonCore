@@ -40,13 +40,13 @@ export {
 } from "./import";
 export {
   beginImportRun,
-  type ContainerOutcome,
   type ImportRun,
   ImportRunRefused,
   nextPendingContainer,
   type RefusalReason,
   type RunContainer,
   readImportRun,
+  recordBatchLanded,
   recordContainerLanded,
   recordContainerRefused,
   theContainerIdQuoted,

@@ -3327,3 +3327,261 @@ describe("provider.importNextContainer", () => {
     ]);
   });
 });
+
+/**
+ * A CONTAINER THAT ANSWERS IN BATCHES (CNCORE-373). `browse` takes `?after=`
+ * and answers a `next` where a Container is too large for one call -- an entity
+ * infobox is 23,653 pages at most, ADR-0130's sixty seconds at least -- so a
+ * run walks it one batch a call and holds where it got to in its own rows.
+ *
+ * THE STUB IS CONTROLLED BETWEEN CALLS, because what these tests are about is
+ * an interruption: a batch the Provider refuses, and a Credential it reports
+ * lapsed. `refusing` names the cursors it answers `503` for (`""` is the first
+ * batch), and `credential` is what its manifest says about the Credential.
+ */
+const AN_INFOBOX = {
+  id: "203134",
+  title: "Template:Infobox Event or Exhibition",
+  kind: "infobox",
+  released: [],
+  writers: [],
+  series: null,
+  url: "https://tardis.wiki/wiki/Template:Infobox_Event_or_Exhibition",
+};
+
+const anEntity = (n: number) => ({
+  id: `entity-${n}`,
+  title: `Entity ${n}`,
+  kind: "Event or Exhibition",
+  released: [],
+  writers: [],
+  series: null,
+  url: `https://tardis.wiki/wiki/Entity_${n}`,
+});
+
+/** Three batches of two, in the order the Provider walks them. */
+const BATCHES = [
+  [anEntity(1), anEntity(2)],
+  [anEntity(3), anEntity(4)],
+  [anEntity(5), anEntity(6)],
+];
+const EVERY_ENTITY = BATCHES.flat().map((entity) => entity.id);
+
+/** A second Container on the same Provider, answered whole, to stand after the infobox in a list. */
+const A_WHOLE_CONTAINER = {
+  container: { ...AN_INFOBOX, id: "whole-1", title: "Category:Somewhere else", kind: "category" },
+  ordering: [],
+  unplaced: [anEntity(7)],
+};
+
+interface BatchingProvider {
+  baseUrl: string;
+  /** The `after` each browse carried, `""` for none, in the order asked. */
+  browsedAfter: string[];
+  refusing: Set<string>;
+  /** The cursors it answers with an EMPTY batch, which is an answer rather than a refusal. */
+  empty: Set<string>;
+  /** The cursor whose browse lapses the Credential, as a refusal from the wiki does. */
+  lapsesAt: string | undefined;
+  credential: { state: "valid" | "expired" };
+}
+
+async function aBatchingProvider(): Promise<BatchingProvider> {
+  const stub: Omit<BatchingProvider, "baseUrl"> = {
+    browsedAfter: [],
+    refusing: new Set(),
+    empty: new Set(),
+    lapsesAt: undefined,
+    credential: { state: "valid" },
+  };
+  const server = createServer((request, response) => {
+    const json = (body: unknown, status = 200) => {
+      response.writeHead(status, { "content-type": "application/json" });
+      response.end(JSON.stringify(body));
+    };
+    const url = new URL(request.url ?? "/", "http://provider.test");
+    if (url.pathname === "/") {
+      return json({
+        ...MANIFEST,
+        operations: ["search", "lookup", "browse"],
+        credential: {
+          label: "A tardis.wiki session",
+          unlock_path: "/unlock",
+          state: stub.credential.state,
+          state_changed_at: null,
+        },
+      });
+    }
+    if (url.pathname === `/browse/${A_WHOLE_CONTAINER.container.id}`) {
+      stub.browsedAfter.push(A_WHOLE_CONTAINER.container.id);
+      return json(A_WHOLE_CONTAINER);
+    }
+    if (url.pathname !== `/browse/${AN_INFOBOX.id}`) return json({ error: "no such" }, 404);
+    const after = url.searchParams.get("after") ?? "";
+    stub.browsedAfter.push(after);
+    if (stub.lapsesAt === after) stub.credential.state = "expired";
+    if (stub.credential.state === "expired" || stub.refusing.has(after)) {
+      return json({ error: "tardis.wiki would not answer that", provider: "provider-wiki" }, 503);
+    }
+    const at = after === "" ? 0 : Number(after.slice("batch-".length));
+    const batch = BATCHES[at];
+    if (batch === undefined) return json({ error: "no such cursor" }, 404);
+    return json({
+      container: AN_INFOBOX,
+      ordering: [],
+      unplaced: stub.empty.has(after) ? [] : batch,
+      ...(at + 1 < BATCHES.length ? { next: `batch-${at + 1}` } : {}),
+    });
+  });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  // THE SAME OBJECT, so a test setting `lapsesAt` sets what the server reads.
+  return Object.assign(stub, { baseUrl: `http://127.0.0.1:${address.port}` });
+}
+
+describe("a Container that answers in batches", () => {
+  const begin = (baseUrl: string, containerIds = [AN_INFOBOX.id]) =>
+    call(appRouter.provider.beginImportRun, { baseUrl, containerIds }, { context });
+  const step = (runId: string) =>
+    call(appRouter.provider.importNextContainer, { runId }, { context });
+  const held = async (baseUrl: string) =>
+    (
+      await call(appRouter.provider.held, { baseUrl, recordIds: EVERY_ENTITY }, { context })
+    ).items.map((item) => item.recordId);
+
+  it("asks for one batch a call, from where the last one ended, and lands the Container whole", async () => {
+    const provider = await aBatchingProvider();
+    const { runId } = await begin(provider.baseUrl);
+
+    const walked = [await step(runId), await step(runId), await step(runId), await step(runId)];
+
+    expect(walked.map((stepped) => stepped.answer)).toEqual(["batch", "batch", "landed", "done"]);
+    expect(provider.browsedAfter).toEqual(["", "batch-1", "batch-2"]);
+    expect((await held(provider.baseUrl)).sort()).toEqual([...EVERY_ENTITY].sort());
+    // EVERY BATCH STAYS PLACED, which is what a batch withdrawing what it did not
+    // assert would break: each browse is a third of the Container, not all of it,
+    // and a withdrawn Placement leaves its Item standing for the line above.
+    const landed = walked[2];
+    if (landed?.answer !== "landed") throw new Error("the last batch did not land");
+    const container = await call(appRouter.item.get, { id: landed.itemId }, { context });
+    expect(container.holds.total).toBe(EVERY_ENTITY.length);
+    const reported = await call(appRouter.provider.readImportRun, { runId }, { context });
+    expect(reported.containers).toEqual([
+      { containerId: AN_INFOBOX.id, outcome: "landed", placements: 6, quarantinedValues: 0 },
+    ]);
+  });
+
+  /**
+   * `provider.browse` LANDS A CONTAINER WHOLE IN ONE REQUEST, so it follows
+   * every `next` itself rather than landing a first batch and calling that the
+   * Container. A walk too long for a request is the run's.
+   */
+  it("browses every batch when one request is asked for the whole Container", async () => {
+    const provider = await aBatchingProvider();
+
+    const browsed = await call(
+      appRouter.provider.browse,
+      { baseUrl: provider.baseUrl, containerId: AN_INFOBOX.id },
+      { context },
+    );
+
+    expect(browsed.placements).toHaveLength(EVERY_ENTITY.length);
+    expect(provider.browsedAfter).toEqual(["", "batch-1", "batch-2"]);
+  });
+
+  /**
+   * AN INTERRUPTION COSTS THE BATCH IT WAS IN (user story 34). The position is
+   * the run's row rather than anything in this process, so the Owner reaches it
+   * by handing over the same list again -- and the Provider is asked for the
+   * batch that refused, not for the first.
+   */
+  it("carries on from the batch that refused when the same list is run again", async () => {
+    const provider = await aBatchingProvider();
+    provider.refusing.add("batch-1");
+    const { runId } = await begin(provider.baseUrl);
+
+    const first = [await step(runId), await step(runId), await step(runId)];
+    expect(first.map((stepped) => stepped.answer)).toEqual(["batch", "refused", "done"]);
+    // WHAT LANDED STAYS LANDED, and nothing of the batch that refused is held.
+    expect((await held(provider.baseUrl)).sort()).toEqual(["entity-1", "entity-2"]);
+
+    provider.refusing.clear();
+    const resumed = await begin(provider.baseUrl);
+    expect(resumed.runId).toBe(runId);
+    await step(runId);
+    await step(runId);
+
+    expect(provider.browsedAfter).toEqual(["", "batch-1", "batch-1", "batch-2"]);
+    expect((await held(provider.baseUrl)).sort()).toEqual([...EVERY_ENTITY].sort());
+    const reported = await call(appRouter.provider.readImportRun, { runId }, { context });
+    expect(reported.containers).toEqual([
+      { containerId: AN_INFOBOX.id, outcome: "landed", placements: 6, quarantinedValues: 0 },
+    ]);
+  });
+  /**
+   * A LAPSED CREDENTIAL STOPS THE RUN (user story 33). It is not one Container's
+   * failure: every Container after it would refuse the same way, so walking on
+   * would turn a lapse into a run of refusals. The run stops with the reason
+   * named, what already landed stays, and the same list carries on once the
+   * Owner renews.
+   *
+   * THE LAPSE IS READ OFF THE MANIFEST, which is where a Provider says what it
+   * knows about its Credential (ADR-0122) -- never off the English of a refusal.
+   */
+  it("stops on a lapsed Credential, keeps what landed, and carries on once it is renewed", async () => {
+    const provider = await aBatchingProvider();
+    provider.lapsesAt = "batch-1";
+    const { runId } = await begin(provider.baseUrl, [
+      AN_INFOBOX.id,
+      A_WHOLE_CONTAINER.container.id,
+    ]);
+
+    const first = await step(runId);
+    const lapsed = await step(runId);
+
+    expect(first.answer).toBe("batch");
+    expect(lapsed).toMatchObject({
+      answer: "stopped",
+      containerId: AN_INFOBOX.id,
+      reason: { wrote: "canoncore", text: expect.stringContaining("Credential") },
+    });
+    expect((await held(provider.baseUrl)).sort()).toEqual(["entity-1", "entity-2"]);
+
+    provider.credential.state = "valid";
+    provider.lapsesAt = undefined;
+    await begin(provider.baseUrl, [AN_INFOBOX.id, A_WHOLE_CONTAINER.container.id]);
+    const carried = [await step(runId), await step(runId), await step(runId), await step(runId)];
+
+    expect(carried.map((stepped) => stepped.answer)).toEqual(["batch", "landed", "landed", "done"]);
+    expect(provider.browsedAfter).toEqual(["", "batch-1", "batch-1", "batch-2", "whole-1"]);
+  });
+
+  /**
+   * A REFUSAL THE SOURCE REPORTS AS SUCCESS NEVER LANDS AS NOTHING. The Provider
+   * reads Semantic MediaWiki's `200` with an empty result and `error.query` as a
+   * refusal and answers `503` (`provider-wiki`'s `askRefused`); here that
+   * answer writes no Item, no Placement and no Statement, and the batch is
+   * still to be asked for. An EMPTY batch is an answer, and carries on.
+   */
+  it("writes nothing from a refused batch, and carries on past an empty one", async () => {
+    const provider = await aBatchingProvider();
+    provider.refusing.add("");
+    const { runId } = await begin(provider.baseUrl);
+
+    expect((await step(runId)).answer).toBe("refused");
+    expect(await held(provider.baseUrl)).toEqual([]);
+    const refused = await call(appRouter.provider.readImportRun, { runId }, { context });
+    expect(refused.containers).toMatchObject([{ outcome: "refused" }]);
+
+    provider.refusing.clear();
+    provider.empty.add("");
+    await begin(provider.baseUrl);
+    const walked = [await step(runId), await step(runId), await step(runId)];
+
+    expect(walked.map((stepped) => stepped.answer)).toEqual(["batch", "batch", "landed"]);
+    expect(walked[0]).toMatchObject({ placements: 0 });
+    expect((await held(provider.baseUrl)).sort()).toEqual(EVERY_ENTITY.slice(2).sort());
+  });
+});

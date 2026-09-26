@@ -116,13 +116,25 @@ const report = await importContainerList(
      */
     onStepped: (step) => {
       const done = containerIds.length - step.remaining;
-      const where = `[${done}/${containerIds.length}]`;
-      console.log(
-        step.answer === "landed"
-          ? `${where} ${step.containerId}: ${step.placements} placements` +
-              (step.quarantinedValues > 0 ? `, ${step.quarantinedValues} quarantined` : "")
-          : `${where} ${step.containerId}: REFUSED (${step.reason.wrote}) ${step.reason.text}`,
-      );
+      const where = `[${done}/${containerIds.length}] ${step.containerId}`;
+      const quarantined = (count: number) => (count > 0 ? `, ${count} quarantined` : "");
+      switch (step.answer) {
+        case "landed":
+          return console.log(
+            `${where}: ${step.placements} placements${quarantined(step.quarantinedValues)}`,
+          );
+        // A BATCH IS A LINE TOO (CNCORE-373): an infobox of 23,653 pages is
+        // ~1,500 of them, and a Container with no line until its last batch
+        // would be as silent as a command that printed only at the end.
+        case "batch":
+          return console.log(
+            `${where}: a batch of ${step.placements} placements${quarantined(step.quarantinedValues)}, more to come`,
+          );
+        case "stopped":
+          return console.log(`${where}: STOPPED ${step.reason.text}`);
+        case "refused":
+          return console.log(`${where}: REFUSED (${step.reason.wrote}) ${step.reason.text}`);
+      }
     },
   },
 ).catch((cause: unknown) => {

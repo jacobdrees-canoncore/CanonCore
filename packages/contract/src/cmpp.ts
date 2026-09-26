@@ -209,6 +209,15 @@ export const browseResponse = z.looseObject({
    * positioning them last asserts an order the source never gave.
    */
   unplaced: z.array(record).default([]),
+  /**
+   * WHERE THE NEXT BATCH STARTS, for a container too large for one answer
+   * (CNCORE-373). The caller hands it back verbatim as `?after=` and reads
+   * nothing in it; a cursor the provider could not have written is a `404`, as
+   * an id that addresses nothing is (ADR-0066). ABSENT once the answer holds the
+   * last of the container, so a provider that never pages is unchanged, and
+   * adding it is an addition rather than a change (ADR-0032).
+   */
+  next: z.string().min(1).optional(),
 });
 
 /**

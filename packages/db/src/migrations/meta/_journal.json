@@ -190,6 +190,13 @@
       "when": 1790454585221,
       "tag": "20260926202945_migration_26_works_match_across_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790458784492,
+      "tag": "20260926213944_migration_27_a_container_walks_in_batches",
+      "breakpoints": true
     }
   ]
 }

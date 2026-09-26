@@ -14,6 +14,7 @@ import {
   purgeProvider,
   type RunContainer,
   readImportRun,
+  recordBatchLanded,
   recordContainerLanded,
   recordContainerRefused,
   theContainerIdQuoted,
@@ -285,6 +286,8 @@ async function fetchPictures(
 interface BrowseRequest {
   baseUrl: string;
   containerId: string;
+  /** The `next` the previous batch of this Container answered (CNCORE-373). */
+  after?: string;
 }
 
 /**
@@ -331,13 +334,20 @@ type BrowseAttempt =
 async function browseIfOffered(
   client: ProviderClient,
   containerId: string,
+  after?: string,
 ): Promise<BrowseAttempt> {
   // THE MANIFEST FIRST, for the provider's OWN name as much as for its
   // operations. A source answers "who said this", and `provider-wiki` answers
   // it where `http://127.0.0.1:39481` shows a reader a deployment detail.
   const manifest = await client.manifest();
   if (!manifest.operations.includes("browse")) return { manifest, offered: false };
-  return { manifest, offered: true, browsed: await client.browse(containerId) };
+  return { manifest, offered: true, browsed: await client.browse(containerId, after) };
+}
+
+/** One answer of a `browse` written, and where the next batch starts if it was not the last. */
+interface BrowsedBatch {
+  imported: ImportedContainer;
+  next: string | undefined;
 }
 
 /**
@@ -376,11 +386,11 @@ async function browseIfOffered(
 async function browseIntoCatalogue(
   db: Database,
   allowlist: Allowlist,
-  { baseUrl, containerId }: BrowseRequest,
-): Promise<ImportedContainer | null> {
+  { baseUrl, containerId, after }: BrowseRequest,
+): Promise<BrowsedBatch | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
-    const attempt = await askingTheProvider(() => browseIfOffered(client, containerId));
+    const attempt = await askingTheProvider(() => browseIfOffered(client, containerId, after));
     if (!attempt.offered) {
       // THE NAME ARRIVES BOUNDED, by `cmppManifest` where the manifest is read
       // (CNCORE-165). This line bounded it itself until then, which was right
@@ -394,8 +404,11 @@ async function browseIntoCatalogue(
     const browsed = attempt.browsed;
     if (!browsed) return null;
 
-    return await importBrowsedContainer(db, {
+    const imported = await importBrowsedContainer(db, {
       provider: providerFrom(baseUrl, attempt.manifest),
+      // A BATCH IS ANY ANSWER THAT IS NOT THE WHOLE CONTAINER: one carried on
+      // from a cursor, or one handing a cursor over (CNCORE-373).
+      batch: after !== undefined || browsed.next !== undefined,
       browsed: {
         container: asProvided(browsed.container),
         ordering: browsed.ordering.map(({ position, record }) => ({
@@ -405,6 +418,7 @@ async function browseIntoCatalogue(
         unplaced: browsed.unplaced.map(asProvided),
       },
     });
+    return { imported, next: browsed.next };
   } finally {
     await client.close();
   }
@@ -664,6 +678,34 @@ interface OverlongId {
 }
 
 /**
+ * THE PROVIDER'S OWN NAME IF IT NOW REPORTS ITS CREDENTIAL LAPSED, asked after
+ * a browse refused (CNCORE-373).
+ *
+ * ON EVIDENCE, NEVER ON THE ENGLISH OF THE REFUSAL. ADR-0122 makes the manifest
+ * where a Provider says what it knows about its Credential, and `expired` is
+ * that Provider's own claim; a refusal's sentence is prose a Provider may word
+ * however it likes. Asked AFTER the refusal because that is when a Provider
+ * learns: the wiki refusing is what marks its session lapsed.
+ *
+ * A MANIFEST THAT CANNOT BE READ SAYS NOTHING ABOUT A CREDENTIAL, so the
+ * refusal stays one Container's, as ADR-0135 decided for every refusal.
+ */
+async function theCredentialLapsedAt(
+  allowlist: Allowlist,
+  baseUrl: string,
+): Promise<string | undefined> {
+  const client = createProviderClient({ baseUrl, allowlist });
+  try {
+    const manifest = await client.manifest();
+    return manifest.credential?.state === "expired" ? manifest.name : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    await client.close();
+  }
+}
+
+/**
  * ONE CONTAINER BROWSED INTO THE CATALOGUE, or the reason it was not.
  *
  * EVERY FAILURE IS AN ANSWER HERE, which is `provider.container`'s posture on
@@ -681,10 +723,10 @@ interface OverlongId {
 async function oneContainerIntoTheCatalogue(
   db: Database,
   allowlist: Allowlist,
-  { baseUrl, containerId }: BrowseRequest,
-): Promise<{ landed: ImportedContainer } | { refused: FailureReason }> {
+  { baseUrl, containerId, after }: BrowseRequest,
+): Promise<{ landed: BrowsedBatch } | { refused: FailureReason; lapsed?: true }> {
   try {
-    const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId });
+    const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId, after });
     if (browsed) return { landed: browsed };
     /*
      * ADR-0066: an id that addresses nothing is an ANSWER. The sentence is
@@ -711,7 +753,17 @@ async function oneContainerIntoTheCatalogue(
       },
     };
   } catch (error) {
-    if (error instanceof ProviderFailed) return { refused: error.reason };
+    if (error instanceof ProviderFailed) {
+      const lapsed = await theCredentialLapsedAt(allowlist, baseUrl);
+      if (lapsed === undefined) return { refused: error.reason };
+      return {
+        refused: {
+          wrote: "canoncore",
+          text: `${lapsed}'s Credential has lapsed. Renew it, then run the same list again to carry on from this batch.`,
+        },
+        lapsed: true,
+      };
+    }
     // ADR-0033 makes declining `browse` well-formed, so this is not the Provider
     // being broken. The sentence is ours, and it already carries the Provider's
     // own bounded name.
@@ -1696,9 +1748,23 @@ export const provider = {
     .handler(async ({ input, context, errors }) => {
       try {
         const { allowlist } = await context.providerSettings();
-        const browsed = await browseIntoCatalogue(context.db, allowlist, input);
+        // EVERY BATCH, IN THIS ONE REQUEST (CNCORE-373). This surface lands a
+        // Container whole, so a Provider answering one in batches is followed
+        // to its last; a walk too long for a request is `importNextContainer`'s.
+        let browsed = await browseIntoCatalogue(context.db, allowlist, input);
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
-        return browsed;
+        const placements = [...browsed.imported.placements];
+        let quarantinedValues = browsed.imported.quarantinedValues;
+        while (browsed.next !== undefined) {
+          browsed = await browseIntoCatalogue(context.db, allowlist, {
+            ...input,
+            after: browsed.next,
+          });
+          if (!browsed) throw errors.NO_SUCH_CONTAINER();
+          placements.push(...browsed.imported.placements);
+          quarantinedValues += browsed.imported.quarantinedValues;
+        }
+        return { containerId: browsed.imported.containerId, placements, quarantinedValues };
       } catch (error) {
         // EVERYTHING THE PROVIDER FAILED AT, as in `import` above and for the
         // reason given there: this narrowed to `OutboundRefused` until
@@ -1939,6 +2005,28 @@ export const provider = {
           /** How many Containers are still to be asked for after this one. */
           remaining: z.number().int().nonnegative(),
         }),
+        /**
+         * ONE BATCH OF A CONTAINER LANDED AND ANOTHER IS TO COME (CNCORE-373).
+         * The Container is still to be asked for, so `remaining` counts it.
+         */
+        z.object({
+          answer: z.literal("batch"),
+          containerId: z.string().min(1),
+          placements: z.number().int().nonnegative(),
+          quarantinedValues: z.number().int().nonnegative(),
+          remaining: z.number().int().nonnegative(),
+        }),
+        /**
+         * THE PROVIDER'S CREDENTIAL LAPSED, SO THE WALK STOPS (CNCORE-373).
+         * Every Container after this one would refuse the same way; the same
+         * list, run again once the Owner renews, carries on from this batch.
+         */
+        z.object({
+          answer: z.literal("stopped"),
+          containerId: z.string().min(1),
+          reason: failureReason,
+          remaining: z.number().int().nonnegative(),
+        }),
         z.object({
           answer: z.literal("refused"),
           containerId: z.string().min(1),
@@ -1957,6 +2045,7 @@ export const provider = {
       const outcome = await oneContainerIntoTheCatalogue(context.db, allowlist, {
         baseUrl: next.providerIdentity,
         containerId: next.externalId,
+        after: next.batchCursor ?? undefined,
       });
       const remaining = next.pending - 1;
 
@@ -1966,6 +2055,14 @@ export const provider = {
           externalId: next.externalId,
           reason: outcome.refused,
         });
+        if (outcome.lapsed) {
+          return {
+            answer: "stopped" as const,
+            containerId: next.externalId,
+            reason: outcome.refused,
+            remaining: next.pending,
+          };
+        }
         return {
           answer: "refused" as const,
           containerId: next.externalId,
@@ -1974,18 +2071,31 @@ export const provider = {
         };
       }
 
-      await recordContainerLanded(context.db, {
+      const { imported, next: after } = outcome.landed;
+      const wrote = {
         runId: input.runId,
         externalId: next.externalId,
-        placements: outcome.landed.placements.length,
-        quarantinedValues: outcome.landed.quarantinedValues,
-      });
+        placements: imported.placements.length,
+        quarantinedValues: imported.quarantinedValues,
+      };
+      if (after !== undefined) {
+        await recordBatchLanded(context.db, { ...wrote, next: after });
+        return {
+          answer: "batch" as const,
+          containerId: next.externalId,
+          placements: wrote.placements,
+          quarantinedValues: wrote.quarantinedValues,
+          remaining: next.pending,
+        };
+      }
+
+      await recordContainerLanded(context.db, wrote);
       return {
         answer: "landed" as const,
         containerId: next.externalId,
-        itemId: outcome.landed.containerId,
-        placements: outcome.landed.placements.length,
-        quarantinedValues: outcome.landed.quarantinedValues,
+        itemId: imported.containerId,
+        placements: wrote.placements,
+        quarantinedValues: wrote.quarantinedValues,
         remaining,
       };
     }),

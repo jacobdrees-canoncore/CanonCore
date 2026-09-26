@@ -245,6 +245,13 @@ export const cmppBrowse = z.object({
    * never gave, so they arrive as their own list and stay a distinct fact.
    */
   unplaced: z.array(cmppRecord).default([]),
+  /**
+   * WHERE THE NEXT BATCH OF THIS CONTAINER STARTS, handed back as `?after=`
+   * (CNCORE-373). Absent once the answer holds the last of it, which is every
+   * answer from a provider that never pages -- so its absence reads as "whole".
+   * OPAQUE: CanonCore stores it and hands it back, and never reads it.
+   */
+  next: z.string().min(1).optional(),
 });
 
 export type CmppPlacement = z.infer<typeof cmppPlacement>;

@@ -417,12 +417,23 @@ One walk over a LIST of Container ids at one Provider, and where it got to. The 
 own -- CMPP has declared an operation answering "which Containers do you have" since CNCORE-185,
 `provider-wiki` answers it since CNCORE-208, and `/import` asks it since CNCORE-187 so the Owner can
 pick ONE, but a run does not ask it -- and the walk browses one Container at a time because a
-Provider is one process. A Container of a run is done when it has LANDED, so
-handing the same list over again asks again for whatever refused as well as for whatever was never
-reached: a lapsed Credential does not stop a run, it makes the rest of it refuse (ADR-0135).
+Provider is one process, and a Container too large for one answer one Batch at a time. A Container
+of a run is done when it has LANDED, so handing the same list over again asks again for whatever
+refused as well as for whatever was never reached, and carries on from the Batch it stopped on. A
+lapsed Credential STOPS the run, since CNCORE-373: it made the rest of the run refuse until then, and
+the Provider's manifest saying `expired` is what the run reads it from (ADR-0135).
 _Not_ the Run below, which is one execution of a Task. An import run is something the Owner starts,
 never recurring work the catalogue does for itself.
-_Avoid_: bulk import, batch, job, queue
+_Avoid_: bulk import, batch (a Batch is one answer inside a run), job, queue
+
+**Batch**:
+One answer of a Browse of a Container too large to answer whole, with the Provider's own cursor to
+carry on from (`next`, handed back as `after`). A run asks for one Batch a call and holds the cursor
+on the Container's row, so an interruption costs the Batch in flight rather than the Container
+(ADR-0135). `provider-wiki` answers an entity infobox this way, at most as many members as one
+Semantic MediaWiki `ask` will take.
+_Not_ an Import run, which is the whole walk over the Owner's list.
+_Avoid_: page (a Listing's page is a different thing), chunk
 
 **Credential**:
 What a Provider needs to reach its own upstream — a token, a session, whatever that upstream asks

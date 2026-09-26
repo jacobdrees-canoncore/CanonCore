@@ -1072,6 +1072,10 @@ export const importRunContainers = pgTable(
      */
     reasonText: text("reason_text"),
     reasonWrote: text("reason_wrote"),
+    // WHERE THE NEXT BATCH OF THIS CONTAINER STARTS, as the Provider's own `next`
+    // (migration 27, CNCORE-373). Null for the first batch and for a Container
+    // that answers whole.
+    batchCursor: text("batch_cursor"),
     ...lifecycleColumns(),
   },
   (t) => [
@@ -1082,9 +1086,20 @@ export const importRunContainers = pgTable(
     // WHAT LANDED SAYS WHAT IT WROTE, AND WHAT REFUSED SAYS WHY -- as an
     // equivalence rather than as nullable columns nobody checks, so a `refused`
     // with no sentence is a row this database will not hold.
+    // ONE DIRECTION SINCE MIGRATION 27: a Container walked in batches counts
+    // what its batches wrote while it is still `pending`, and keeps that count
+    // when a batch refuses, so only a `landed` row is held to having one.
     check(
       "import_run_containers_landed_counts_what_it_wrote",
-      sql`(${t.outcome} = 'landed') = (${t.placements} is not null and ${t.quarantinedValues} is not null)`,
+      sql`${t.outcome} <> 'landed' or ${t.placements} is not null`,
+    ),
+    check(
+      "import_run_containers_counts_come_together",
+      sql`(${t.placements} is null) = (${t.quarantinedValues} is null)`,
+    ),
+    check(
+      "import_run_containers_landed_has_no_batch_left",
+      sql`${t.outcome} <> 'landed' or ${t.batchCursor} is null`,
     ),
     check(
       "import_run_containers_refused_says_why",
