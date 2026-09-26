@@ -1144,7 +1144,8 @@ describe("an episode the second Provider holds thinly", () => {
     const { status, text } = await documentAt(`/items/${attributedSeries.episode.undated}`);
 
     expect(status).toBe(200);
-    expect(text).toContain("provider-tmdb holds no release date for this.");
+    // The Provider's name is its own words, so it arrives in its own span.
+    expect(text).toMatch(/>provider-tmdb<\/span> holds no release date for this\./);
     // And it still owes that Provider's notice, as every page carrying its claims does.
     expect(text).toContain(attributed.notice);
   });

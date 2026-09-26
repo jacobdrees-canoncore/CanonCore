@@ -148,4 +148,4 @@ rebuild CNCORE-365 does from empty.
 Asserted at the router in process ("a season's episodes", `provider.test.ts`) and in the served page
 (`item-page.test.ts`, "an episode the second Provider holds thinly"). Mutation-checked: deleting the
 ceiling predicate or the held-statement exclusion from `findPropertiesNotGiven` each turned one
-router test red.
+router test red, and making the page's line render nothing turned the served-page case red.
