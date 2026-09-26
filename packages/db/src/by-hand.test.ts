@@ -178,7 +178,7 @@ describe("correcting a sort name by hand", () => {
  * different path from the one an owner's refresh actually takes.
  */
 describe("an Owner title meeting a re-import", () => {
-  const RECORD = { externalId: "8301", title: "The Tenth Planet (TV story)", released: [] };
+  const RECORD = { externalId: "8301", title: "The Tenth Planet (TV story)", released: [], identifiers: {} };
   const PROVIDER = {
     identity: "http://127.0.0.1:8301",
     label: "provider-wiki",

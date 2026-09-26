@@ -172,6 +172,22 @@ export const statementPublic = z.object({
 export type StatementPublic = z.infer<typeof statementPublic>;
 
 /**
+ * One of an item's ids in a Scheme -- `imdb` `tt0133093` -- and who said so
+ * (`CONTEXT.md`'s Identifier, CNCORE-349).
+ *
+ * WHO SAID IT TRAVELS WITH IT, as with a Statement: an Identifier is a claim,
+ * and two providers' agreeing is evidence for matching only while a reader can
+ * see that they are two (ADR-0026).
+ */
+export const identifierPublic = z.object({
+  /** The provider's own word for the id space: `imdb`, `tvdb`. Never a closed set. */
+  scheme: z.string(),
+  value: z.string(),
+  sourceKind: z.string(),
+  sourceLabel: z.string(),
+});
+
+/**
  * What a source's licence obliges the app to show, for one source, on a page
  * that is about to show that source's claims (ADR-0036).
  *
@@ -498,6 +514,8 @@ export const itemPublic = z.object({
    * uses (ADR-0024, ADR-0025), so the list cannot disagree with `title` above.
    */
   statements: z.array(statementPublic),
+  /** What this item is known as in other id spaces, each with who said so (CNCORE-349). */
+  identifiers: z.array(identifierPublic),
   /**
    * What this page owes for showing the above (ADR-0036).
    *

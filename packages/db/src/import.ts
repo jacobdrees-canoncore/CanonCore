@@ -3,7 +3,14 @@ import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
 import { assertPlacement, theOwnerId } from "./placements";
-import { items, placementSources, placements, sources, statements } from "./schema";
+import {
+  identifiers,
+  items,
+  placementSources,
+  placements,
+  sources,
+  statements,
+} from "./schema";
 
 /** The provider that asserted this, as the owner configured it (ADR-0031). */
 export interface ImportingProvider {
@@ -43,6 +50,12 @@ export interface ProvidedRecord {
   title: string;
   /** EDTF strings, each at the precision it arrived with (ADR-0073). */
   released: string[];
+  /**
+   * The record's ids in OTHER id spaces, keyed by Scheme -- `{ imdb: "tt0133093" }`
+   * (CNCORE-349). Empty for a source with one id space, which is the wiki's
+   * every record. Written as Identifiers, never as Statements: see `identifiers`.
+   */
+  identifiers: Record<string, string>;
 }
 
 export interface ImportedRecord {
@@ -422,7 +435,57 @@ async function writeProvidedItem(
     ],
   });
 
+  await assertIdentifiers(tx, { ownerId, itemId, sourceId, identifiers: record.identifiers });
+
   return { itemId, quarantinedValues };
+}
+
+/**
+ * This source's Identifiers for one item, made to be exactly what it sent this
+ * time (CNCORE-349).
+ *
+ * A REFRESH, AS `assertClaims` IS ONE: what the source still sends is kept, what
+ * it has stopped sending is withdrawn by tombstone, and what is new is written.
+ * Rewriting the lot on every import would bump every row's change sequence for
+ * a value nobody changed. It reaches only THIS source's rows, since a source
+ * may only withdraw what it said itself.
+ */
+async function assertIdentifiers(
+  tx: Transaction,
+  {
+    ownerId,
+    itemId,
+    sourceId,
+    identifiers: sent,
+  }: { ownerId: string; itemId: string; sourceId: string; identifiers: Record<string, string> },
+): Promise<void> {
+  const held = await tx
+    .select({ id: identifiers.id, scheme: identifiers.scheme, value: identifiers.value })
+    .from(identifiers)
+    .where(
+      and(
+        eq(identifiers.itemId, itemId),
+        eq(identifiers.sourceId, sourceId),
+        isNull(identifiers.deletedAt),
+      ),
+    );
+
+  const withdrawn = held.filter(({ scheme, value }) => sent[scheme] !== value).map(({ id }) => id);
+  if (withdrawn.length > 0) {
+    await tx
+      .update(identifiers)
+      .set({ deletedAt: sql`now()` })
+      .where(inArray(identifiers.id, withdrawn));
+  }
+
+  const fresh = Object.entries(sent).filter(
+    ([scheme, value]) => !held.some((row) => row.scheme === scheme && row.value === value),
+  );
+  if (fresh.length > 0) {
+    await tx
+      .insert(identifiers)
+      .values(fresh.map(([scheme, value]) => ({ ownerId, itemId, sourceId, scheme, value })));
+  }
 }
 
 async function insertProvidedItem(

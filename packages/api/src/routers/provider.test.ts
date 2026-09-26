@@ -567,6 +567,95 @@ describe("provider.import", () => {
   });
 });
 
+/**
+ * A record carrying ids in other id spaces, and a property its source defines
+ * (CNCORE-349). The ids are the real ones: `tt0133093` is The Matrix on IMDb and
+ * `603` its TMDB id, which `provider-tmdb` sends as `external_ids` on a lookup.
+ */
+const MATRIX_WITH_IDS = {
+  id: "movie:603",
+  title: "The Matrix",
+  kind: "movie",
+  released: ["1999-03-31"],
+  writers: [],
+  series: null,
+  url: "https://www.themoviedb.org/movie/603",
+  external_ids: { tmdb: "603", imdb: "tt0133093" },
+  production_code: "4B",
+};
+
+describe("a record's Identifiers", () => {
+  it("reach the catalogue from an import and are read back on the Item, each with who said it", async () => {
+    const baseUrl = await stubProvider({ "movie:603": MATRIX_WITH_IDS }, { name: "provider-tmdb" });
+
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+    const item = await call(appRouter.item.get, { id: itemId }, { context });
+
+    expect(item.identifiers).toEqual([
+      { scheme: "imdb", value: "tt0133093", sourceKind: "provider", sourceLabel: "provider-tmdb" },
+      { scheme: "tmdb", value: "603", sourceKind: "provider", sourceLabel: "provider-tmdb" },
+    ]);
+    // NO PROPERTY IS MINTED FOR EITHER, nor for the property the source defines:
+    // an Identifier is not a Statement, and a claim the catalogue has no home for
+    // is CNCORE-371's to hold rather than this import's to invent a field for.
+    expect(item.statements.map((statement) => statement.property).sort()).toEqual([
+      "external_id",
+      "released",
+      "sort_name",
+      "title",
+    ]);
+  });
+
+  it("are none for a record sending none, which is every record of a source with one id space", async () => {
+    const baseUrl = await stubProvider();
+
+    const { itemId } = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+
+    expect((await call(appRouter.item.get, { id: itemId }, { context })).identifiers).toEqual([]);
+  });
+
+  it("are refreshed by a second import rather than doubled, and one the provider stopped sending goes", async () => {
+    const records: Record<string, unknown> = { "movie:603": MATRIX_WITH_IDS };
+    const baseUrl = await stubProvider(records);
+    await call(appRouter.provider.import, { baseUrl, recordId: "movie:603" }, { context });
+
+    records["movie:603"] = { ...MATRIX_WITH_IDS, external_ids: { tmdb: "603" } };
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    expect(
+      (await call(appRouter.item.get, { id: itemId }, { context })).identifiers.map(
+        ({ scheme, value }) => [scheme, value],
+      ),
+    ).toEqual([["tmdb", "603"]]);
+  });
+
+  it("go with the provider that said them when it is purged, from an Item the Owner keeps", async () => {
+    const baseUrl = await stubProvider({ "movie:603": MATRIX_WITH_IDS });
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+    // KEPT, BY BEING IN A GROUP THE OWNER DREW. An Item nothing holds is deleted
+    // by the purge and takes its Identifiers with it by cascade, so only an
+    // Item that survives can show the provider's claims going without it.
+    const { id: groupId } = await call(appRouter.group.create, { name: "Kept" }, { context });
+    await call(appRouter.group.put, { groupId, itemId }, { context });
+
+    await call(appRouter.provider.purge, { baseUrl }, { context });
+
+    expect((await call(appRouter.item.get, { id: itemId }, { context })).identifiers).toEqual([]);
+  });
+});
+
 describe("provider.browse", () => {
   it("imports a container and its whole ordering in one call", async () => {
     // ADR-0033: `browse` returns a container AND its ordering together, so

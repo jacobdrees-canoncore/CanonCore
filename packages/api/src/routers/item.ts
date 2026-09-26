@@ -8,6 +8,7 @@ import {
   findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
+  findIdentifiersOfItem,
   findStatementsOfItem,
   ItemRefused,
   retitleItemByHand,
@@ -371,7 +372,7 @@ export const item = {
       // Read against the CANONICAL id rather than the one asked for, so an
       // alias reaching a merged-away item still answers with the survivor's
       // orderings and values rather than with none (ADR-0040).
-      const [placements, holds, groups, statements, attribution] = await Promise.all([
+      const [placements, holds, groups, statements, identifiers, attribution] = await Promise.all([
         /*
          * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
          * the app that was neither. It answered every live placement, which
@@ -412,6 +413,7 @@ export const item = {
         // a Listing.
         findGroupsOfItem(context.db, found.id),
         findStatementsOfItem(context.db, found.id),
+        findIdentifiersOfItem(context.db, found.id),
         findAttributionOwed(context.db, found.id),
       ]);
 
@@ -488,6 +490,12 @@ export const item = {
           value: statement.value,
           sourceKind: statement.sourceKind,
           sourceLabel: statement.sourceLabel,
+        })),
+        identifiers: identifiers.map((identifier) => ({
+          scheme: identifier.scheme,
+          value: identifier.value,
+          sourceKind: identifier.sourceKind,
+          sourceLabel: identifier.sourceLabel,
         })),
         // Named field by field like the rest (ADR-0045). The source's own id and
         // the URL an owner typed for it are deliberately not among them.

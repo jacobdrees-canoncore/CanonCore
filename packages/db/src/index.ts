@@ -80,6 +80,7 @@ export {
   findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
+  findIdentifiersOfItem,
   findStatementsOfItem,
   type ItemKind,
   type ItemRow,
