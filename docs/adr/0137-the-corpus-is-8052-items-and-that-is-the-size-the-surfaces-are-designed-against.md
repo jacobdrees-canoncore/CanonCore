@@ -218,7 +218,10 @@ non-redirects:
 **All 142 answered `200`.** 91 of them are the out-of-universe walk, paid once an hour (it is why
 five of the 560 are not served), 38 are `ask` batches of sixteen, and the rest identify pages. The
 same browse, driven through CanonCore's own run into a development install, landed 555 and 40
-Placements in 15.9s end to end. So nothing is added: the provider already holds one request in
+Placements in 15.9s end to end, and the kind filter read the result back exactly:
+`catalogue.list({ kind: "time_span" })` answered a `total` of **595**, and
+`select count(*) from items where kind = 'time_span' and deleted_at is null` against that
+install's database answered **595** as well. So nothing is added: the provider already holds one request in
 flight, and at 142 requests this population is far below the 465-Container corpus run whose
 twelfth Container is where the storm above began. **This is a figure about THIS population and
 no other.** CNCORE-352's 39,173 pages are two orders of magnitude more `ask` batches, and it

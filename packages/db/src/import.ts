@@ -504,7 +504,9 @@ async function insertProvidedItem(
   const [item] = await tx
     .insert(items)
     // THE KIND IS THE PROVIDER'S ANSWER, NOT THIS LINE'S (CNCORE-367). It was
-    // `work` for every import, which is why 8,052 Items were all Works. A
+    // `work` for every import, which is why 8,052 Items were all Works. It is
+    // written at creation only: an Item found again keeps the kind it has,
+    // because migration 11 freezes a kind at creation. A
     // container arrives as `work` because a provider sends none for one, and
     // ADR-0004 folds containers into `work` -- there is no collection kind.
     // `CONTEXT.md`'s Container headword makes `is_container` STORED rather
