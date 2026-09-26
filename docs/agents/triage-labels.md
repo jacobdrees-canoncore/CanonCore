@@ -73,7 +73,7 @@ replacing one, so an issue carries one of each.
   repository unless told otherwise, so the label is how a dispatcher sees which tickets need
   `--repo name:skills`, and the dispatch prompt has to say so. Added 2026-09-22, on CNCORE-342
   and CNCORE-379 to 385.
-- **`spike`**: the outcome is a finding, not functionality, so the work is a research note rather
+- **`spike`** — the outcome is a finding, not functionality, so the work is a research note rather
   than code. `/dispatch` briefs a `spike` ticket `--prompt "/research"` instead of `/implement`, and
   `research`, run in a worktree bound to the ticket, lands the note behind a PR naming it. There is
   no `implement` label: `/implement` is the unlabelled default. Added 2026-09-26 by the Owner, after
