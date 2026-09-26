@@ -23,7 +23,7 @@ Verified against source on 2026-09-10; corrections applied. Working in `docs/res
 
 ## As built under CNCORE-358 — and this record stays PROPOSED
 
-**BUILT: the table, and three of its five attributes.** Migration 24 creates `artwork`: one row
+**BUILT: the table, and three of its five attributes.** Migration 25 creates `artwork`: one row
 per stored picture, with its item, its source, its `role` in the source's own word, its `licences`
 as the source's own labels, and its `attribution`, which is the credit belonging to THAT FILE
 rather than the source's credit line on `sources`. `licences` is NOT NULL and empty is the source

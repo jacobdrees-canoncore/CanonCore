@@ -26,7 +26,7 @@ The catalogue holds 8,052 Items and every one is `kind: work`. All 465 Container
 `Theory:Timeline - X` wiki pages. Of TWELVE declared properties, four are ever written — `title`,
 `external_id`, `sort_name`, `released` — and `portrayed_by`, `created_by`, `appears_in`,
 `based_on`, `category`, `part_of`, `credited_to` and `note` sit at zero; it was thirteen with nine at
-zero when counted, until migration 24 deleted the never-written `image` under CNCORE-358, because a
+zero when counted, until migration 25 deleted the never-written `image` under CNCORE-358, because a
 picture is a table rather than a Statement ([[0038-artwork-is-a-table]]). Counted against the Owner's
 own install on 2026-09-20; working in `docs/research/walking-the-owners-install.md`.
 

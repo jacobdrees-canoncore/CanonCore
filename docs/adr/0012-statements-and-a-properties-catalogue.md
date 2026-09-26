@@ -69,7 +69,7 @@ this column honest where dispatching on `datatype` would not be. CNCORE-29 refus
 dispatch because `url` is a seeded datatype with no check, so dispatching over datatypes would read
 as though every datatype were guarded; a property declaring `{}` says the opposite out loud, so
 `title`, free text, is visibly unguarded. The example here was `image`, the one property seeded as
-`url`, until migration 24 deleted it (CNCORE-358): no Property carries the `url` datatype since, so
+`url`, until migration 25 deleted it (CNCORE-358): no Property carries the `url` datatype since, so
 the objection to a datatype dispatch still holds of the datatype and no longer names a property.
 ADR-0073 carries that correction in the paragraph that made it.
 
@@ -93,7 +93,7 @@ would put that list in SQL as well as TypeScript -- a second drift surface to fi
 
 THE FIRST PROPERTY WAS WORTH IT AND THE ARGUMENT FOR WAITING WAS REAL. CNCORE-47 was filed saying the
 move earns its keep at the SECOND property to need a check, and no second property has one: `image`
-was the candidate, nothing ever wrote it, and migration 24 deleted it under CNCORE-358, because a
+was the candidate, nothing ever wrote it, and migration 25 deleted it under CNCORE-358, because a
 picture is a table carrying its own role, licences and credit rather than a Statement (ADR-0038).
 It was taken now because the alternative was to leave an accepted record naming a
 declaration that did not exist, and because the rule genuinely belongs to the property rather than to

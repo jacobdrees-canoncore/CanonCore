@@ -3,7 +3,6 @@ import {
   type Column,
   eq,
   getTableColumns,
-  gt,
   inArray,
   isNotNull,
   isNull,
@@ -135,7 +134,7 @@ const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.
  * `sources` joined to the claim it asks about passes the claim's moment alone.
  * `STILL_HELD` reaches both through aliases of its own and passes both.
  */
-function insideItsCeiling(
+export function insideItsCeiling(
   observedAt: SQLWrapper,
   maxCacheAge: SQLWrapper = sources.maxCacheAge,
 ): SQL {
@@ -783,13 +782,6 @@ export async function findIdentifiersOfItem(
     .orderBy(identifiers.scheme, sources.sourceOrder, identifiers.value, identifiers.id);
 }
 
-/**
- * A picture inside its source's declared ceiling, or one whose source declares
- * none (ADR-0037). ONE PREDICATE FOR BOTH READERS, so the page never lays out a
- * picture the route would then refuse to serve.
- */
-const stillKept = or(isNull(artwork.expiresAt), gt(artwork.expiresAt, sql`now()`));
-
 /** One picture on an item, without its bytes: what the Item page lays out. */
 export interface ArtworkOfItem {
   id: string;
@@ -805,18 +797,28 @@ export interface ArtworkOfItem {
  * bytes are asked for one picture at a time, by `readArtwork`.
  */
 export async function findArtworkOfItem(db: Database, itemId: string): Promise<ArtworkOfItem[]> {
-  return db
-    .select({
-      id: artwork.id,
-      role: artwork.role,
-      licences: artwork.licences,
-      attribution: artwork.attribution,
-      sourceLabel: sources.label,
-    })
-    .from(artwork)
-    .innerJoin(sources, eq(sources.id, artwork.sourceId))
-    .where(and(eq(artwork.itemId, itemId), isNull(artwork.deletedAt), stillKept))
-    .orderBy(sources.sourceOrder, artwork.role, artwork.createdAt, artwork.id);
+  return (
+    db
+      .select({
+        id: artwork.id,
+        role: artwork.role,
+        licences: artwork.licences,
+        attribution: artwork.attribution,
+        sourceLabel: sources.label,
+      })
+      .from(artwork)
+      .innerJoin(sources, eq(sources.id, artwork.sourceId))
+      // CNCORE-360's rule, with `sources` joined: a picture past its source's
+      // ceiling is not laid out (ADR-0037).
+      .where(
+        and(
+          eq(artwork.itemId, itemId),
+          isNull(artwork.deletedAt),
+          insideItsCeiling(artwork.observedAt),
+        ),
+      )
+      .orderBy(sources.sourceOrder, artwork.role, artwork.createdAt, artwork.id)
+  );
 }
 
 /**
@@ -833,7 +835,12 @@ export async function readArtwork(
   const [found] = await db
     .select({ mediaType: artwork.mediaType, bytes: artwork.bytes })
     .from(artwork)
-    .where(and(eq(artwork.id, id), isNull(artwork.deletedAt), stillKept));
+    .innerJoin(sources, eq(sources.id, artwork.sourceId))
+    // The same predicate `findArtworkOfItem` lays out by, so the page never
+    // shows a picture this refuses to serve.
+    .where(
+      and(eq(artwork.id, id), isNull(artwork.deletedAt), insideItsCeiling(artwork.observedAt)),
+    );
   return found ?? null;
 }
 

@@ -24,7 +24,7 @@ Verified against source on 2026-09-10; corrections applied. Working in `docs/res
 
 NINE properties at migration 1, and the count is exact because the list is: `category`,
 `portrayed_by`, `appears_in`, `based_on`, `created_by`, `credited_to`, `released`, `part_of`,
-and `image` -- which migration 24 DELETED under CNCORE-358, so eight of the nine stand. `image`
+and `image` -- which migration 25 DELETED under CNCORE-358, so eight of the nine stand. `image`
 declared a picture to be a Statement holding a URL, which ADR-0038 refuses and ADR-0037 replaces
 with stored bytes, and nothing ever wrote it. Everything else enters when a screen or an import
 actually needs it. (An earlier version said "roughly a dozen" over the same nine names, which is a
@@ -40,7 +40,7 @@ protect.
 ## As built, under CNCORE-4: the count is ELEVEN, not nine -- and TEN since CNCORE-358
 
 The list above is nine and this record said the count was exact. Implementation
-made it eleven, and migration 24 took `image` back out, so ten of migration 1's
+made it eleven, and migration 25 took `image` back out, so ten of migration 1's
 seeds stand. The two extra are not scope creep: ADR-0014 makes `title`
 and `sort_name` columns that PROJECT STATEMENTS, so the statements they project
 need properties to hang on. Without them migration 1 cannot satisfy ADR-0014 at
@@ -69,7 +69,7 @@ a bare `UPDATE`.
 THE CATALOGUE IS TWELVE PROPERTIES SINCE, and every change is this record's own rule working
 rather than the count drifting: "everything else enters when a screen or an import actually needs
 it". Migration 3 added `external_id` for the importer (CNCORE-28), migration 12 added `note` for
-the owner's own words (ADR-0096, CNCORE-74), and migration 24 deleted `image`, which nothing had
+the owner's own words (ADR-0096, CNCORE-74), and migration 25 deleted `image`, which nothing had
 needed (CNCORE-358). `packages/db/src/artwork.test.ts` names the twelve. Eleven remains the count of
 what MIGRATION 1 seeded and ten of those stand, which is what the paragraph above is about -- the
 properties whose reference targets froze before anything could write one.

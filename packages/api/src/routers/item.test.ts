@@ -462,7 +462,12 @@ describe("item.get, on what each source claimed", () => {
 describe("item.get, on the pictures an item carries (CNCORE-358)", () => {
   it("answers each with its role, its licences, its credit and where its stored bytes are served", async () => {
     const { itemId } = await importProvidedRecord(db, {
-      provider: { identity: "http://127.0.0.1:9701", label: "provider-wiki", attribution: null },
+      provider: {
+        identity: "http://127.0.0.1:9701",
+        label: "provider-wiki",
+        attribution: null,
+        maxCacheAge: null,
+      },
       record: {
         externalId: "265",
         title: "The Tenth Planet",
@@ -478,7 +483,6 @@ describe("item.get, on the pictures an item carries (CNCORE-358)", () => {
           attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
           mediaType: "image/png",
           bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
-          keepFor: null,
         },
       ],
     });

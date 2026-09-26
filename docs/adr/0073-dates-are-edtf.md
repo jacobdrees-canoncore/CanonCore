@@ -136,7 +136,7 @@ exactly as written -- `url` is a seeded datatype with no check, so a dispatch ov
 read as though every one of them were guarded -- and it does not reach a dispatch over declarations,
 because a property declaring `{}` says "nothing is checked" in the catalogue's own words. `title` is
 therefore visibly unguarded rather than implied to be guarded, which is the property the call site
-was protecting. This named `image`, the one `url` property, until migration 24 deleted it
+was protecting. This named `image`, the one `url` property, until migration 25 deleted it
 (CNCORE-358); no Property carries `url` since, and the argument stands on any `{}`.
 
 THAT LEFT "NOT IN `validation`" UNANSWERED, AND CNCORE-47 ANSWERED IT: THE COLUMN IS FILLED. ADR-0012

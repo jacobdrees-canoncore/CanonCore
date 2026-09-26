@@ -1,8 +1,9 @@
-import { and, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { assertClaims, propertyId, type Transaction } from "./claims";
 import type { Database } from "./index";
 import { assertPlacement, theOwnerId } from "./placements";
+import { insideItsCeiling } from "./queries";
 import {
   artwork,
   identifiers,
@@ -101,11 +102,6 @@ export interface FetchedArtwork {
   attribution: string | null;
   mediaType: string;
   bytes: Uint8Array;
-  /**
-   * How many seconds the source lets this be kept -- its manifest's
-   * `max_cache_age` -- or null where it declares no ceiling (ADR-0037).
-   */
-  keepFor: number | null;
 }
 
 export interface ImportedRecord {
@@ -192,14 +188,6 @@ export async function importProvidedRecord(
 }
 
 /**
- * A century, in seconds: the furthest an expiry is stamped. The contract bounds
- * `max_cache_age` only below, and a ceiling past what a timestamp holds would
- * abort the transaction the record is written in. A source declaring more than
- * a century has declared no ceiling that matters.
- */
-const LONGEST_KEEP_SECONDS = 100 * 365 * 24 * 60 * 60;
-
-/**
  * This source's pictures for one item, brought up to date with what was
  * fetched this time (CNCORE-358).
  *
@@ -227,7 +215,11 @@ async function storeArtwork(
     fetched,
   }: { ownerId: string; itemId: string; sourceId: string; fetched: FetchedArtwork[] },
 ): Promise<void> {
-  await tx.delete(artwork).where(lte(artwork.expiresAt, sql`now()`));
+  await tx
+    .delete(artwork)
+    .where(
+      sql`exists (select 1 from ${sources} where ${sources.id} = ${artwork.sourceId} and not ${insideItsCeiling(artwork.observedAt)})`,
+    );
   if (fetched.length === 0) return;
   const roles = [...new Set(fetched.map((picture) => picture.role))];
   await tx
@@ -246,10 +238,6 @@ async function storeArtwork(
       attribution: picture.attribution,
       mediaType: picture.mediaType,
       bytes: picture.bytes,
-      expiresAt:
-        picture.keepFor === null
-          ? null
-          : sql`now() + make_interval(secs => ${Math.min(picture.keepFor, LONGEST_KEEP_SECONDS)})`,
     })),
   );
 }

@@ -775,13 +775,13 @@ export const artwork = pgTable(
     mediaType: text("media_type").notNull(),
     bytes: bytea("bytes").notNull(),
     /**
-     * When the source's declared `max_cache_age` runs out, stamped at the fetch;
-     * null where the source declares no ceiling. READ, AND NO JOB SWEEPS IT:
-     * past it the picture is neither laid out nor served (ADR-0037), so
-     * honouring the licence does not depend on a job having run. The next
-     * import deletes the bytes (`storeArtwork`).
+     * When the bytes were fetched: the moment the source last said this, which
+     * a Statement and an Identifier carry too (ADR-0012). READ AGAINST THE
+     * SOURCE'S `max_cache_age` BY CNCORE-360'S RULE, so a picture past its
+     * source's ceiling is neither laid out nor served (ADR-0037) and no job has
+     * to run for that to hold. The next import deletes the bytes (`storeArtwork`).
      */
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
     ...stampColumns(),
   },
   (t) => [

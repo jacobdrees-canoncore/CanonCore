@@ -19,10 +19,11 @@ beforeAll(async () => {
   db = await connect();
 });
 
-const wikiProvider = (identity: string) => ({
+const wikiProvider = (identity: string, maxCacheAge: number | null = null) => ({
   identity,
   label: "provider-wiki",
   attribution: null,
+  maxCacheAge,
 });
 
 const aRecord = (externalId: string) => ({
@@ -43,7 +44,6 @@ const aPageImage = (overrides: Partial<FetchedArtwork> = {}) => ({
   attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
   bytes: PNG,
   mediaType: "image/png" as const,
-  keepFor: null,
   ...overrides,
 });
 
@@ -119,15 +119,16 @@ describe("a picture a provider supplied (ADR-0037, ADR-0038)", () => {
 
   /**
    * EXPIRY IS A READ-TIME CHECK AGAINST THE SOURCE'S DECLARED CEILING (ADR-0037),
-   * so a licence is honoured whether or not any job has run. TMDB forbids
+   * CNCORE-360's rule for a claim applied to a picture, so a licence is honoured
+   * whether or not any job has run. TMDB forbids
    * keeping its content past six months (ADR-0036), and a picture past its
    * source's `max_cache_age` is neither laid out nor served.
    */
   it("is neither laid out nor served once its source's ceiling has passed", async () => {
     const { itemId } = await importProvidedRecord(db, {
-      provider: wikiProvider("http://127.0.0.1:9606"),
+      provider: wikiProvider("http://127.0.0.1:9606", 1),
       record: aRecord("265"),
-      artwork: [aPageImage({ keepFor: 1 })],
+      artwork: [aPageImage()],
     });
     const [artwork] = await findArtworkOfItem(db, itemId);
     expect(artwork).toBeDefined();
@@ -151,21 +152,6 @@ describe("a picture a provider supplied (ADR-0037, ADR-0038)", () => {
         .from(artworkTable)
         .where(eq(artworkTable.id, artwork?.id ?? "")),
     ).toEqual([]);
-  });
-
-  /**
-   * A CEILING PAST WHAT A TIMESTAMP CAN HOLD DOES NOT COST THE IMPORT. The
-   * contract bounds `max_cache_age` only below, and an interval past the year
-   * 294276 would abort the transaction the record is written in.
-   */
-  it("is kept under a ceiling no timestamp can reach, and the import lands", async () => {
-    const { itemId } = await importProvidedRecord(db, {
-      provider: wikiProvider("http://127.0.0.1:9608"),
-      record: aRecord("265"),
-      artwork: [aPageImage({ keepFor: Number.MAX_SAFE_INTEGER })],
-    });
-
-    expect(await findArtworkOfItem(db, itemId)).toHaveLength(1);
   });
 
   it("goes with its provider when that provider is purged", async () => {

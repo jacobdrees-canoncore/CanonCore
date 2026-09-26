@@ -2262,6 +2262,7 @@ async function anItemPictured(databaseUrl: string) {
       identity: "http://127.0.0.1:1/pictured",
       label: "provider-wiki",
       attribution: null,
+      maxCacheAge: null,
     },
     record: { externalId: "pictured-265", title, released: [], identifiers: {}, itemKind: "work" },
     artwork: [
@@ -2272,7 +2273,6 @@ async function anItemPictured(databaseUrl: string) {
         attribution: "https://tardis.wiki/wiki/File:Tenth_planet.jpg",
         mediaType: "image/png",
         bytes: new Uint8Array(ONE_PIXEL_PNG),
-        keepFor: null,
       },
     ],
   });

@@ -271,9 +271,6 @@ async function fetchPictures(
           attribution: image.description_url,
           mediaType,
           bytes,
-          // THE SOURCE'S CEILING, read here and checked on every read of the
-          // picture (ADR-0037): TMDB's is six months (ADR-0036).
-          keepFor: manifest.max_cache_age ?? null,
         };
       } catch {
         return null;
