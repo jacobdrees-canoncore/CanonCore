@@ -206,7 +206,8 @@ up from 30 files and 275 tests on `main` -- one new file and nine new rows, with
 changed. `tsc --noEmit` and `pnpm lint` are clean.
 
 **NOT BUILT: nothing stops a fifth copy.** No check refuses a comment-stripping regex in a new file;
-this is a rule a reviewer applies, which is the same missing half ADR-0168 names for itself.
+this is a rule a reviewer applies. ADR-0168 named the same missing half for itself, and its half is
+built under CNCORE-378 as `pnpm delete-the-behaviour`; nothing like it exists for this one.
 
 **NOT RUN: the suites that need a database.** `@canoncore/db`, `@canoncore/api`, `@canoncore/tasks`
 and one `apps/web` suite abort on an unset `DATABASE_URL` in a worktree provisioned only with

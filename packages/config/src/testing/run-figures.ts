@@ -336,6 +336,12 @@ const THE_REGISTER: Registration[] = [
     kind: "foreign",
     why: "a research shard's own progress log -- `Done: 110 of 110. Shard complete.` counts the support threads that sweep had read, not anything this tree runs. It was invisible until the back guard stopped refusing a figure that ends a sentence",
   },
+  {
+    path: "packages/config/src/delete-the-behaviour.test.ts",
+    figure: "4 of 4",
+    kind: "foreign",
+    why: "the delete-the-behaviour run's own last line, expected over its fixture: four twins deleted and four red is what the case asserts the run PRINTS, not a claim about how this tree's tests ran",
+  },
 ];
 
 /**
