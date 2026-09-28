@@ -1,0 +1,209 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Two schema structures (A: fixed hierarchy + orderings; B: everything is an ordering),
+     each with decision 11's library model (As broadcast / As a timeline / Also in / provenance). Real TMDB + Tardis Fandom data. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Structure prototype</title>
+<style>
+:root{--bg:#0e0f12;--panel:#15171c;--card:#1f222b;--fg:#f2f2f4;--muted:#9aa0ad;--line:#2a2e39;--accent:#6ea8ff;--tmdb:#01b4e4;--fandom:#e0a13a;--ex:#c9a8ff;--dim:.36}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,system-ui,sans-serif}
+a{color:inherit;text-decoration:none;cursor:pointer}
+.banner{font-size:12px;color:#ffd98a;background:#2e2305;padding:7px 20px}
+.app{display:grid;grid-template-columns:230px minmax(0,1fr) 340px;min-height:calc(100vh - 32px)}
+nav{background:var(--panel);border-right:1px solid var(--line);padding:16px 12px}
+nav h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 8px 6px}
+nav a{display:block;padding:7px 10px;border-radius:8px;font-size:14px}nav a:hover,nav a.on{background:var(--card)}
+main{padding:20px 26px 110px;min-width:0}
+aside{background:var(--panel);border-left:1px solid var(--line);padding:16px;font:12px/1.5 ui-monospace,Menlo,monospace;overflow:auto;max-height:calc(100vh - 32px);position:sticky;top:0}
+aside h5{font:600 11px -apple-system,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}aside pre{white-space:pre-wrap;margin:0;color:#cfd6e4}
+.crumb{color:var(--muted);font-size:13px;margin-bottom:10px}.crumb a:hover{color:var(--fg)}
+.pill{border:1px solid var(--line);background:var(--card);color:var(--fg);padding:6px 13px;border-radius:999px;font-size:13px;cursor:pointer}.pill.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.hero{position:relative;border-radius:16px;overflow:hidden;min-height:200px;display:flex;align-items:flex-end;background:#222 center/cover;margin-bottom:10px}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.88),rgba(0,0,0,.15) 60%)}
+.hero .in{position:relative;z-index:1;padding:22px;max-width:800px}.hero h1{margin:0 0 6px;font-size:30px}
+.muted{color:var(--muted)}.small{font-size:12px}
+h2{font-size:18px;margin:22px 0 10px}h3{font-size:12px;margin:18px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ways{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0 6px;max-width:760px}
+.way{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer}.way.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(110,168,255,.25)}.way b{display:block;font-size:17px}
+.showhead{display:flex;align-items:baseline;gap:10px;margin-top:22px;cursor:pointer}.showhead h2{margin:0}
+.shelf{display:flex;gap:12px;overflow-x:auto;padding:4px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.ep{flex:0 0 220px;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.ep .img{height:124px;background:#2b2f3a center/cover;display:flex;align-items:center;justify-content:center;font-size:28px;color:#5a6070}
+.ep .t{padding:8px 10px}.ep .t b{display:block;font-size:14px;line-height:1.3}.ep.off{opacity:var(--dim)}.ep.link{cursor:pointer}.ep.link:hover{outline:2px solid var(--accent)}
+.posters{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px}.poster{cursor:pointer}.poster .p{aspect-ratio:2/3;border-radius:8px;background:#2b2f3a center/cover}.poster div.n{font-size:13px;margin-top:5px}
+.season{margin:8px 0 2px;font-size:14px;color:var(--muted)}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:4px;white-space:nowrap}
+.b-tmdb{color:var(--tmdb);border-color:rgba(1,180,228,.4)}.b-fandom{color:var(--fandom);border-color:rgba(224,161,58,.4)}.b-ex{color:var(--ex);border-color:rgba(201,168,255,.4)}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:10px}
+.person{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}.person:hover{outline:2px solid var(--accent)}.person b{font-size:17px;display:block;margin-bottom:4px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:8px 0 4px;display:flex}.bar i{display:block;height:100%}
+.detail{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:24px;margin-top:6px}
+.still{border-radius:14px;aspect-ratio:16/9;background:#2b2f3a center/cover}
+.facts .row{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}.facts .k{color:var(--muted)}
+.play{display:inline-block;background:var(--fg);color:var(--bg);font-weight:700;border-radius:10px;padding:10px 20px;margin:12px 0;cursor:pointer}
+.also{list-style:none;margin:0;padding:0}.also li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.home{background:var(--card);border-radius:10px;padding:10px 12px;margin:10px 0}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.cont{background:var(--card);border:1px dashed #3a4150;border-radius:10px;padding:12px 14px;cursor:pointer}.cont:hover{border-color:var(--accent)}.cont b{display:block}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+.vbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#0b0d11ee;border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;gap:6px;box-shadow:0 8px 30px #0008;z-index:9}
+.vbar button{background:transparent;color:var(--fg);border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit}.vbar button.on{background:var(--accent);color:#0b0d11;font-weight:600}
+</style></head><body>
+<div class="banner">PROTOTYPE, throwaway, on REAL data. TMDB: Doctor Who 1963 (serials via TMDB's "Story Order" group), 2005, 2023; Friends S1; The Clone Wars S1; the Star Wars film collection. Tardis Fandom: 8 real <i>Theory:Timeline</i> pages. Only the Star Wars timeline ORDER is an example (the well-known film chronology), marked "example".</div>
+<div class="app"><nav id="nav"></nav><main id="main"></main><aside id="aside"></aside></div>
+<div class="vbar"><button data-v="A">A · Fixed hierarchy + orderings on top</button><button data-v="B">B · Everything is an ordering</button></div>
+<script>
+const DATA=/*DATA*/null;
+const IMG=(p,w="w500")=>!p?"":p.startsWith("http")?p:`https://image.tmdb.org/t/p/${w}${p}`;
+const COLORS={TV:"#6ea8ff",AUDIO:"#b98cff",PROSE:"#7bd389",COMIC:"#ff8f6b"};
+const MEDIUM={TV:"📺 TV",AUDIO:"🎧 Audio",PROSE:"📖 Novel",COMIC:"💬 Comic",GAME:"🎮 Game",HOMEVID:"📼 Home video",WC:"🌐 Webcast",POEM:"✒️ Poem",NOTVALID:"❔ Other",FILM:"🎬 Film"};
+const V=()=>new URLSearchParams(location.search).get("v")||"A";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const badge=src=>`<span class="badge ${src==="TMDB"?"b-tmdb":src==="Tardis Fandom"?"b-fandom":"b-ex"}">from ${src}</span>`;
+
+// ================= ONE set of items, shared by both options =================
+const items={};
+// shows (hierarchy source): {id,label,poster,backdrop,overview,franchise,seasons:[{name,year,eps:[itemId]}]}
+const shows=[];
+for(const sh of DATA.who.shows){
+  const s={id:"show-"+sh.tmdb,label:sh.label,poster:sh.poster,backdrop:sh.backdrop,overview:sh.overview,franchise:"who",seasons:[]};
+  for(const se of sh.seasons){const eps=[];se.stories.forEach((st,i)=>{items[st.id]={id:st.id,title:st.title,air:st.air,runtime:st.runtime,overview:st.overview,still:st.still,parts:st.parts,kind:"episode",show:s.id,season:se.name,index:i+1,src:"TMDB"};eps.push(st.id)});s.seasons.push({name:se.name,year:se.year,eps})}
+  shows.push(s);
+}
+for(const [key,sh,fr] of [["friends",DATA.friends,null],["cloneWars",DATA.cloneWars,"sw"]]){
+  const s={id:sh.id,label:sh.name,poster:sh.poster,backdrop:null,overview:"",franchise:fr,seasons:[]};
+  for(const se of sh.seasons){s.seasons.push({name:se.name,year:(se.episodes[0]?.date||"").slice(0,4),eps:se.episodes.map(e=>{items[e.id]={id:e.id,title:e.name,air:e.date,still:e.still,kind:"episode",show:s.id,season:se.name,index:e.n,src:"TMDB"};return e.id})})}
+  shows.push(s);
+}
+const films=DATA.starWars.films.map(f=>{items[f.id]={id:f.id,title:f.name,air:f.date,still:f.poster,poster:true,kind:"film",collection:"Star Wars Collection",src:"TMDB"};return f.id});
+const showById=Object.fromEntries(shows.map(s=>[s.id,s]));
+// orderings (timelines): identical in both options
+const whoTL=DATA.who.timelines.map(t=>({id:"tl-"+t.who,name:t.who,franchise:"who",src:"Tardis Fandom",page:t.page,sections:t.sections.map(sec=>({title:sec.title,entries:sec.entries.map(e=>({...e,id:e.tmdb&&items[e.tmdb]?e.tmdb:null}))}))}));
+const fid=n=>films.find(id=>items[id].title.includes(n));
+const cw=showById[DATA.cloneWars.id].seasons[0].eps;
+const swTL={id:"tl-sw",name:"Star Wars timeline",franchise:"sw",src:"example",sections:[
+ {title:"The Republic",entries:[fid("Phantom"),fid("Attack")].map(id=>({id,medium:"FILM",title:items[id].title}))},
+ {title:"The Clone Wars",entries:cw.map(id=>({id,medium:"TV",title:items[id].title}))},
+ {title:"The Empire",entries:[fid("Revenge"),fid("Star Wars"),fid("Empire"),fid("Return")].map(id=>({id,medium:"FILM",title:items[id].title}))},
+ {title:"The First Order",entries:[fid("Force Awakens"),fid("Last Jedi"),fid("Rise")].map(id=>({id,medium:"FILM",title:items[id].title}))}]};
+const timelines=[...whoTL,swTL];
+const flat=t=>t.sections.flatMap(s=>s.entries.map(e=>({...e,era:s.title})));
+const franchises={who:{name:"Doctor Who",hero:DATA.who.shows[1].backdrop,overview:DATA.who.shows[1].overview,shows:shows.filter(s=>s.franchise==="who").map(s=>s.id),films:[]},
+ sw:{name:"Star Wars",hero:null,overview:"A galaxy far, far away: the Skywalker saga films and The Clone Wars.",shows:[DATA.cloneWars.id],films}};
+
+// ================= state =================
+const S={page:"home",fr:null,way:"broadcast",tl:null,show:null,season:0,item:null,cont:null,owns:{TV:true,FILM:true,AUDIO:false,PROSE:false,COMIC:false},playableOnly:false,open:{}};
+const go=p=>{Object.assign(S,p);history.pushState({...S},"");render();scrollTo(0,0)};
+onpopstate=e=>{if(e.state){Object.assign(S,e.state);render()}};
+const playable=e=>e.id?true:!!S.owns[e.medium];
+
+// ================= shared pieces =================
+function card(id,sub=""){const it=items[id];return `<a class="ep link" onclick="go({page:'item',item:'${id}'})"><div class="img" style="background-image:url('${IMG(it.still,"w300")}')">${it.still?"":"📺"}</div><div class="t"><b>${esc(it.title)}</b><span class="small muted">${esc(it.air??"")}${it.parts>1?` · ${it.parts} parts`:""}</span>${sub}</div></a>`}
+function entryCard(e,i){if(e.id)return card(e.id,`<div class="small muted">#${i+1}</div>`);const ok=playable(e);
+ return `<div class="ep ${ok?"":"off"}"><div class="img">${(MEDIUM[e.medium]||e.medium).split(" ")[0]}</div><div class="t"><b>${esc(e.title)}</b><span class="small muted">${MEDIUM[e.medium]||e.medium} · #${i+1}</span><div class="small muted">${e.medium==="TV"?"Not in the TMDB shows fetched":ok?"In your library":"Not in your library"}</div></div></div>`}
+function mix(t){const f=flat(t),c={};f.forEach(e=>c[e.medium]=(c[e.medium]||0)+1);return{f,c}}
+function toolbar(){return `<div class="toolbar"><span class="small muted">Your library has:</span>${["TV","AUDIO","PROSE","COMIC"].map(m=>`<button class="pill ${S.owns[m]?"on":""}" onclick="S.owns['${m}']=!S.owns['${m}'];render()">${MEDIUM[m]}</button>`).join("")}<span style="width:10px"></span><button class="pill ${S.playableOnly?"on":""}" onclick="S.playableOnly=!S.playableOnly;render()">Only what I can play</button></div>`}
+function timelineBody(t){let n=0;return t.sections.map(sec=>{const its=sec.entries.map(e=>({e,i:n++})).filter(({e})=>!S.playableOnly||playable(e));
+ return its.length?`<h2>${esc(sec.title)} <span class="small muted">${its.length}${S.playableOnly?" of "+sec.entries.length:""}</span></h2><div class="shelf">${its.map(({e,i})=>entryCard(e,i)).join("")}</div>`:""}).join("")}
+function timelineHero(t){const {f}=mix(t);const fr=franchises[t.franchise];return `<div class="hero" style="background-image:url('${IMG(fr.hero,"w1280")}')"><div class="in"><h1>${esc(t.name)}</h1><div class="muted">${f.length} entries in in-universe order. Order ${badge(t.src)} · pictures and details ${badge("TMDB")}</div></div></div>`}
+function picker(fr){const ts=timelines.filter(t=>t.franchise===fr);return `<p class="muted">Follow a person or an era through everything, in story order.</p><div class="people">${ts.map(t=>{const{f,c}=mix(t);const own=f.filter(e=>e.id).length;
+ return `<div class="person" onclick="go({${V()==="A"?"page:'fr',":"page:'cont',cont:'"+t.id+"',"}tl:'${esc(t.id)}'})"><b>${esc(t.name)}</b><span class="small muted">${f.length} entries · ${t.sections.length} eras ${badge(t.src)}</span><div class="bar">${Object.keys(COLORS).map(k=>`<i style="width:${(100*(c[k]||0)/f.length).toFixed(1)}%;background:${COLORS[k]}"></i>`).join("")}${c.FILM?`<i style="width:${(100*c.FILM/f.length).toFixed(1)}%;background:#c9a8ff"></i>`:""}</div><span class="small muted">${own} in your library</span></div>`}).join("")}</div>
+ <div class="legend" style="margin-top:10px">${Object.entries(COLORS).map(([k,v])=>`<span><i style="background:${v}"></i>${MEDIUM[k]}</span>`).join("")}<span><i style="background:#c9a8ff"></i>🎬 Film</span></div>`}
+function facts(id){const it=items[id],f=DATA.who.fandomByTmdb[id]||{};
+ const t=[["Aired",it.air],["Length",it.runtime?it.runtime+" min"+(it.parts>1?` · ${it.parts} parts`:""):null],["Overview",it.overview]].filter(x=>x[1]).map(x=>[...x,"TMDB"]);
+ const fa=[["Doctor",f.doctor],["Companions",f.companions],["Enemy",f.enemy],["Setting",f.setting],["Writer",f.writer],["Director",f.director]].filter(x=>x[1]).map(x=>[...x,"Tardis Fandom"]);return[...t,...fa]}
+function inTimelines(id){const out=[];for(const t of timelines){const f=flat(t);const i=f.findIndex(x=>x.id===id);if(i>=0)out.push({t,pos:`#${i+1} of ${f.length} · ${f[i].era}`})}return out}
+function homeOf(id){const it=items[id];if(it.show){const s=showById[it.show];return{label:`${s.label} › ${it.season} › ${it.kind==="episode"?"Episode "+it.index:""}`,show:s.id}}return{label:"Films › "+it.collection}}
+function itemPage(id){const it=items[id];const v=V();const h=homeOf(id);const tls=inTimelines(id);
+ const bc=it.show?{name:`${showById[it.show].label}: as broadcast`,pos:`${it.season}, #${it.index}`,src:"TMDB",cont:"season:"+it.show+":"+it.season}:{name:"Star Wars: as released",pos:`#${films.indexOf(id)+1} of ${films.length}`,src:"TMDB",cont:"sw-films"};
+ const pl=v==="A"
+  ?`<div class="home"><div class="small muted">HOME (its fixed place in the hierarchy)</div>${h.show?`<a onclick="go({page:'show',show:'${h.show}',season:${showById[h.show].seasons.findIndex(s=>s.name===it.season)}})"><u>${esc(h.label)}</u></a>`:esc(h.label)}</div>
+    <h2>Also in</h2><ul class="also"><li><span>${esc(bc.name)} ${badge(bc.src)}</span><span class="muted">${esc(bc.pos)}</span></li>${tls.map(({t,pos})=>`<li><span><a onclick="go({page:'fr',fr:'${t.franchise}',way:'timeline',tl:'${t.id}'})"><u>${esc(t.name)}${t.franchise==="who"?"'s timeline":""}</u></a> ${badge(t.src)}</span><span class="muted">${esc(pos)}</span></li>`).join("")}</ul>`
+  :`<h2>Placements <span class="small muted">(every container it sits in, all equal)</span></h2><ul class="also"><li><span><a onclick="go({page:'cont',cont:'${bc.cont}'})"><u>${esc(bc.name.replace(": as broadcast"," · "+(it.season||"")).replace(": as released",""))}</u></a> ${badge(bc.src)}</span><span class="muted">${esc(bc.pos)}</span></li>${tls.map(({t,pos})=>`<li><span><a onclick="go({page:'cont',cont:'${t.id}'})"><u>${esc(t.name)}</u></a> ${badge(t.src)}</span><span class="muted">${esc(pos)}</span></li>`).join("")}</ul>`;
+ return `<div class="detail"><div><div class="still" style="background-image:url('${IMG(it.still,"w780")}');${it.poster?"aspect-ratio:2/3":""}"></div><span class="play" onclick="alert('Would play on this device.')">▶ Play</span></div>
+  <div><h1 style="margin:0 0 6px">${esc(it.title)}</h1><div class="facts">${facts(id).map(([k,val,src])=>`<div class="row"><span class="k">${k}</span><span>${esc(val)} ${badge(src)}</span></div>`).join("")}</div>${pl}</div></div>`}
+
+// ================= OPTION A: fixed hierarchy + orderings =================
+function navA(){const L=(t,p,on)=>`<a class="${on?"on":""}" onclick='go(${JSON.stringify(p)})'>${esc(t)}</a>`;
+ return L("🏠 Home",{page:"home"},S.page==="home")+`<h4>TV Shows</h4>`+shows.map(s=>L(s.label,{page:"show",show:s.id,season:0},S.page==="show"&&S.show===s.id)).join("")+`<h4>Films</h4>`+L("Star Wars Collection",{page:"coll"},S.page==="coll")+`<h4>Franchises</h4>`+Object.entries(franchises).map(([k,f])=>L(f.name,{page:"fr",fr:k,way:"broadcast",tl:null},S.page==="fr"&&S.fr===k)).join("")}
+function A(){
+ if(S.page==="home")return `<h1 style="margin:0">Library</h1><p class="muted">Option A: every medium keeps its familiar shape (Show → Season → Episode, like Plex). Orderings are a separate layer on each franchise page.</p>
+  <h3>TV Shows</h3><div class="posters">${shows.map(s=>`<div class="poster" onclick="go({page:'show',show:'${s.id}',season:0})"><div class="p" style="background-image:url('${IMG(s.poster,"w300")}')"></div><div class="n">${esc(s.label)}</div></div>`).join("")}</div>
+  <h3>Films</h3><div class="posters">${films.slice(0,6).map(id=>`<div class="poster" onclick="go({page:'item',item:'${id}'})"><div class="p" style="background-image:url('${IMG(items[id].still,"w300")}')"></div><div class="n">${esc(items[id].title)}</div></div>`).join("")}</div>
+  <h3>Franchises</h3><div class="tabs">${Object.entries(franchises).map(([k,f])=>`<span class="pill" onclick="go({page:'fr',fr:'${k}',way:'broadcast',tl:null})">${f.name}</span>`).join("")}</div>`;
+ if(S.page==="show"){const s=showById[S.show],se=s.seasons[S.season]||s.seasons[0];return `<div class="crumb"><a onclick="go({page:'home'})">Library</a> › TV Shows › ${esc(s.label)}</div><div style="display:flex;gap:18px"><div class="poster" style="width:120px"><div class="p" style="background-image:url('${IMG(s.poster,"w300")}')"></div></div><div><h1 style="margin:0">${esc(s.label)}</h1><p class="muted">${s.seasons.length} seasons ${badge("TMDB")} · like Plex: pick a season, see its episodes. ${s.franchise?`Part of <a onclick="go({page:'fr',fr:'${s.franchise}',way:'broadcast',tl:null})"><u>${franchises[s.franchise].name}</u></a>, where its orderings live.`:"No franchise, so no orderings: it just looks like Plex."}</p></div></div>
+  <div class="tabs">${s.seasons.map((x,i)=>`<span class="pill ${x===se?"on":""}" onclick="go({season:${i}})">${esc(x.name)}</span>`).join("")}</div><div class="grid">${se.eps.map(id=>card(id,`<div class="small muted">Episode ${items[id].index}</div>`)).join("")}</div>`}
+ if(S.page==="coll")return `<div class="crumb"><a onclick="go({page:'home'})">Library</a> › Films</div><h1>Star Wars Collection</h1><p class="muted">A TMDB collection, like Plex and Jellyfin ${badge("TMDB")}</p><div class="posters">${films.map(id=>`<div class="poster" onclick="go({page:'item',item:'${id}'})"><div class="p" style="background-image:url('${IMG(items[id].still,"w300")}')"></div><div class="n">${esc(items[id].title)}</div></div>`).join("")}</div>`;
+ if(S.page==="fr"){const f=franchises[S.fr];const crumb=`<div class="crumb"><a onclick="go({page:'home'})">Library</a> › <a onclick="go({page:'fr',tl:null,way:'broadcast'})">${f.name}</a>${S.tl?` › <a onclick="go({tl:null})">Timelines</a> › ${esc(timelines.find(t=>t.id===S.tl).name)}`:""}</div>`;
+  if(S.tl){const t=timelines.find(t=>t.id===S.tl);return crumb+timelineHero(t)+(t.franchise==="who"?toolbar():"")+timelineBody(t)}
+  return crumb+`<div class="hero" style="background-image:url('${IMG(f.hero,"w1280")}')"><div class="in"><h1>${f.name}</h1><div class="muted">${esc(f.overview)}</div></div></div>
+   <h3>Ways to watch</h3><div class="ways"><div class="way ${S.way==="broadcast"?"on":""}" onclick="go({way:'broadcast'})"><b>As broadcast</b><span class="small muted">${S.fr==="who"?"Classic (1963–89), 2005–22 and 2023–, season by season":"Films in release order, and The Clone Wars by season"}</span><div style="margin-top:6px">${badge("TMDB")}</div></div>
+   <div class="way ${S.way==="timeline"?"on":""}" onclick="go({way:'timeline'})"><b>As a timeline</b><span class="small muted">${S.fr==="who"?"Pick a Doctor or companion, then follow their life":"Pick a timeline, then play through it in story order"}</span><div style="margin-top:6px">${badge(S.fr==="who"?"Tardis Fandom":"example")}</div></div></div>
+   ${S.way==="broadcast"?broadcastA(S.fr):picker(S.fr)}`}
+ if(S.page==="item")return `<div class="crumb"><a onclick="history.back()">‹ Back</a></div>`+itemPage(S.item);
+}
+function broadcastA(fr){const f=franchises[fr];return (f.films.length?`<div class="showhead"><h2>▾ Films</h2><span class="muted small">${f.films.length} in release order ${badge("TMDB")}</span></div><div class="shelf">${f.films.map(card).join("")}</div>`:"")+
+ f.shows.map(id=>{const sh=showById[id];const open=S.open[id]??(id!=="show-121");return `<div class="showhead" onclick="S.open['${id}']=${!open};render()"><h2>${open?"▾":"▸"} ${esc(sh.label)}</h2><span class="muted small">${sh.seasons.length} seasons · ${sh.seasons.reduce((a,s)=>a+s.eps.length,0)} stories ${badge("TMDB")}</span></div>${open?sh.seasons.map(se=>`<div class="season">${esc(se.name)} ${se.year?"· "+se.year:""}</div><div class="shelf">${se.eps.map(e=>card(e)).join("")}</div>`).join(""):""}`}).join("")}
+
+// ================= OPTION B: everything is an ordering (containers) =================
+function contOf(id){
+ if(id.startsWith("season:")){const[,sid,sname]=id.split(":");const s=showById[sid];const se=s.seasons.find(x=>x.name===sname);return{name:`${s.label} · ${se.name}`,items:se.eps,src:"TMDB",kind:"list"}}
+ if(id.startsWith("show-")||showById[id]){const s=showById[id];return{name:s.label,kids:s.seasons.map(se=>"season:"+s.id+":"+se.name),src:"TMDB",kind:"group"}}
+ if(id==="sw-films")return{name:"Star Wars films",items:films,src:"TMDB",kind:"list"};
+ if(id.startsWith("fr-")){const k=id.slice(3),f=franchises[k];return{name:f.name,kids:[...(f.films.length?["sw-films"]:[]),...f.shows,...timelines.filter(t=>t.franchise===k).map(t=>t.id)],kind:"group"}}
+ const t=timelines.find(t=>t.id===id);if(t)return{name:t.name,timeline:t,src:t.src,kind:"list"};
+}
+function navB(){const L=(t,p,on)=>`<a class="${on?"on":""}" onclick='go(${JSON.stringify(p)})'>${esc(t)}</a>`;
+ return L("🏠 Containers",{page:"home"},S.page==="home")+`<h4>Top-level containers</h4>`+[...Object.keys(franchises).map(k=>"fr-"+k),DATA.friends.id].map(id=>L(contOf(id).name,{page:"cont",cont:id},S.cont===id)).join("")}
+function B(){
+ if(S.page==="home")return `<h1 style="margin:0">Containers</h1><p class="muted">Option B: no shows, seasons, collections or franchises as such. Everything is a Container holding Containers, or an ordered list of Items. "Season 1" and "Eleventh Doctor" are the same kind of thing.</p><div class="grid">${[...Object.keys(franchises).map(k=>"fr-"+k),DATA.friends.id].map(id=>{const c=contOf(id);return `<div class="cont" onclick="go({page:'cont',cont:'${id}'})"><b>${esc(c.name)}</b><span class="small muted">Container · ${c.kids?c.kids.length+" containers inside":""}</span></div>`}).join("")}</div>`;
+ if(S.page==="cont"){const c=contOf(S.cont);const head=`<div class="crumb"><a onclick="go({page:'home'})">Containers</a> › ${esc(c.name)}</div><h1 style="margin:0 0 4px">${esc(c.name)}</h1><p class="muted">${c.kids?"A Container of "+c.kids.length+" Containers":"An ordered Container of Items"} ${c.src?badge(c.src):""}</p>`;
+  if(c.kids)return head+`<div class="grid">${c.kids.map(k=>{const x=contOf(k);const n=x.kids?x.kids.length+" containers":x.timeline?flat(x.timeline).length+" items, ordered":x.items.length+" items, ordered";return `<div class="cont" onclick="go({page:'cont',cont:'${k}'})"><b>${esc(x.name)}</b><span class="small muted">Container · ${n}</span></div>`}).join("")}</div>`;
+  if(c.timeline)return head+(c.timeline.franchise==="who"?toolbar():"")+timelineBody(c.timeline);
+  return head+`<div class="grid">${c.items.map((id,i)=>card(id,`<div class="small muted">#${i+1} in this container</div>`)).join("")}</div>`}
+ if(S.page==="item")return `<div class="crumb"><a onclick="history.back()">‹ Back</a></div>`+itemPage(S.item);
+}
+
+// ================= schema panel =================
+function aside(){const v=V();const it=S.page==="item"?items[S.item]:null;
+ const tables=v==="A"?`item      (id, kind: film | show | season | episode
+           | artist | album | track | book_series
+           | book | comic_series | issue,
+           parent_id, index)
+file      (id, item_id, path, codecs…)
+ordering  (id, name, source, franchise_id)
+placement (ordering_id, item_id, position, section)
+statement (item_id, field, value, source)  ← provenance
+
+Season 1's episodes = items WHERE parent_id = season
+A timeline          = ordering + placements`:`item      (id, kind, …)
+file      (id, item_id, path, codecs…)
+container (id, name, parent_container_id)
+placement (container_id, item_id, position, section)
+statement (item_id, field, value, source)  ← provenance
+
+Season 1's episodes = container + placements
+A timeline          = container + placements
+(one mechanism for both)`;
+ let rows="";if(it){const tls=inTimelines(it.id);rows=v==="A"?JSON.stringify({item:{id:it.id,kind:it.kind,parent:it.show?`${showById[it.show].label} › ${it.season}`:"collection: Star Wars",index:it.index??null},placements:tls.map(({t,pos})=>({ordering:t.name,position:pos}))},null,1)
+  :JSON.stringify({item:{id:it.id,kind:it.kind},placements:[it.show?{container:`${showById[it.show].label} · ${it.season}`,position:it.index}:{container:"Star Wars films",position:films.indexOf(it.id)+1},...tls.map(({t,pos})=>({container:t.name,position:pos}))]},null,1)}
+ $("#aside").innerHTML=`<h5>${v==="A"?"Option A":"Option B"}: tables</h5><pre>${esc(tables)}</pre>${rows?`<h5>This item's rows</h5><pre>${esc(rows)}</pre>`:""}<h5>Trade-off</h5><pre>${v==="A"?`+ Friends and every ordinary show look
+  exactly like Plex (seasons, "S2E3",
+  next episode, Continue Watching)
++ timelines are the special layer, with
+  their own name and "Also in"
++ TVDB's DVD order etc. are orderings too
+- two mechanisms: hierarchy AND orderings`:`+ one mechanism for everything
++ "Season 1" is just another ordering
+- ordinary shows feel generic: no season
+  tabs or "S2E3" by nature
+- "next episode" depends on which
+  container you came in through
+- timelines lose their special status
+(the old CanonCore did this)`}</pre>`}
+function render(){$("#nav").innerHTML=V()==="A"?navA():navB();$("#main").innerHTML=(V()==="A"?A():B())||"";aside();document.querySelectorAll(".vbar button").forEach(b=>b.classList.toggle("on",b.dataset.v===V()))}
+document.querySelectorAll(".vbar button").forEach(b=>b.onclick=()=>{const u=new URL(location);u.searchParams.set("v",b.dataset.v);history.replaceState(null,"",u);Object.assign(S,{page:"home",tl:null,cont:null});render()});
+history.replaceState({...S},"");render();
+</script></body></html>
