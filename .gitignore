@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Secrets. .claude/settings.json denies reading these; this stops them being committed.
+.env
+.env.*
+
+# Tooling scratch
+.playwright-mcp/
+.DS_Store
