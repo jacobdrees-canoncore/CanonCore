@@ -49,11 +49,11 @@ is off. Tickets are born in Todo as sub-issues of their spec, with blocked-by re
 
 ### Triage labels
 
-See `docs/agents/triage-labels.md`.
+Four labels plus the Canceled state; the Triage inbox is off. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-One `CONTEXT.md` and one `docs/adr/` at the root. See `docs/agents/domain.md`.
+Single-context: one `CONTEXT.md` and one `docs/adr/` at the root. See `docs/agents/domain.md`.
 
 ## Working substrate
 
