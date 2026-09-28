@@ -1,9 +1,10 @@
 # CanonCore
 
-A self-hosted media server built around its own catalogue: the Library is CanonCore's own schema,
+A self-hosted media server built schema-first: the Library is CanonCore's own schema,
 built from Providers the user installs, and media files are only matched to it. One server, a web
 client and one SwiftUI app for iPhone, Mac and Apple TV. Being rebuilt; the decisions are in
-`docs/rethink/grill-decisions.md` (D-ids), and names follow the glossary.
+`docs/rethink/grill-decisions.md` (D-ids), the founding records in `docs/adr/`, and names follow
+`CONTEXT.md`.
 
 ## Principles
 

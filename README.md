@@ -1,6 +1,6 @@
 # CanonCore
 
-CanonCore is a self-hosted media server built around its own catalogue. You build your
+CanonCore is a self-hosted media server built schema-first. You build your
 Library from metadata Providers you choose, match your media files to it, and play video,
 audio, ebooks and comics on the web, iPhone, Mac and Apple TV. One Item can sit in many
 Orderings at once, each with its own position, so a franchise can be followed as broadcast,
@@ -12,9 +12,8 @@ decisions behind the rebuild are in [docs/rethink/](docs/rethink/), starting wit
 
 ## Design decisions
 
-The founding decisions are drafted in [docs/rethink/adr-drafts/](docs/rethink/adr-drafts/)
-and will move to `docs/adr/`. Names follow the glossary,
-[docs/rethink/CONTEXT.md](docs/rethink/CONTEXT.md).
+The founding decisions are in [docs/adr/](docs/adr/), one short record each. Names follow
+the glossary, [CONTEXT.md](CONTEXT.md).
 
 ## Working conventions
 
