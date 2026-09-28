@@ -724,3 +724,4 @@ P3. **The order after the grill** (the Owner chose it):
 - PR #361 closes and its branch is deleted.
 - **D-92 amended: a NEW GitHub repo.** The Owner: "i dont mind deleting and reconnecting". The old repo is renamed `canoncore-v0`, made private and archived; step 6's `/setup-orca-linear-project` creates the new `CanonCore`, its repo-creation step no longer skipped.
 - **D-101 extended (2026-09-29): kind and area labels.** Kinds `to-spec`, `spike`, `skills-repo`; areas `server`, `web`, `swift`, `ios`, `macos`, `tvos`, and `provider-<name>` made on first use. None is a label group (Linear allows one label per group). `provider-repo` is dropped.
+- **`swift` dropped (2026-09-29).** Client labels are `web`, `ios`, `macos`, `tvos` in any combination; shared SwiftUI work carries all three Apple labels, so a platform filter never misses it. The Owner deleted the label in Linear.

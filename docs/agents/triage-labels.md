@@ -19,6 +19,6 @@ Linear's Triage inbox is OFF on team CC, so a label is the only place triage sta
 Plain labels, never a Linear label group, because a group allows only one of its labels per issue.
 
 - Kinds: `to-spec` (a project's spec issue), `spike` (research, dispatched to `/research`), `skills-repo` (the change lands in the skills repo).
-- Areas: `server`; the clients `web`, `swift` (shared SwiftUI code), `ios`, `macos`, `tvos`; and `provider-<name>`, one per Provider, created when that Provider's first ticket is filed.
+- Areas: `server`; the clients `web`, `ios`, `macos`, `tvos`, in any combination (shared SwiftUI work carries all three Apple labels, so each client's filter finds everything that changes it); and `provider-<name>`, one per Provider, created when that Provider's first ticket is filed.
 
 Before adding a label, check `orca linear team labels --team CC --json`; never create a duplicate. Linear's defaults `Bug`, `Feature` and `Improvement` are unused.
