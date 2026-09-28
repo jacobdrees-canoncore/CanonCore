@@ -1,0 +1,146 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Variant B refined with the Owner (2026-09-28): the Doctor Who page has two ways in,
+     "As broadcast" (every TMDB show: 1963, 2005, 2023) and "As a timeline" (pick a Fandom timeline, then walk it).
+     REAL data from TMDB + Tardis Fandom, inlined by PROTOTYPE-build-ui.mjs. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE: CanonCore, Doctor Who</title>
+<style>
+:root{--bg:#0e0f12;--card:#1f222b;--fg:#f2f2f4;--muted:#9aa0ad;--line:#2a2e39;--accent:#6ea8ff;--tmdb:#01b4e4;--fandom:#e0a13a;--dim:.36}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,system-ui,sans-serif;padding-bottom:60px}
+a{color:inherit;text-decoration:none;cursor:pointer}
+header{display:flex;align-items:center;gap:14px;padding:14px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(14,15,18,.93);backdrop-filter:blur(8px);z-index:5}
+.logo{font-weight:700}.crumb{color:var(--muted);font-size:14px}.crumb a:hover{color:var(--fg)}
+.pill{border:1px solid var(--line);background:var(--card);color:var(--fg);padding:6px 13px;border-radius:999px;font-size:13px;cursor:pointer}
+.pill.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.wrap{padding:22px 28px;max-width:1440px;margin:0 auto}
+.hero{position:relative;border-radius:16px;overflow:hidden;min-height:240px;display:flex;align-items:flex-end;background:#222 center/cover}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.88),rgba(0,0,0,.15) 60%)}
+.hero .in{position:relative;z-index:1;padding:24px;max-width:800px}.hero h1{margin:0 0 6px;font-size:34px}
+.muted{color:var(--muted)}.small{font-size:12px}
+h2{font-size:19px;margin:24px 0 10px}h3{font-size:12px;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ways{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0 6px;max-width:760px}
+.way{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer}
+.way.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(110,168,255,.25)}.way b{display:block;font-size:17px}
+.showhead{display:flex;align-items:baseline;gap:10px;margin-top:28px;cursor:pointer}.showhead h2{margin:0}
+.shelf{display:flex;gap:12px;overflow-x:auto;padding:4px 0 8px}
+.ep{flex:0 0 230px;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.ep .img{height:128px;background:#2b2f3a center/cover;display:flex;align-items:center;justify-content:center;font-size:30px;color:#5a6070}
+.ep .t{padding:8px 10px}.ep .t b{display:block;font-size:14px;line-height:1.3}
+.ep.off{opacity:var(--dim)}.ep.link:hover{outline:2px solid var(--accent)}
+.season{margin:8px 0 2px;font-size:14px;color:var(--muted)}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
+.b-tmdb{color:var(--tmdb);border-color:rgba(1,180,228,.4)}.b-fandom{color:var(--fandom);border-color:rgba(224,161,58,.4)}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:10px}
+.person{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}
+.person:hover{outline:2px solid var(--accent)}.person b{font-size:17px;display:block;margin-bottom:4px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:8px 0 4px;display:flex}.bar i{display:block;height:100%}
+.detail{display:grid;grid-template-columns:420px 1fr;gap:26px;margin-top:10px}@media(max-width:900px){.detail{grid-template-columns:1fr}.ways{grid-template-columns:1fr}}
+.still{border-radius:14px;height:236px;background:#2b2f3a center/cover}
+.facts .row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}.facts .k{color:var(--muted)}
+.play{display:inline-block;background:var(--fg);color:var(--bg);font-weight:700;border-radius:10px;padding:10px 20px;margin:12px 0;cursor:pointer}
+.also{list-style:none;margin:0;padding:0}.also li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.banner{font-size:12px;color:var(--muted);padding:8px 28px;border-bottom:1px solid var(--line)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+</style></head><body>
+<div class="banner">PROTOTYPE on real data. TMDB: Doctor Who 1963 (grouped into serials by TMDB's "Story Order" group), 2005 (with specials) and 2023. Tardis Fandom: 8 real <i>Theory:Timeline</i> pages. Fetched <span id="fetched"></span>. "▶ Play" only shows what would happen.</div>
+<header><span class="logo">CanonCore</span><span class="crumb" id="crumb"></span></header>
+<main class="wrap" id="app"></main>
+<script>
+const DATA = /*DATA*/null;
+const IMG = (p, w="w500") => p ? `https://image.tmdb.org/t/p/${w}${p}` : "";
+const S = { way: "broadcast", timeline: null, ep: null, fromTimeline: null, owns: { TV: true, AUDIO: false, PROSE: false, COMIC: false }, playableOnly: false, open: { 121: false, 57243: true, 239770: true } };
+const COLORS = { TV:"#6ea8ff", AUDIO:"#b98cff", PROSE:"#7bd389", COMIC:"#ff8f6b" };
+const MEDIUM = { TV:"📺 TV", AUDIO:"🎧 Audio", PROSE:"📖 Novel", COMIC:"💬 Comic", GAME:"🎮 Game", HOMEVID:"📼 Home video", WC:"🌐 Webcast", POEM:"✒️ Poem", NOTVALID:"❔ Other" };
+
+// ---------- model ----------
+const stories = DATA.shows.flatMap(sh => sh.seasons.flatMap(se => se.stories.map(st => ({ ...st, showLabel: sh.label, seasonName: se.name, showId: sh.tmdb }))));
+const byId = Object.fromEntries(stories.map(s => [s.id, s]));
+const tlBy = Object.fromEntries(DATA.timelines.map(t => [t.who, t]));
+const flat = t => t.sections.flatMap(s => s.entries.map(e => ({ ...e, era: s.title })));
+const owns = m => !!S.owns[m];
+const playable = e => e.medium === "TV" ? !!e.tmdb : owns(e.medium);
+function factsFor(id) {
+  const e = byId[id], f = DATA.fandomByTmdb[id] || {};
+  const t = [["Aired", e.air], ["Length", e.runtime ? e.runtime + " min" + (e.parts > 1 ? ` · ${e.parts} parts` : "") : null], ["Overview", e.overview], ["Broadcast", `${e.showLabel} · ${e.seasonName} · ${e.pos.split(" · ")[1]}`]].filter(x => x[1]).map(x => [...x, "TMDB"]);
+  const fa = [["Doctor", f.doctor], ["Companions", f.companions], ["Featuring", f.featuring], ["Enemy", f.enemy], ["Setting", f.setting], ["Story number", f.story], ["Production code", f.code], ["Writer", f.writer], ["Director", f.director], ["Previous story", f.prev], ["Next story", f.next]].filter(x => x[1]).map(x => [...x, "Tardis Fandom"]);
+  return [...t, ...fa];
+}
+function alsoIn(id) {
+  const e = byId[id], out = [{ name: `${e.showLabel}: as broadcast`, pos: `${e.seasonName}, ${e.pos.split(" · ")[1]}`, src: "TMDB" }];
+  for (const t of DATA.timelines) { const f = flat(t); const i = f.findIndex(x => x.tmdb === id);
+    if (i >= 0) out.push({ name: `${t.who}'s timeline`, pos: `#${i + 1} of ${f.length} · ${f[i].era}`, src: "Tardis Fandom", who: t.who }); }
+  return out;
+}
+
+// ---------- view ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const badge = src => `<span class="badge ${src==="TMDB"?"b-tmdb":"b-fandom"}">from ${src}</span>`;
+function nav(patch) { Object.assign(S, patch); history.pushState({ ...S }, ""); render(); scrollTo(0, 0); }
+window.onpopstate = e => { if (e.state) { Object.assign(S, e.state); render(); } };
+function storyCard(st, sub = "") {
+  return `<a class="ep link" onclick="nav({ep:'${st.id}'})"><div class="img" style="background-image:url('${IMG(st.still,"w300")}')">${st.still ? "" : "📺"}</div>
+    <div class="t"><b>${esc(st.title)}</b><span class="small muted">${esc(st.air ?? "")}${st.parts > 1 ? ` · ${st.parts} parts` : ""}</span>${sub}</div></a>`;
+}
+function broadcast() {
+  return DATA.shows.map(sh => `<div class="showhead" onclick="S.open[${sh.tmdb}]=!S.open[${sh.tmdb}];render()"><h2>${S.open[sh.tmdb] ? "▾" : "▸"} ${esc(sh.label)}</h2>
+      <span class="muted small">${sh.seasons.length} seasons · ${sh.seasons.reduce((a, s) => a + s.stories.length, 0)} stories ${badge("TMDB")}</span></div>
+    ${S.open[sh.tmdb] ? sh.seasons.map(se => `<div class="season">${esc(se.name)} ${se.year ? "· " + se.year : ""}</div><div class="shelf">${se.stories.map(st => storyCard(st)).join("")}</div>`).join("") : ""}`).join("");
+}
+function mix(t) { const f = flat(t), c = {}; f.forEach(e => c[e.medium] = (c[e.medium] || 0) + 1); return { f, c }; }
+function timelinePicker() {
+  return `<p class="muted">Follow someone through everything they appear in, in the order they lived it. ${badge("Tardis Fandom")}</p>
+    <div class="people">${DATA.timelines.map(t => { const { f, c } = mix(t); const tv = f.filter(e => e.medium === "TV"), m = tv.filter(e => e.tmdb).length;
+      return `<div class="person" onclick="nav({timeline:'${esc(t.who)}',ep:null})"><b>${esc(t.who)}</b>
+        <span class="small muted">${f.length} stories · ${t.sections.length} eras</span>
+        <div class="bar">${Object.keys(COLORS).map(k => `<i style="width:${(100 * (c[k] || 0) / f.length).toFixed(1)}%;background:${COLORS[k]}"></i>`).join("")}</div>
+        <span class="small muted">${tv.length} on TV · ${m} in your library</span></div>`; }).join("")}</div>
+    <div class="legend" style="margin-top:10px">${Object.entries(COLORS).map(([k, v]) => `<span><i style="background:${v}"></i>${MEDIUM[k]}</span>`).join("")}</div>`;
+}
+function libToolbar() {
+  return `<div class="toolbar"><span class="small muted">Your library has:</span>${["TV","AUDIO","PROSE","COMIC"].map(m => `<button class="pill ${S.owns[m]?"on":""}" onclick="S.owns['${m}']=!S.owns['${m}'];render()">${MEDIUM[m]}</button>`).join("")}
+    <span style="width:12px"></span><button class="pill ${S.playableOnly?"on":""}" onclick="S.playableOnly=!S.playableOnly;render()">Only what I can play</button></div>`;
+}
+function entryCard(e, i) {
+  if (e.medium === "TV" && e.tmdb && byId[e.tmdb]) return storyCard(byId[e.tmdb], `<div class="small muted">#${i + 1} · ${esc(byId[e.tmdb].showLabel.replace("Doctor Who ", ""))}</div>`);
+  const ok = playable(e);
+  return `<div class="ep ${ok ? "" : "off"}"><div class="img">${(MEDIUM[e.medium] || e.medium).split(" ")[0]}</div><div class="t"><b>${esc(e.title)}</b>
+    <span class="small muted">${MEDIUM[e.medium] || e.medium} · #${i + 1}</span><div class="small muted">${e.medium === "TV" ? "Not in the TMDB shows fetched" : ok ? "In your library" : "Not in your library"}</div></div></div>`;
+}
+function timeline(who) {
+  const t = tlBy[who]; let n = 0;
+  const secs = t.sections.map(sec => { const items = sec.entries.map(e => ({ e, i: n++ })).filter(({ e }) => !S.playableOnly || playable(e));
+    return items.length ? `<h2>${esc(sec.title)} <span class="small muted">${items.length}${S.playableOnly ? " of " + sec.entries.length : ""}</span></h2><div class="shelf">${items.map(({ e, i }) => entryCard(e, i)).join("")}</div>` : ""; }).join("");
+  const { f } = mix(t);
+  return `<div class="hero" style="background-image:url('${IMG(DATA.shows[1].backdrop,"w1280")}')"><div class="in"><h1>${esc(who)}</h1>
+    <div class="muted">${f.length} stories across TV, audio, novels, comics and more, in the order ${esc(who)} lived them. Order ${badge("Tardis Fandom")} · episode pictures and details ${badge("TMDB")}</div></div></div>${libToolbar()}${secs}`;
+}
+function episode(id) {
+  const e = byId[id];
+  return `<div class="detail"><div><div class="still" style="background-image:url('${IMG(e.still,"w780")}')"></div>
+      <span class="play" onclick="alert('Would play &quot;${esc(e.title)}&quot; on this device (direct play or remux).')">▶ Play</span></div>
+    <div><h1 style="margin:0 0 4px">${esc(e.title)}</h1>
+      <div class="facts">${factsFor(id).map(([k, v, src]) => `<div class="row"><span class="k">${k}</span><span>${esc(v)} ${badge(src)}</span></div>`).join("")}</div>
+      <h2>Also in</h2><ul class="also">${alsoIn(id).map(a => `<li><span>${a.who ? `<a onclick="nav({way:'timeline',timeline:'${esc(a.who)}',ep:null})"><u>${esc(a.name)}</u></a>` : esc(a.name)} ${badge(a.src)}</span><span class="muted">${esc(a.pos)}</span></li>`).join("")}</ul>
+    </div></div>`;
+}
+function render() {
+  const crumbs = [`<a onclick="nav({way:'broadcast',timeline:null,ep:null})">Doctor Who</a>`];
+  if (S.way === "timeline") crumbs.push(`<a onclick="nav({timeline:null,ep:null})">Timelines</a>`);
+  if (S.timeline) crumbs.push(`<a onclick="nav({ep:null})">${esc(S.timeline)}</a>`);
+  if (S.ep) crumbs.push(esc(byId[S.ep].title));
+  $("#crumb").innerHTML = crumbs.join(" › ");
+  if (S.ep) { $("#app").innerHTML = episode(S.ep); return; }
+  if (S.timeline) { $("#app").innerHTML = timeline(S.timeline); return; }
+  $("#app").innerHTML = `<div class="hero" style="background-image:url('${IMG(DATA.shows[1].backdrop,"w1280")}')"><div class="in"><h1>Doctor Who</h1><div class="muted">${esc(DATA.shows[1].overview)}</div></div></div>
+    <h3 style="margin-top:22px">Ways to watch</h3>
+    <div class="ways">
+      <div class="way ${S.way==="broadcast"?"on":""}" onclick="nav({way:'broadcast',timeline:null})"><b>As broadcast</b><span class="small muted">Classic (1963–89), 2005–22 and 2023–, season by season</span><div style="margin-top:6px">${badge("TMDB")}</div></div>
+      <div class="way ${S.way==="timeline"?"on":""}" onclick="nav({way:'timeline',timeline:null})"><b>As a timeline</b><span class="small muted">Pick a Doctor or companion, then follow their life</span><div style="margin-top:6px">${badge("Tardis Fandom")}</div></div>
+    </div>
+    ${S.way === "broadcast" ? broadcast() : timelinePicker()}`;
+}
+$("#fetched").textContent = new Date(DATA.fetchedAt).toLocaleString();
+history.replaceState({ ...S }, ""); render();
+</script></body></html>
