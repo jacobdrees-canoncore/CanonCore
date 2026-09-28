@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Keeps the actions in ci.yml current. Add a package ecosystem here once the
+  # project has a manifest.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # GitHub's own secret scanning needs paid Secret Protection on private repos.
+      # gitleaks covers the same ground for free. Run the binary directly rather than
+      # gitleaks-action, which requires a paid licence key for organisation repos.
+      # `git` replaced `detect --source` in v8.19.0; the old form is deprecated and hidden.
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            git --no-banner --redact --verbose /repo
+
+  docs:
+    name: Agent docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: CLAUDE.md stays under 200 lines
+        run: |
+          lines=$(wc -l < CLAUDE.md)
+          echo "CLAUDE.md is $lines lines"
+          if [ "$lines" -gt 200 ]; then
+            echo "::error file=CLAUDE.md::CLAUDE.md is $lines lines, over the 200-line limit set in its own Principles."
+            exit 1
+          fi
+      - name: Agent docs referenced by CLAUDE.md exist
+        run: |
+          fail=0
+          for f in docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md; do
+            [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
+          done
+          exit $fail
+
+  # Add lint / typecheck / test jobs here once a stack exists. Keep them as separate
+  # jobs so a red check names the thing that broke.
