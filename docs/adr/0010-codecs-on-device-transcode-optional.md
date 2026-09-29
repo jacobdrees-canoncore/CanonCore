@@ -4,9 +4,9 @@ Codecs are handled both ways, as Swiftfin does: the server remuxes to HLS and co
 
 ## Considered Options
 
-- Server transcoding as the only path, as in Plex, Jellyfin and Emby: rejected, it fails on a host that forbids it.
-- Decoding on the device only, as Infuse does: rejected, the web client cannot.
+- Server transcoding as the fallback every client leans on, as Plex, Jellyfin and Emby's web and many TV clients do: rejected as the only path, because it fails on a host that forbids it. Their own first-party apps also decode on the device (Swiftfin with VLCKit, Plex HTPC with mpv), which is the half this record keeps.
+- Decoding on the device only, as a client app like Infuse leans on: rejected as the only path, because the web client cannot.
 
 ## Consequences
 
-- Where transcoding is off, a file the browser cannot decode (HEVC in Firefox, image subtitles) shows "open in the app" with the reason, rather than playing.
+- Where transcoding is off, a file the browser cannot decode (one the browser declares it cannot decode through MediaCapabilities, such as HEVC on a machine with no platform decoder, or image subtitles) shows "open in the app" with the reason, rather than playing.

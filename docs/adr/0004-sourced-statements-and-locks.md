@@ -10,4 +10,5 @@ Every Provider's value for a field is kept as a Statement with its Source and no
 ## Consequences
 
 - Accepted imports and Matches are undoable too, because about 3% of the old merges were wrong and irreversible (old CNCORE-441).
+- Installing a Provider later proposes a link from each existing Item to that Provider's record, with confident links accepted in bulk; once a link is accepted, its values arrive as Statements and refresh on their own. A wrong link never silently rewrites the Library.
 - A Rejection is proposed again only when the Provider's data changes meaningfully, or an Admin clears it from Settings › Rejected.

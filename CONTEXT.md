@@ -45,7 +45,7 @@ _Avoid_: orphan, unidentified file, unknown file
 ### Shape
 
 **Show**:
-The top of the fixed TV hierarchy.
+The top of the fixed TV hierarchy, and of an audio drama range or a podcast, which share its shape.
 _Avoid_: series (for Show), container
 
 **Season**:
@@ -57,7 +57,7 @@ One broadcast instalment of a Show, within a Season.
 _Avoid_: show (for one Episode), chapter
 
 **Story**:
-A multi-part story between Season and Episode, only where a Show has them.
+A multi-part story between Season and Episode (or Part), only where a Show has them; an audio drama's stories are Stories.
 _Avoid_: serial (as a term), arc
 
 **Part**:
@@ -119,7 +119,7 @@ An Ordering defined by a saved filter plus a sort, filled from the Library rathe
 _Avoid_: smart collection, smart playlist, dynamic list
 
 **Placement**:
-One Item's entry in an Ordering, at a Position. Several Placements of one Item in one Ordering make a Repeat.
+An entry in an Ordering, at a Position, holding an Item or, until it is imported, only the Provider's title and id. Importing it attaches the new Item to the same Placement, so its Position never moves. Several Placements of one Item in one Ordering make a Repeat.
 _Avoid_: edge, record, membership
 
 **Position**:
@@ -179,7 +179,7 @@ _Avoid_: relation, association, Entity link (between Items), link (for Matches)
 ### Providers and provenance
 
 **Provider**:
-A source of Library data, speaking CMPP.
+A source of Library data, or of a Profile's watch history, speaking CMPP.
 _Avoid_: agent, scraper, plugin, source (for the installable)
 
 **Local metadata**:
@@ -191,7 +191,7 @@ The HTTP protocol a Provider speaks, described by its manifest.
 _Avoid_: plugin API, addon protocol
 
 **Store**:
-The in-app listing of Providers, public and private, that an Admin can install.
+The in-app listing of public Providers that an Admin can install. A private Provider, installed by pasting its manifest URL, sits beside Store installs in the Admin's installed list, never in the Store.
 _Avoid_: marketplace, plugin repository
 
 **Proposal**:
@@ -239,3 +239,31 @@ _Avoid_: on deck, in progress, resume row
 **Progress**:
 Where a Profile is in an Edition.
 _Avoid_: resume point
+
+**Invite**:
+An Admin's single-use offer that lets one person create an Account on the install.
+_Avoid_: invitation code, share (for this)
+
+**Restricted Profile**:
+A Profile limited to a maximum content rating that can watch, favourite and use its Watchlist, but not curate or reach Settings.
+_Avoid_: kids mode, child account
+
+**Favourite**:
+A Profile's mark that it loves something: an Item, Show, Ordering, Franchise or Entity.
+_Avoid_: like, heart, star (for this)
+
+**Watchlist**:
+A Profile's list of watchable things it means to watch: Items, Shows and Orderings.
+_Avoid_: queue, up next (for this), to-watch
+
+**Rating**:
+A Profile's own score for an Item, kept apart from any Provider's score.
+_Avoid_: review, stars (as the term)
+
+**Stream limit**:
+The most playback sessions one Account may run at once, checked when a session starts.
+_Avoid_: device limit, seat
+
+**Upload allowance**:
+An optional amount of streaming per period that an Admin enters for their host, shown against measured usage.
+_Avoid_: bandwidth cap (as the term), quota
