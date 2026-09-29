@@ -2,9 +2,20 @@
 
 A self-hosted media server built schema-first: the Library is CanonCore's own schema,
 built from Providers the user installs, and media files are only matched to it. One server, a web
-client and one SwiftUI app for iPhone, Mac and Apple TV. Being rebuilt; the decisions are in
-`docs/rethink/grill-decisions.md` (D-ids), the founding records in `docs/adr/`, and names follow
-`CONTEXT.md`.
+client and one SwiftUI app for iPhone, Mac and Apple TV. Being rebuilt: the founding records are
+in `docs/adr/`, names follow `CONTEXT.md`, and the work is ten Linear projects in team CC, in order,
+each with an early spec that opens with its own next step.
+
+## Most Important: Verify, don't recall
+
+Look up any version, API signature, limit or price before stating it (`context7` for a library, `WebSearch` otherwise); the lookup wins over memory. Before a spec or its tickets publish, check what competitors do and run `/verify` on every claim a decision rests on.
+
+## How a project closes
+
+- A project closes only after the Owner has walked it on their own install; every stall found becomes a ticket before close.
+- The same walk includes a manual accessibility pass (keyboard only, a screen reader, 200% zoom). CI runs axe on every web merge; together they are "automated checks plus a manual review", never called WCAG compliance.
+- Each close adds to the README: a short screen recording, an architecture diagram, and links to the founding ADRs it built on.
+- Follow industry practice and what competitors do today, never the habits of this product's earlier attempt.
 
 ## Principles
 
@@ -22,12 +33,6 @@ client and one SwiftUI app for iPhone, Mac and Apple TV. Being rebuilt; the deci
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - Keep this file a pointer file. Repeated gotchas become checks (lint, hooks, CI), not prose here.
 
-## Verify, don't recall
-
-Look up any version, API signature, limit or price before stating it (`context7` for a library,
-`WebSearch` otherwise); the lookup wins over memory. Before a spec or its tickets publish, check
-what competitors do and run `/verify` on every claim a decision rests on.
-
 ## Commands
 
 None yet: the first project adds the pnpm + Turborepo monorepo (ADR 0016).
@@ -35,10 +40,10 @@ None yet: the first project adds the pnpm + Turborepo monorepo (ADR 0016).
 ## Gotchas
 
 - `main` refuses deletion and force-push (admin bypass on); there are no required checks, so a
-  merge gate is convention. Do not assume a check blocked anything.
+merge gate is convention. Do not assume a check blocked anything.
 - `.claude/settings.json` denies some calls on purpose (`git worktree`, `gh issue`): use
-  `orca worktree create` and `orca linear`. Secrets live in `~/.config/canoncore/` and in the
-  gitignored `.env`, never in a commit, PR body or log.
+`orca worktree create` and `orca linear`. Secrets live in `~/.config/canoncore/` and in the
+gitignored `.env`, never in a commit, PR body or log.
 
 ## Agent skills
 

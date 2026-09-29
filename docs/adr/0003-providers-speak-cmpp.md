@@ -8,6 +8,6 @@ A Provider is an HTTP service behind a manifest URL that declares its capabiliti
 
 ## Consequences
 
-- CanonCore ships no shared credential for any Provider: a Provider that needs a key declares it in its manifest, and each Admin enters their own (TMDB, Comic Vine, Metron, TARDIS Guide). One install's misuse can never get a key revoked for everyone.
+- CanonCore ships no shared credential for any Provider: a Provider that needs a key declares it in its manifest, and each Admin enters their own (TMDB, Comic Vine, Metron, TARDIS Guide). One install's misuse can never get a key revoked for everyone. The one exception is a Provider whose owner agrees in writing to a key CanonCore ships (asked of TMDB, 2026-09-29): that key is then the default, an Admin may still enter their own, and installs fall back to asking for one if it is ever revoked.
 - A Provider resting on permission given to one person (Tardis Fandom, Big Finish) is a private install on that person's server, never a Store listing.
 - Installing a Provider from a URL the Store does not list shows a trust warning, once, before it is installed. Pasting a URL installs that one Provider, so adding and installing are the same moment here. Jellyfin warns at the same point: when a plugin is installed from an untrusted repository, not when the repository is added (verified 2026-09-29).

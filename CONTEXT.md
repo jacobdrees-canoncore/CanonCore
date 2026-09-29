@@ -38,6 +38,10 @@ _Avoid_: lost media, gap, unowned
 A Version whose media file was not found at the last scan.
 _Avoid_: deleted, missing (for a file), unavailable
 
+**Download**:
+A Version's file saved on a device so it plays without a connection; such a Version is Downloaded on that device.
+_Avoid_: offline copy, offline download, saved (for this)
+
 **Unmatched file**:
 A media file the scanner has found that has no Match yet.
 _Avoid_: orphan, unidentified file, unknown file
@@ -75,6 +79,10 @@ _Avoid_: record, release group (as the level)
 **Track**:
 One recording on an Album.
 _Avoid_: song (as the level), record
+
+**Music cue**:
+A Track heard in an Item, with its start time, duration and order, sourced like any Statement.
+_Avoid_: song (for this), sync, needle drop
 
 **Book series**:
 The top of the fixed book hierarchy, including audiobooks. "Series" is used only in Book series and Comic series.
@@ -159,6 +167,10 @@ _Avoid_: team, faction, organisation (as the kind)
 **Place**:
 A location in the fiction: Gotham, Hogwarts, Gallifrey.
 _Avoid_: location, setting
+
+**Filming site**:
+A real-world spot, with coordinates, where an Item was filmed; it may stand in for a Place.
+_Avoid_: location, filming location, real place
 
 **Company**:
 A real studio, network or publisher.

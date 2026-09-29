@@ -8,4 +8,4 @@ The same Item may be placed more than once in one Ordering, as a Repeat. This co
 
 ## Consequences
 
-- Positions are whole numbers, with "at the same time as the previous one" and a "Placement unknown" section. Up Next walks the Ordering and shows an unplayable Item as a card with Skip and Open. These details live in the decision record (D-27, D-28, D-30), not in this ADR.
+- Positions are whole numbers, with "at the same time as the previous one" and a "Placement unknown" section. Up Next walks the Ordering and shows an unplayable Item as a card with Skip and Open. These details belong to the spec that builds Orderings, not to this ADR.

@@ -10,4 +10,4 @@ Admins invite people, each with an Account on their own devices holding one or m
 
 - Login slows down and never locks out, because Jellyfin-style lockout lets an attacker lock out the only Admin. Better Auth's 2FA plugin locks accounts by default, so CanonCore sets its lockout `enabled: false`; its limiter is per IP and per path with no account lock (verified in v1.7.6, 2026-09-28), so the per-Account limit with growing delays is CanonCore's own to build.
 - Behind a proxy, `ipAddressHeaders` must be set, so the limiter sees the real client IP.
-- Passkeys are offered only on an HTTPS domain; a plain http:// LAN install signs in with a password.
+- Passkeys are offered wherever the browser allows them: an HTTPS domain, or http://localhost for local testing. A plain http:// LAN install signs in with a password and says why.

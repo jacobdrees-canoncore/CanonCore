@@ -7,8 +7,7 @@ Orderings at once, each with its own position, so a franchise can be followed as
 as a timeline, or in any order someone shares.
 
 It is being rebuilt from the ground up, and there is no working code here yet. The
-decisions behind the rebuild are in [docs/rethink/](docs/rethink/), starting with
-[grill-decisions.md](docs/rethink/grill-decisions.md).
+decisions behind the rebuild are the founding records in [docs/adr/](docs/adr/).
 
 ## Design decisions
 
