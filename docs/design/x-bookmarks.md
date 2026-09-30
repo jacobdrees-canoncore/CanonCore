@@ -17,8 +17,8 @@ An app with no website is recreated as a **SwiftUI replica** of its key screens,
 
 ## Decisions
 
-- **Recreate six products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), Brink and MD Vinyl (SwiftUI), and Wafer's console at app.wafer.ai if its signed-in screens can be reached.
-- **The frosted-folder portfolio is a foundation, not one reference among many.** Jacob wants to use it exactly, or at least base CanonCore's design on it: folders with their contents peeking out that open into springy galleries (github.com/fayazara/portfolio-site-template). The repo has no licence; Jacob reports that the author has given permission to copy the folders and their opening animation.
+- **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep.
+- **The frosted-folder portfolio is a foundation, not one reference among many, and it is not recreated: its code already exists.** Jacob wants to use it exactly, or at least base CanonCore's design on it: folders with their contents peeking out that open into springy galleries (github.com/fayazara/portfolio-site-template). The repo has no licence; Jacob reports that the author has given permission to copy the folders and their opening animation.
 - **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore.
 - **Evaluate as web-client dependencies:** Arc and ObsidianUI.
 - **Study, and use where they fit:** Bencho.dev (a favourite), React Bits Micro, Interaction Kit, uselayouts (MIT), dqnamo's Kitchen, Cuelume, dither-kit, the progressive-blur component, and fayazara's macOS app skills for the Mac app.
@@ -44,12 +44,12 @@ What Jacob kept returning to, for whoever designs the prototype:
 
 ## Every bookmark
 
-### Recreate (6)
+### Recreate (4, plus the foundation and one dropped)
 
 - 2. @fayazara, Serif-led government site: one ask bar over an image stage: America.gov, standalone website replica
 - 15. @gow88_, Cover-tinted episode carousel with motion blur, and a floating mini-player: Brink, SwiftUI replica of key screens
-- 29. @kazarov_d, Wafer console: painted backdrop behind sign-in and a translucent model catalogue: Recreate (maybe): app.wafer.ai, web console; behind sign-in, access to check
-- 48. @fayazara, Portfolio of frosted "folders" that open into springy galleries: use the frosted-folder portfolio exactly, or at least base CanonCore off it (permission reported by Jacob to copy the folders and opening animation)
+- 29. @kazarov_d, Wafer console: painted backdrop behind sign-in and a translucent model catalogue: dropped 30 Sep (was a maybe recreation of app.wafer.ai)
+- 48. @fayazara, Portfolio of frosted "folders" that open into springy galleries: use its existing code exactly, or at least base CanonCore off it; not recreated (permission reported by Jacob to copy the folders and opening animation)
 - 70. @byhewar, [untitled]: a dark, quiet home for work-in-progress music: web replica under way in butterfish; also do its SwiftUI app replica (App Store id 6445854828)
 - 80. @mobbin, MD Vinyl's first-run tour: one tooltip that walks along the tab bar: MD Vinyl, SwiftUI replica (App Store id 1606306441)
 
