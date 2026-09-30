@@ -21,4 +21,6 @@ Plain labels, never a Linear label group, because a group allows only one of its
 - Kinds: `to-spec` (a project's spec issue), `spike` (research, dispatched to `/research`), `skills-repo` (the change lands in the skills repo).
 - Areas: `server`; the clients `web`, `ios`, `macos`, `tvos`, in any combination (shared SwiftUI work carries all three Apple labels, so each client's filter finds everything that changes it); and `provider-<name>`, one per Provider, created when that Provider's first ticket is filed.
 
+Design references work (the recreations, the snapshot, the folder component and the design prototype) carries no area label: it is not CanonCore client code, so a client's filter shows only product work (decided 2026-09-30).
+
 Before adding a label, check `orca linear team labels --team CC --json`; never create a duplicate. Linear's defaults `Bug`, `Feature` and `Improvement` are unused.
