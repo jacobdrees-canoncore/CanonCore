@@ -106,17 +106,17 @@ _Avoid_: movie
 
 **Collection**:
 A Provider's grouping of related Films.
-_Avoid_: box set, franchise (for this)
+_Avoid_: box set, franchise (for this), folder
 
 **Franchise**:
 A set of Shows, Films and other Items that belong together, imported as a Proposal. A Franchise can contain Franchises.
-_Avoid_: universe, group (for this), continuity
+_Avoid_: universe, group (for this), continuity, folder
 
 ### Orderings
 
 **Ordering**:
 Any sequence of Items: a Timeline, a broadcast or DVD order, a reading list, a Profile's own list.
-_Avoid_: container, chronology, list (for the general concept)
+_Avoid_: container, chronology, list (for the general concept), folder
 
 **Timeline**:
 An Ordering in in-universe order, often owned by an Entity, such as "Rose Tyler's timeline".
