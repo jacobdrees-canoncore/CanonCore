@@ -6,6 +6,7 @@ client and one SwiftUI app for iPhone, iPad, Mac and Apple TV. Being rebuilt: th
 in `docs/adr/`, names follow `CONTEXT.md`, and the work is ten Linear projects in team CC, in order,
 each with an early spec that opens with its own next step, plus the Design references project.
 
+@docs/agents/standard.md
 
 ## How a project closes
 
