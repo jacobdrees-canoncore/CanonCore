@@ -1,6 +1,6 @@
 # The code is AGPL-3.0
 
-The code is AGPL-3.0, so anyone who runs a modified CanonCore for other people must offer those users the Corresponding Source of their version (AGPL-3.0 section 13). Nobody can turn it into a closed hosted service. Provider data is used under each Provider's own terms, most of them non-commercial, which the README states and the app shows as attribution (Settings › About, plus TMDB's logo and notice). Where a Provider's terms ask for credit on every page that uses its data (Comic Vine's do), each such page links back to the source, built from the Source every value already carries.
+The code is AGPL-3.0, so anyone who runs a modified CanonCore for other people must offer those users the Corresponding Source of their version (AGPL-3.0 section 13). Nobody can turn it into a closed hosted service. Provider data is used under each Provider's own terms, most of them non-commercial, which the README states and the app shows as attribution (Settings › About, plus TMDB's logo and notice). Where a Provider's terms ask for credit on every page that uses its data, each such page links back to the source, built from the Source every value already carries.
 
 ## Considered Options
 
