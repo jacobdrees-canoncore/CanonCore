@@ -2,7 +2,7 @@
 
 A self-hosted media server built schema-first: the Library is CanonCore's own schema,
 built from Providers the user installs, and media files are only matched to it. One server, a web
-client and one SwiftUI app for iPhone, Mac and Apple TV. Being rebuilt: the founding records are
+client and one SwiftUI app for iPhone, iPad, Mac and Apple TV. Being rebuilt: the founding records are
 in `docs/adr/`, names follow `CONTEXT.md`, and the work is ten Linear projects in team CC, in order,
 each with an early spec that opens with its own next step.
 
