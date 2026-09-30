@@ -15,20 +15,22 @@ the phone except read-only `devicectl device info` queries; no capture, launch o
 
 **Yes, for almost all of it, and most of the setup is already done.** Two Apple-supported routes
 cover the work between them. `xcrun devicectl device capture` takes screenshots and records the
-screen of a paired physical device from the command line (Xcode 27), and XCUITest, reached through
+screen of a paired physical device from the command line (present in Xcode 27's `devicectl`
+642.16), and XCUITest, reached through
 Appium's WebDriverAgent, launches any installed app by bundle ID, taps, swipes, types and returns
 the accessibility tree. Neither needs the app's source.
 
 **The phone is already paired, trusted and in Developer Mode.** `devicectl` reports Jacob's iPhone
 16 Pro Max on iOS 27.0 (24A435) as `paired`, `developerModeStatus = enabled`, tunnel `connected`
-over `localNetwork`, and the developer disk image services usable (measured, `devicectl device info
-details` and `info ddiServices`). What is left for Jacob is small: install Brink and MD Vinyl, turn
-on "Enable UI Automation", sign WebDriverAgent once with his team, and keep the phone unlocked on
-the desk during a session.
+over `localNetwork`, and the developer disk image services usable at the time of reading (measured,
+`devicectl device info details` and `info ddiServices`; the tunnel connects on demand, and a later
+read the same day showed it disconnected). What is left for Jacob is small: sign WebDriverAgent
+once with his team, and keep the phone unlocked on the desk during a session.
 
-**Two of the three apps are not on the phone yet.** Of 160 apps listed, only [untitled]
-(`com.untitledinbrackets.untitled-ios`, 1.21.0) is installed; Brink and MD Vinyl are not (measured,
-`devicectl device info apps --include-all-apps`).
+**All three apps are on the phone.** When this note was measured, only [untitled]
+(`com.untitledinbrackets.untitled-ios`, 1.21.0) was installed of 160 apps listed (`devicectl
+device info apps --include-all-apps`); Jacob installed Brink and MD Vinyl later on 30 Sep
+(`plan-2026-09-30.md`).
 
 **None of the three runs on this Mac, and none can run in the simulator.** See the last two routes.
 
@@ -50,7 +52,7 @@ the desk during a session.
 
 ## Route by route
 
-### 1. devicectl capture (Xcode 27): the recording route
+### 1. devicectl capture (present in Xcode 27): the recording route
 
 **Works on a real device, for any app on screen, from the command line.** `devicectl device
 capture` has two subcommands (measured, `xcrun devicectl device capture --help`):
@@ -113,8 +115,9 @@ From it the agent gets:
 
 - `mobile: startXCTestScreenRecording` is "based on the native implementation provided by Apple"
   and "provides the best quality for the least performance penalty"; its `fps` is "24 by default",
-  with 1 to 60 recommended; "only available since Xcode 15/iOS 17"; on real devices iOS 18+ lets
-  the driver delete the video from the phone afterwards
+  with 1 to 60 recommended; "only available since Xcode 15/iOS 17"; on real devices it needs iOS 18+
+  and `appium-ios-remotexpc` >= 0.44.0 to delete the video from the phone afterwards; otherwise
+  the session must enable the `xctest_screen_record` security flag
   ([execute methods](https://github.com/appium/appium-xcuitest-driver/blob/master/docs/reference/execute-methods.md)).
   Set `fps: 60` for timing work.
 - `startRecordingScreen` / `mobile: startScreenRecording` records "using **ffmpeg** and the
@@ -125,8 +128,8 @@ From it the agent gets:
   It is a stream of screenshots, so frame spacing is whatever the screenshots managed, not the
   display's refresh. Good for watching; not for measuring a 200 ms crossfade.
 
-**It is current for Xcode 27.** The driver shipped 12.13.3 on 28 Sep 2026 with a WDA bump for
-Xcode 27 packaging, WDA itself is at 16.13.5 (30 Sep 2026), and Appium's "Xcode 27 and iOS/tvOS
+**It is current for Xcode 27.** The driver shipped 12.13.3 on 28 Sep 2026 (a WDA bump "for
+package creation with Xcode 26+"), WDA itself is at 16.13.5 (30 Sep 2026), and Appium's "Xcode 27 and iOS/tvOS
 27 support" issue is closed (measured, GitHub releases and
 [appium/appium#22368](https://github.com/appium/appium/issues/22368)). Two Xcode 27 issues about a
 *preinstalled* WDA launched through `devicectl` are closed
@@ -145,8 +148,9 @@ agent's job, with his go-ahead.
 
 ### 3. Xcode 27 Device Hub: a live view of the phone, but a GUI
 
-**Works on a real device.** Xcode 27 replaces the Devices window with DeviceHub
-(`/Applications/Xcode.app/Contents/Applications/DeviceHub.app`, measured). After pairing, "a View
+**Works on a real device.** Xcode 27 ships DeviceHub
+(`/Applications/Xcode.app/Contents/Applications/DeviceHub.app`, measured), which opens from Manage
+Devices… in the run destination menu. After pairing, "a View
 Screen button appears in the canvas"
 ([Apple, Managing your simulated and physical devices in Device Hub](https://developer.apple.com/documentation/xcode/managing-your-simulated-and-physical-devices-in-device-hub)),
 and "To interact with the device in Device Hub, select the device in the sidebar and click View
@@ -179,8 +183,8 @@ restriction policies", and the iPhone's camera and mic are not available
 **What it gives:** a Mac window of the whole phone, clickable and typeable ("click wherever you
 would tap", Mac keyboard for typing, same page). Orca's computer-use can click, drag and type into
 it by coordinate and take window screenshots. The same caveat as Device Hub applies: the window is
-a stream, so no per-element accessibility tree is expected. Swipes become mouse drags, and
-multi-touch is not available.
+a stream, so no per-element accessibility tree is expected. Swipes become scrolls or drags
+(Shift-scroll for sideways); multi-touch is not mentioned on Apple's page.
 
 **Not measured:** whether `screencapture -v` or ScreenCaptureKit records the Mirroring window at
 full rate, what frame rate the stream itself runs at, and whether the stream is scaled below the
@@ -264,11 +268,12 @@ not simulator builds (see "Claims not sourced").
 
 ### 11. The apps on this Mac (Apple silicon "Designed for iPhone")
 
-**None of the three is offered on the Mac.** iPhone and iPad apps are "automatically available on
-the Mac App Store" for Apple silicon unless the developer deselects "Make this app available"
+**None of the three is offered on the Mac.** For Macs with Apple silicon, developers "deselect 'Make
+this app available' to opt out of offering your app on the Mac App Store"
 ([App Store Connect Help](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-of-iphone-and-ipad-apps-on-macs-with-apple-silicon/)).
-iTunes Lookup exposes no Mac field (every app has `features` and `supportedDevices` for iOS and
-`isVppDeviceBasedLicensingEnabled: true`), but the App Store web page carries each app's
+iTunes Lookup exposes no Mac field (each has iOS `supportedDevices` and
+`isVppDeviceBasedLicensingEnabled: true`; Brink and MD Vinyl list `features: ["iosUniversal"]`,
+[untitled] none), but the App Store web page carries each app's
 `appPlatforms`, and neighbouring apps that do run on the Mac list `"mac"` there (Peapod, Current,
 Sakura Reader). The three read (measured, `apps.apple.com/gb/app/id<id>`):
 
@@ -280,9 +285,10 @@ Sakura Reader). The three read (measured, `apps.apple.com/gb/app/id<id>`):
 
 **One side door: [untitled] has a native Mac app.** "[untitled] for Desktop"
 (`com.untitledinbrackets.untitled-macos`, id 6744922982, 1.6.0, 24 Sep 2026, macOS 14.6+, free)
-is on the Mac App Store (measured, iTunes Search `entity=macSoftware`). It is a different design
-from the iPhone app, so it does not replace recording the phone, but computer-use could read its
-real accessibility tree and screenshot it directly, which makes it a cheap companion study for
+is on the Mac App Store (measured, iTunes Search `entity=macSoftware`). It appears to be a
+different design from the iPhone app (App Store screenshots), so it does not replace recording the
+phone; whether computer-use reads its accessibility tree is untested, but if it does, it is a
+cheap companion study for
 the cross-platform question in the recreations note.
 
 ## What each route gives
@@ -322,13 +328,15 @@ spacing, route 1 answers the timing question and everything else is only navigat
 
 - [x] Pair the iPhone with this Mac and trust it (done: `paired`, measured).
 - [x] Developer Mode on (done: `enabled`, measured).
-- [ ] Install Brink and MD Vinyl from the App Store. MD Vinyl on a fresh install, so its tour runs;
-      sign in to [untitled] (already installed).
-- [ ] Settings -> Developer -> Enable UI Automation: on. Settings -> Accessibility -> Zoom: off.
+- [x] Install Brink and MD Vinyl from the App Store (done 30 Sep).
+- [ ] Sign in to [untitled] (already installed).
+- [x] Settings -> Developer -> Enable UI Automation: on (done 30 Sep).
+- [ ] Settings -> Accessibility -> Zoom: off.
 - [ ] Settings -> Display & Brightness -> Auto-Lock: Never for a session, and Focus on to stop
       notifications appearing in recordings; keep the phone unlocked on the desk and on charge.
-- [ ] Give the agent his Team ID (developer.apple.com -> Membership) and approve installing Appium
-      and the XCUITest driver on this Mac; the agent signs and builds WDA.
+- [x] Give the agent his Team ID (developer.apple.com -> Membership) (done 30 Sep).
+- [ ] Approve installing Appium and the XCUITest driver on this Mac; the agent signs and builds
+      WDA.
 - [ ] When WDA first installs, approve anything the phone asks (trusting the developer app).
 - [ ] Optional: a USB-C cable, for the QuickTime fallback and a steadier link than Wi-Fi.
 - [ ] Optional: open iPhone Mirroring once and approve it, as the navigation fallback.

@@ -6,9 +6,19 @@
 > repository (decision 4: a private repository, ADR 0022), the portfolio as the design language
 > (untitled.stream leads, ADR 0020), "four clients" (five: iPad was added, ADR 0009), the untitled
 > remainder parked (decision 11: every web route before the web prototype), study sketches for
-> Brink and MD Vinyl (decided after a look), and cards for Apple TV (decision 9: a full recreation
-> of Apple's TV app). CC-3 and CC-5 are no longer on the board. The research below stands as a
-> snapshot of 30 Sep.
+> Brink and MD Vinyl (decided after a look), cards for Apple TV (decision 9: a full recreation
+> of Apple's TV app), brand research beside layer 1 (decision 10: the whole brand arrives at public
+> release, CC-8, with a neutral face until then), study-only for unlicensed code (decision 7: use
+> freely and ask for a licence before it ships, ADR 0019, with AML accepted), asking fayazara
+> (decision 6: he agreed on 30 Sep), the prototype's start gates (decision 1: the web half waits for
+> every untitled web route, the snapshot and the folder's web port; the Apple half for the untitled
+> app replica), the recreation order (decision 8: the Brink look, the MD Vinyl look, then the
+> untitled app on the phone; America.gov after untitled web), recording the web stack later
+> (decision 5: now ADR 0021), and step 6's fixed budget (one session per follow-up). The graph's
+> last two lines follow from these: the untitled remainder now blocks the web prototype and
+> America.gov, and the brand no longer feeds the prototype. Later the same day the replica's
+> coverage report was regenerated (13:41 UTC: 27 captured, 2 partial, 21 not captured, 12 built).
+> The research below stands as a snapshot of 30 Sep.
 
 Research note, 30 Sep 2026. Question from Jacob: "what we should do and in what order", written
 so the plan can be grilled with `/grill-with-docs`. It covers the design references (the
@@ -41,22 +51,24 @@ equivalent SwiftUI picker, 3 variants by default and at most 5, on a `prototype/
 real data (the library-model fetch)". D-98 step 8 placed it after the founding records and before
 project 1's spec. `docs/rethink/` was deleted in fc2f3f07, and CC-15 still cites "D-98 step 8".
 
-**CC-3 and CC-5 are stray duplicates.** Both are Backlog seed issues from 28 Sep: CC-3 duplicates
-CC-13 (its own comment says "Filed in error during setup ... The spec for this project is CC-13"),
-and CC-5 duplicates CC-10 with no comment. Both still point at the deleted `docs/rethink/`. Neither
-is returned by `list-issues`, but both read back by id as Backlog (measured).
+**CC-3 and CC-5 are already gone.** Both were seed duplicates from 28 Sep: CC-3 duplicated CC-13
+(its own comment says "Filed in error during setup ... The spec for this project is CC-13"), and
+CC-5 duplicated CC-10 with no comment. Both were trashed on 28 Sep (activity log, 23:53 UTC), which
+is why `list-issues` does not return them; read by id they still show Backlog, which is why they
+looked open (measured).
 
 **The untitled.stream replica (CC-15) is part-way.** It lives in the local-only repo
-`~/canoncore/untitled-replica`, tracked in the Linear project "Design references" (CC-15 D13).
+`~/canoncore/untitled-replica`, tracked in the Linear project "Design references" (replica D13).
 Done: CC-16 (the loop on the empty library), CC-17 (capture), CC-18 (seed), CC-29 (site assets),
 CC-30 (Storybook). In Progress: CC-19 (app shell and player; branch `cc-19`, last commit 30 Sep
 11:35). Todo: CC-31 (serve the site folders, blocked by CC-29) and CC-20 to CC-27 (the screens).
 Its coverage report (`~/canoncore/untitled-replica-data/reports/coverage.md`, generated 30 Sep
 10:50 UTC) counts 295 manifest routes, of which 50 are screens: 26 captured, 1 partial, 23 not
-captured, and 1 built (the library, whose comparison records 0 of 42 passing, all text-width
-differences the Owner accepted for CC-16 because the font files are Klim's 66-character test build).
-CC-20 to CC-27 carry no blocked-by relations, although CC-15's delivery order (D14) is a sequence
-(measured).
+captured, and 1 built (the library, whose comparison records 0 of 42 passing; the Owner accepted
+the empty library at 1400px for CC-16, where every difference is a text width caused by Klim's
+66-character test build). CC-20 to CC-27 are blocked only by CC-17, CC-18 or CC-19, with no edges
+among themselves, although the delivery order (replica D14, `docs/untitled-stream-capture.md`,
+section 4) is a sequence (measured).
 
 **The replica is meant to feed the prototype early.** CC-15 story 32: "I want the first slice
 (shell plus library) handed to CanonCore's design prototype as soon as it passes, so that step 8 is
@@ -139,14 +151,14 @@ What each edge rests on:
 
 Each step names what it needs and when it is done. Steps 1 to 6 overlap; see the next section.
 
-**Step 0. Tidy the board (an hour).** Cancel CC-3 and CC-5 as duplicates. Add blocked-by edges
+**Step 0. Tidy the board (an hour).** Add blocked-by edges
 along CC-15's delivery order (CC-20 after CC-19 and CC-31; CC-21 and CC-22 after CC-20; the rest
 after those) so the frontier is computed rather than remembered (`docs/agents/issue-tracker.md`,
 "The task graph"). Amend CC-15's Out of Scope to match the SwiftUI decision. File one spec per
 further recreation, and the follow-ups as `spike` tickets, in Design references. Write D-66's
 prototype plan into a live record (the prototype's own spec issue), since its only source is
 deleted. *Done when* the Design references frontier from `orca linear issue CC-15 --children
---relations` matches CC-15 D14, and no open issue points at `docs/rethink/`.
+--relations` matches replica D14, and no open issue points at `docs/rethink/`.
 
 **Step 1. Finish the untitled core slice.** CC-19, CC-31, CC-20, then CC-21, CC-22 and CC-25. One
 capture agent at a time (dark mode is account-wide: replica `CLAUDE.md`); build-only tickets may
@@ -222,7 +234,7 @@ capacity allows, because nothing downstream waits on them.
 
 ## What can run in parallel
 
-With about four agents at once, four lanes keep every slot busy without two agents fighting over
+Assuming about four agents at once, four lanes keep every slot busy without two agents fighting over
 one resource:
 
 1. **Untitled lane.** Steps 1 then the remainder. Only one capture agent at a time; a build-only
@@ -244,7 +256,7 @@ it. Checked with the GitHub API on 30 Sep 2026:
 
 | Source | Licence | Consequence |
 | --- | --- | --- |
-| fayazara/portfolio-site-template (folders) | none | Study and reimplement; copying needs a written grant |
+| fayazara/portfolio-site-template (folders) | none (its README says MIT, but no LICENSE file) | Study and reimplement; copying needs a written grant |
 | fayazara/macos-app-skills | none | Read as guidance only |
 | kuratlielia/arc-library (Arc) | MIT | May be used |
 | Atharvsinh-codez/ObsidianUI | MIT | May be used |
@@ -254,8 +266,8 @@ it. Checked with the GitHub API on 30 Sep 2026:
 | google-labs-code/design.md | Apache-2.0 | May be used |
 | VoltAgent/awesome-design-md | MIT | May be used |
 | davidmokos/beautiful-expo (progressive blur) | MIT | Expo, not SwiftUI: the effect only |
-| armondschneider/interactionkit | none | Study only |
-| Boring-Software-Inc/dither-kit | none | Study only |
+| armondschneider/interactionkit | MIT declared in README and package, no LICENSE file | May be used, with an MIT notice; ask for a LICENSE file |
+| Boring-Software-Inc/dither-kit | MIT declared in package.json, no LICENSE file | May be used, with an MIT notice; ask for a LICENSE file |
 | DavidHDev/react-bits | MIT plus Commons Clause | Study only (see below) |
 
 **No licence means no copying.** GitHub: "without a license, the default copyright laws apply ...
@@ -272,21 +284,21 @@ further restrictions on the exercise of the rights granted or affirmed under thi
 ## Risks
 
 - **The references outrun the product.** Nothing of CanonCore exists, the untitled replica has 1
-  of 50 screens built after two days, and the bookmark grill added three more recreations.
+  of 50 screens built in its first day (report 10:50 UTC, 30 Sep), and the bookmark grill added three more recreations.
   Waiting for all of them before the prototype contradicts "Grow the system in layers" and "Never
   trade a working product for unfinished complexity" (`CLAUDE.md`).
 - **A prototype of everything becomes the product.** Four clients, dozens of screens and three
   variants each is a large build. Matt Pocock's rule is "Throwaway from day one" and "The main
   branch keeps only the validated decision" (`prototype` skill, rules 1 and 6). Layering it (steps
   7 and 9) keeps layer 1 small.
-- **Seeded data looks fine where real data would not.** The `prototype` skill warns that "An empty
-  route hides design problems that a populated one would expose". A synthetic seed must reach real
-  scale and real ugliness (long titles, missing art, thousands of Items), or it repeats that trap.
+- **Seeded data looks fine where real data would not.** The `prototype` skill prefers real data and
+  density (UI.md: "real header, real sidebar, real data, real density"). A synthetic seed must reach real
+  scale and real ugliness (long titles, missing art, thousands of Items), or it misses that density.
 - **Apple TV has no reference.** None of the four recreations is a tvOS app, and neither App Store
   listing looked up carries an Apple TV screenshot (measured). CC-2 still needs "curation on Apple
   TV with a remote".
-- **Licences.** The foundation Jacob wants to copy exactly has no licence; three studied sources
-  have none; React Bits carries the Commons Clause.
+- **Licences.** The foundation Jacob wants to copy exactly has no LICENSE file; one studied source
+  has none (macos-app-skills); React Bits carries the Commons Clause.
 - **Fonts.** The replica renders with Klim's test build of Untitled Sans (replica research note,
   section 5). CanonCore needs its own faces, licensed for web embedding and app embedding, which is
   a brand decision (the serif-with-sans theme in `x-bookmarks.md`).
@@ -309,12 +321,13 @@ further restrictions on the exercise of the rights granted or affirmed under thi
 3. **Seeded or real data.** Recommended: a deterministic synthetic seed in CanonCore's shape as the
    default, at real-corpus scale, across every medium; the `prototype/library-model` real data (TMDB
    and Tardis Fandom, Doctor Who only) as a second switchable set for stress. Rests on ADR 0008,
-   D-66, and the `prototype` skill's warning about empty routes.
+   D-66, and UI.md's preference for real data and density.
 4. **Throwaway or foundation.** Recommended: throwaway, on `prototype/design`, with DESIGN.md, the
    tokens and the verdicts as what is kept. Rests on D-66 and the `prototype` skill's rules 1 and 6.
 5. **The web styling stack.** Recommended: Tailwind v4, the shadcn registry and Motion (`motion`
-   13.4.6, MIT, on npm), since shadcn/lint needs Tailwind v4 and Arc, ObsidianUI and uselayouts all
-   install that way. Record it at CC-2's refresh, as an ADR if the grill finds it hard to reverse.
+   13.4.6, MIT, on npm), since shadcn/lint works with Tailwind v4, ObsidianUI and uselayouts are
+   Tailwind components installed by the shadcn CLI, and Arc installs by the shadcn CLI with Motion
+   (its styles are CSS modules, no Tailwind needed). Record it at CC-2's refresh, as an ADR if the grill finds it hard to reverse.
    Rests on the four READMEs cited above.
 6. **The folder foundation: copy or reimplement.** Recommended: ask fayazara for a licence added to
    the repo (MIT would do); until it exists, reimplement from measured behaviour. The code is Astro,

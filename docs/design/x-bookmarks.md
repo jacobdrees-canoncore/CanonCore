@@ -18,7 +18,7 @@ An app with no website is recreated as a **SwiftUI replica** of its key screens,
 ## Decisions
 
 - **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep.
-- **The frosted-folder portfolio is a foundation, not one reference among many, and it is not recreated: its code already exists.** Jacob wants to use it exactly, or at least base CanonCore's design on it: folders with their contents peeking out that open into springy galleries (github.com/fayazara/portfolio-site-template). The repo has no licence; Jacob reports that the author has given permission to copy the folders and their opening animation.
+- **The frosted-folder portfolio gives CanonCore one signature component, the folder (ADR 0020); untitled.stream is the foundation.** The folders' contents peek out and open into springy galleries (github.com/fayazara/portfolio-site-template). It is not recreated: its own code is used, with the author's permission, and ships once a licence is in its repo (ADR 0019). (Revised 30 Sep: this bullet first called the portfolio the foundation.)
 - **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore.
 - **Evaluate as web-client dependencies:** Arc and ObsidianUI.
 - **Study, and use where they fit:** Bencho.dev (a favourite), React Bits Micro, Interaction Kit, uselayouts (MIT), dqnamo's Kitchen, Cuelume, dither-kit, the progressive-blur component, and fayazara's macOS app skills for the Mac app.

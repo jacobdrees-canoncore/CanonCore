@@ -50,7 +50,7 @@ _Avoid_: orphan, unidentified file, unknown file
 
 **Show**:
 The top of the fixed TV hierarchy, and of an audio drama range or a podcast, which share its shape.
-_Avoid_: series (for Show), container
+_Avoid_: series (for Show), container, folder
 
 **Season**:
 A numbered group of Episodes in a Show, numbered as the Provider the Show was imported from numbers it.

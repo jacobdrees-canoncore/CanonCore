@@ -2,7 +2,7 @@
 
 CanonCore is a self-hosted media server built schema-first. You build your
 Library from metadata Providers you choose, match your media files to it, and play video,
-audio, ebooks and comics on the web, iPhone, Mac and Apple TV. One Item can sit in many
+audio, ebooks and comics on the web, iPhone, iPad, Mac and Apple TV. One Item can sit in many
 Orderings at once, each with its own position, so a franchise can be followed as broadcast,
 as a timeline, or in any order someone shares.
 
