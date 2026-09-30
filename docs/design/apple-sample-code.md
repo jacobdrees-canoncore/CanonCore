@@ -33,7 +33,7 @@ but the FSF does not list it. Apple's videos and artwork in the samples are a se
 
 **Recommendation:** recreate Apple's TV app. Use TVCatalog as the component base and Destination
 Video as the app skeleton, and match both against recordings of the real TV app on tvOS 27.
-Study Infuse and Plex only as recordings. Reasons in the last section.
+Infuse and Plex are not studied: the Owner decided on 30 Sep 2026, after the verification, that the TV app alone is the reference (`plan-2026-09-30.md`). Reasons for the rest are in the last section.
 
 ## The tvOS samples
 
@@ -71,7 +71,7 @@ is an article and has no download.
 
 | Sample | Platforms (minimum) | Updated | What CanonCore takes |
 | --- | --- | --- | --- |
-| [Landmarks: Building an app with Liquid Glass](https://developer.apple.com/documentation/swiftui/landmarks-building-an-app-with-liquid-glass) | iOS 26, macOS 26 | 22 Jun 2026 | `glassEffect`, `GlassEffectContainer`, `glassEffectID`, `backgroundExtensionEffect()`, and scrolling under a sidebar. Four more Landmarks pages share this zip. The frosted-glass half of the design language. Licence: AML (measured). |
+| [Landmarks: Building an app with Liquid Glass](https://developer.apple.com/documentation/swiftui/landmarks-building-an-app-with-liquid-glass) | iOS 26, macOS 26 | 22 Jun 2026 | `glassEffect`, `GlassEffectContainer`, `glassEffectID`, `backgroundExtensionEffect()`, and scrolling under a sidebar. Four more Landmarks pages share this zip. The frosted-glass half of the folder. Licence: AML (measured). |
 | [Wishlist: Planning travel in a SwiftUI app](https://developer.apple.com/documentation/swiftui/wishlist-planning-travel-in-a-swiftui-app) | iOS 27 | 8 Jun 2026 | "organizes trips into collections", with `navigationTransition(.zoom)` and `matchedTransitionSource`. The nearest Apple sample to a folder that opens into a gallery. Licence: AML (measured). |
 | [Creating visual effects with SwiftUI](https://developer.apple.com/documentation/swiftui/creating-visual-effects-with-swiftui) | iOS 18 | 12 Jun 2024 | Scroll effects, custom transitions, shaders ([WWDC24 10151](https://developer.apple.com/videos/play/wwdc2024/10151/)). |
 | [Composing advanced graphics effects with SwiftUI](https://developer.apple.com/documentation/swiftui/composing-advanced-graphics-effects-with-swiftui) | iOS 26, macOS 26, visionOS 26 | 20 Jul 2026 | WWDC26 session 322's layered effects. |
@@ -312,7 +312,7 @@ for study only.
 | Option | Verdict | Why |
 | --- | --- | --- |
 | **Apple's TV app, built from TVCatalog plus Destination Video** | **Recreate** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the recordings of the real TV app show, and what CanonCore must decide anyway. |
-| Infuse or Plex, from recordings | Study only | Closed source. Every value would come from frame-by-frame recordings, the costly input `swiftui-recreation-feasibility.md` describes, and both apps follow the TV app's conventions. Record one or two of Infuse's library screens as a contrast, because a local-files library is closer to CanonCore than a store. |
+| Infuse or Plex | Not studied | Dropped by the Owner on 30 Sep 2026, after the verification: the TV app alone is the reference (`plan-2026-09-30.md`). |
 | Swiftfin or Stingray as the base | Secondary reference | Stingray (MIT) is copyable and native, but it is one developer's reading of the TV app. Swiftfin is MPL-2.0, targets tvOS 26.1, and carries its own design history. Read them for answers to real client problems (server sessions, resume, track pickers), not for design. |
 
 **Order.** Build TVCatalog's Stack and Description pages on CanonCore sample data. Graft in

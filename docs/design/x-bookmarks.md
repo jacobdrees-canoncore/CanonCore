@@ -36,11 +36,11 @@ What Jacob kept returning to, for whoever designs the prototype:
 
 ## Follow-ups
 
-- Go through the 38 apps in the B2TF directory (b2tf.app) for more inspiration.
+- ~~Go through the 38 apps in the B2TF directory (b2tf.app) for more inspiration.~~ Dropped 30 Sep, after the verification (`plan-2026-09-30.md`).
 - Go through all of fayazara's repositories one by one.
 - Read competitors' DESIGN.md files (getdesign.md lists over 550).
 - Look into https://x.com/dhruvmakes/status/2034645922492375185; bookmarking it lets the next sync collect it.
-- Retry backgrounds.supply, which failed with a Cloudflare SSL error on 30 Sep.
+- ~~Retry backgrounds.supply, which failed with a Cloudflare SSL error on 30 Sep.~~ Dropped 30 Sep, after the verification (`plan-2026-09-30.md`).
 
 ## Every bookmark
 
@@ -97,7 +97,7 @@ What Jacob kept returning to, for whoever designs the prototype:
 - 28. @marcelkargul, Soft pale-green wellness app with a pill tab bar and fade-through tabs: maybe, more as a design philosophy (soft, low-contrast calm)
 - 30. @emirayaz, Landing hero: serif headline beside a slowly shifting out-of-focus light field: the right-hand light field is a video we could make with Midjourney
 - 31. @basit_designs, Pale card set with living glass-orb renders
-- 32. @jackcring, B2TF: a gallery of skeuomorphic retro iOS apps: source: go through B2TF's 38 apps for more inspiration (follow-up)
+- 32. @jackcring, B2TF: a gallery of skeuomorphic retro iOS apps: source: go through B2TF's 38 apps for more inspiration (follow-up dropped 30 Sep)
 - 35. @Talhadesignn, Ink-wash mountain hero with a serif-italic accent: loves the background (a copy is in Downloads; do not use it, inspiration only)
 - 36. @basit_designs, Three quiet portrait panels with a living glass sphere and a "Thinking" orb
 - 37. @ayushsoni_io, Conduit brand: blurred-photo gradients under crisp white UI cards
