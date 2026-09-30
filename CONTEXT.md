@@ -138,6 +138,10 @@ _Avoid_: index, rank, order number
 The same Item placed more than once in one Ordering.
 _Avoid_: duplicate
 
+**Prerequisite**:
+An Item a Provider says should be seen before another Item, shown as "Watch first" and sourced like any Statement.
+_Avoid_: dependency, required viewing, Relationship (for this)
+
 **Up Next**:
 What plays after the current Item, taken from the Ordering being walked.
 _Avoid_: autoplay, queue, next episode (for the concept)
@@ -186,7 +190,7 @@ _Avoid_: Relationship (between Entities), relation, association
 
 **Relationship**:
 A typed, directed link between two Items: based on, spin-off of, soundtrack of, remake of, version of, crossover with.
-_Avoid_: relation, association, Entity link (between Items), link (for Matches)
+_Avoid_: relation, association, Entity link (between Items), link (for Matches), Prerequisite (for "watch first")
 
 ### Providers and provenance
 
