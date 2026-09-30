@@ -1,5 +1,10 @@
 # SwiftUI recreations: how hard, and which to do
 
+> **Decided 30 Sep 2026** (`plan-2026-09-30.md`): [untitled]'s app is replicated in full; Brink
+> and MD Vinyl each open with a recorded look, then Jacob picks a full replica or a study sketch.
+> The recommendation below was the input to that decision. Later the same day all three apps were
+> on the phone and an agent, not Jacob, makes the recordings (`driving-the-iphone.md`).
+
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
 Vinyl and [untitled]), and which should stay as inspiration instead. The bookmark decisions put
@@ -29,12 +34,13 @@ MD Vinyl's tour and record; build nothing else of either. The table at the end g
 ## What the inputs really are
 
 **App Store screenshots are full resolution, but framed.** The saved copies in
-`xmcp/analysis/*/links/appstore-<id>/` are 222 to 392 px wide thumbnails. The image server
+`xmcp/analysis/*/links/appstore-<id>/` are 221 to 392 px wide thumbnails (iPhone). The image server
 returns the originals when the size token in the URL is raised (measured: Brink 1284 x 2778, MD
 Vinyl 1290 x 2796, [untitled] 1242 x 2208). All eight of Brink's and all eight of [untitled]'s are
-phones inside captioned marketing frames; five of MD Vinyl's ten are full-bleed app screens, the
-other five are collages (measured, viewed). [untitled]'s 1242 x 2208 is the 5.5-inch size class,
-so its screenshots predate the current app (measured). Screenshots are layout references, not
+phones inside captioned marketing frames; five of MD Vinyl's ten are full-bleed (three app
+screens and two Home Screens showing its widgets), the other five are collages (measured, viewed).
+[untitled] uploads only the 5.5-inch size (1242 x 2208), so its stills are small and letterboxed;
+their age is not known. Screenshots are layout references, not
 pixel references. The iTunes Lookup API that lists them is documented at
 [Apple, Search API](https://performance-partners.apple.com/search-api).
 
@@ -79,15 +85,18 @@ app from the processes menu", and it shows an element's accessibility properties
 path in the hierarchy
 ([Apple, Inspecting the accessibility of the screens in your app](https://developer.apple.com/documentation/accessibility/inspecting-the-accessibility-of-screens)).
 Apple frames it around your own app; whether a third-party App Store app appears in that menu is
-not documented and was not tested (it needs Jacob's iPhone on a cable). At best it yields labels
+not documented and was not tested. `driving-the-iphone.md` later gets the accessibility tree of
+any installed app through WebDriverAgent (`mobile: source`), so Inspector is not needed for it. At best it yields labels
 and structure, never colours, fonts, radii or motion.
 
 **No binary work.** The standard App Store licence forbids to "copy ..., reverse-engineer,
 disassemble, attempt to derive the source code of, modify, or create derivative works of the
 Licensed Application", except where that restriction "is prohibited by applicable law"
 ([Apple, Licensed Application EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)).
-Brink's App Store description names this licence as its terms (measured). Extracting its image
-assets or fonts from the app bundle is on the wrong side of that line.
+Brink's App Store description names this licence as its terms (measured). MD Vinyl's App Store
+page offers no custom licence (measured), and Apple's page says the Standard EULA applies unless a
+custom one is provided, so the same terms govern it. Extracting either app's image assets or fonts
+from the app bundle is on the wrong side of that line.
 
 ## What the law allows
 
@@ -97,7 +106,9 @@ program in order to determine the ideas and principles which underlie any elemen
 while running it, and a contract term that forbids this is void
 ([CDPA 1988 s.50BA](https://www.legislation.gov.uk/ukpga/1988/48/section/50BA),
 [s.296A](https://www.legislation.gov.uk/ukpga/1988/48/section/296A)). Installing the free App Store
-builds, using them and recording them is that act.
+builds and using them to study their behaviour is that act. Keeping a recording is not what
+s.50BA addresses; the nearer basis is fair dealing for private study
+([s.29(1C)](https://www.legislation.gov.uk/ukpga/1988/48/section/29)).
 
 **Layout is not protected; the artwork is.** The US Copyright Office "will not accept a claim to
 copyright in 'format' or 'layout'", and copyright excludes "any idea, procedure, process, system,
@@ -110,15 +121,16 @@ the last section), so the rule here is the stricter one: nothing drawn by them g
 **App Review never sees a replica.** Guideline 4.1 forbids to "copy the latest popular app ... or
 make some minor changes to another app's name or UI and pass it off as your own"
 ([App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)). It binds
-submissions. The replicas stay local, like `~/canoncore/untitled-replica`, and are never
+submissions. The replicas stay private: each is its own repository under `~/canoncore/` with a private backup
+in the `jacobdrees-canoncore` organisation (ADR 0022), like `~/canoncore/untitled-replica`, and is never
 submitted, published or shown as anyone's product.
 
 **TestFlight is confidential.** A tester agrees that anything in a beta "that is not already
 publicly available shall be considered confidential unless the Application Provider explicitly
 authorises public disclosure", and may not "make any copy of or otherwise reproduce any Beta App"
 ([TestFlight Terms, UK](https://www.apple.com/legal/internet-services/itunes/testflight/gb/terms.html)).
-Brink's TestFlight and App Store builds are both 1.2.40 (the card, and iTunes Lookup: App Store
-release 29 Sep 2026). So record the App Store build; the TestFlight adds nothing until it runs
+Brink's TestFlight and App Store builds are both 1.2.40 (TestFlight per `for-jacob.md`, 27 Sep;
+App Store per iTunes Lookup: release 29 Sep 2026). So record the App Store build; the TestFlight adds nothing until it runs
 ahead, and then only with Gowtham Oleti's say-so.
 
 **[untitled] has a written prohibition and a verbal permission.** Its terms forbid to "make
@@ -133,12 +145,12 @@ Availability is read from each symbol's page on developer.apple.com (measured).
 
 | Element | Built in? | What to use |
 | --- | --- | --- |
-| Liquid Glass tab bar | Yes | A plain `TabView` on iOS 26: "the tab bar on iPhone floats above the content, and can be configured to minimize on scroll" with `tabBarMinimizeBehavior(_:)` ([WWDC25, Build a SwiftUI app with the new design](https://developer.apple.com/videos/play/wwdc2025/323/)). `Tab` role `.prominent` places a tab apart at the trailing end, iOS 27 only ([TabRole.prominent](https://developer.apple.com/documentation/swiftui/tabrole/prominent)). |
+| Liquid Glass tab bar | Yes | A plain `TabView` on iOS 26: "the tab bar on iPhone floats above the content, and can be configured to minimize on scroll" with `tabBarMinimizeBehavior(_:)` ([WWDC25, Build a SwiftUI app with the new design](https://developer.apple.com/videos/play/wwdc2025/323/)). `Tab` role `.prominent` gives one tab prominent visual treatment, iOS 27 only ([TabRole.prominent](https://developer.apple.com/documentation/swiftui/tabrole/prominent)). |
 | Floating mini-player | Yes, iOS and iPadOS only | `tabViewBottomAccessory(content:)`, iOS 26 and iPadOS 26, not macOS or tvOS ([docs](https://developer.apple.com/documentation/swiftui/view/tabviewbottomaccessory(content:))); "like this playback view in Music" (WWDC25 323). |
-| Custom glass shapes | Yes | `glassEffect(_:in:)`, `GlassEffectContainer`, `glassEffectID(_:in:)`, `.buttonStyle(.glass)`, all iOS 26 and every platform ([glassEffect](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:))). A container lets elements "share their sampling region" (WWDC25 323). |
+| Custom glass shapes | Yes | `glassEffect(_:in:)`, `GlassEffectContainer`, `glassEffectID(_:in:)`, `.buttonStyle(.glass)`, all iOS 26, and every platform but visionOS ([glassEffect](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:))). A container lets elements "share their sampling region" (WWDC25 323). |
 | Paged carousel with peeking cards | Yes | `scrollTargetBehavior(.viewAligned)` with `scrollTargetLayout()`, `containerRelativeFrame` and `contentMargins`, all iOS 17 ([ViewAlignedScrollTargetBehavior](https://developer.apple.com/documentation/swiftui/viewalignedscrolltargetbehavior)). |
 | Motion blur while paging | No | Built-in `blur(radius:)` is "a Gaussian blur", not directional ([docs](https://developer.apple.com/documentation/swiftui/view/blur(radius:opaque:))). `CIMotionBlur` works on images, not live views ([Core Image Filter Reference](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Reference/CoreImageFilterReference/)). A live one is a Metal function applied with `layerEffect(_:maxSampleOffset:isEnabled:)`, iOS 17 ([docs](https://developer.apple.com/documentation/swiftui/view/layereffect(_:maxsampleoffset:isenabled:))), strength driven by `scrollTransition` phase (iOS 17) or `onScrollGeometryChange` (iOS 18). |
-| Cover-tinted background | Partly | No SwiftUI colour-extraction API was found. `CIAreaAverage` "Returns a single-pixel image that contains the average color" (Filter Reference); `CIKMeans` gives a palette ([CIKMeans](https://developer.apple.com/documentation/coreimage/cikmeans)). The gradient behind is a `LinearGradient` or `MeshGradient` (iOS 18). `backgroundExtensionEffect()` (iOS 26) mirrors and blurs artwork under the safe area. |
+| Cover-tinted background | Partly | No SwiftUI colour-extraction API was found. `CIAreaAverage` "Returns a single-pixel image that contains the average color" (Filter Reference); `CIKMeans` "Create[s] a palette of the most common colors found in the image" (`CIFilter.localizedDescription(forFilterName:)`, measured; its [doc page](https://developer.apple.com/documentation/coreimage/cikmeans) has no description). The gradient behind is a `LinearGradient` or `MeshGradient` (iOS 18). `backgroundExtensionEffect()` (iOS 26) mirrors and blurs artwork under the safe area. |
 | Zoom and matched transitions | Yes | `navigationTransition(.zoom(sourceID:in:))` with `matchedTransitionSource(id:in:)`, iOS 18, not macOS ([zoom](https://developer.apple.com/documentation/swiftui/navigationtransition/zoom(sourceid:in:))); "continuously interactive" ([WWDC24, Enhance your UI animations and transitions](https://developer.apple.com/videos/play/wwdc2024/10145/)). `matchedGeometryEffect` since iOS 14. |
 | Scroll-driven effects | Yes | `scrollTransition` and `visualEffect` (iOS 17), "great for use in scrollviews" ([WWDC24, Create custom visual effects with SwiftUI](https://developer.apple.com/videos/play/wwdc2024/10151/)); `onScrollGeometryChange` and `scrollPosition` (iOS 18); `scrollEdgeEffectStyle` (iOS 26). |
 | Tooltips and tours | Yes | TipKit `Tip` and `popoverTip` (iOS 17), `TipGroup` (iOS 18) presents tips "one at a time, either in a specific order or using the first tip eligible" ([WWDC24, Customize feature discovery with TipKit](https://developer.apple.com/videos/play/wwdc2024/10070/)); `TipViewStyle` (iOS 17) restyles them ([docs](https://developer.apple.com/documentation/tipkit/tipviewstyle)). |
@@ -149,7 +161,7 @@ Availability is read from each symbol's page on developer.apple.com (measured).
 ## The three apps
 
 **Brink (bookmark 15).** Minimum iOS 26.0, "a clean, fluid Liquid Glass interface" (iTunes
-Lookup, measured). Its chrome is the system's, so the tab bar and mini-player are close to free.
+Lookup, measured). Its chrome looks like the system's, so the tab bar and mini-player are close to free.
 What it teaches is the Home row: one card per page with neighbours peeking, a directional blur
 across the middle 8 to 10 frames of a roughly 15-frame swipe, and a cover tint that crossfades a
 few frames after the card lands (the card's measurements). The screenshots add a podcast page
@@ -162,7 +174,7 @@ measured). Everything memorable is drawn: the tilted record-stack library, the t
 tonearm, coloured and splattered vinyl, widgets. None of that artwork may be copied, so a faithful
 replica means drawing a turntable and records well, which is illustration work, not layout. The
 bookmark itself is the three-step tour over the tab bar, a 200 ms crossfade in place with the tail
-sliding to the next tab (the card). The tour only runs on a fresh install (`for-jacob.md`). The
+sliding to the next tab (the card). The tour is expected to run on first launch (`for-jacob.md`, unverified). The
 real app plays through Spotify or Apple Music, which a replica would stub with local files.
 
 **[untitled] (bookmark 70).** Minimum iOS 17.6 (measured). Its screens are the ones closest to
@@ -172,8 +184,8 @@ a player with a waveform scrubber and loop region, speed and pitch sliders with 
 mixer, a recorder and the share sheet (the card; screenshots, measured, viewed). All are standard
 SwiftUI plus one custom waveform. The web replica has already measured its palette and type
 (#191919, #252525, the single accent #FDE14F: the card), so the iOS replica starts with tokens in
-hand and shows how one product adapts across web and iPhone. Its App Store stills are old (see
-above) and the app needs an account, so recordings are essential.
+hand and shows how one product adapts across web and iPhone. Its App Store stills are small and
+letterboxed (see above) and the app needs an account, so recordings are essential.
 
 ## How established teams do this
 
@@ -221,7 +233,7 @@ better a source than the app.
 
 ## Effort
 
-The one calibration point: the web replica had 1 of 50 screens built after two days, with capture
+The one calibration point: the web replica had 1 of 50 screens built in its first day, with capture
 tooling included (`what-to-do-next.md`, "Risks"). Matching by eye against recordings is slower per
 screen than matching against a DOM, so the figures below are the author's estimates in agent
 sessions (one implementer run), not measurements.
@@ -240,17 +252,17 @@ edit with speed, pitch and stems, mini-player): 5 to 8 sessions, since the token
 
 **What an agent can do alone:** fetch the full-size screenshots, build layouts in Xcode previews
 on the installed iOS 27 simulator, write the blur shader and colour extraction, and time its own
-build against the bookmark bursts. **What needs Jacob:** installing the apps and recording them
-(MD Vinyl on a fresh install for the tour, [untitled] signed in), signing in to Mobbin, confirming
-that [untitled]'s permission covers the app, and judging feel under the finger, which no recording
-shows.
+build against the bookmark bursts. **What needs Jacob:** approving WebDriverAgent on the phone
+once, keeping it unlocked and on charge for sessions (`driving-the-iphone.md`), signing in to
+Mobbin, confirming that [untitled]'s permission covers the app, and judging feel under the finger,
+which no recording shows.
 
 ## Recommendation
 
 | App | Recommendation | What it rests on |
 | --- | --- | --- |
-| [untitled] | **Replicate key screens**: library grid, project page, player with waveform and loop, speed and pitch edit, mini-player | Closest to CanonCore's own screens (library, album-like page, player); pairs with the web replica and reuses its tokens; nearly all standard SwiftUI; the owner's permission is reported. Needs Jacob's recordings, since the stills are 5.5-inch era, and his check that the permission covers the app. |
-| Brink | **Study sketch** of Home: the paged cover-tinted carousel with directional motion blur, the bottom-accessory mini-player, and the zoom into an episode; optionally the podcast page's per-show theme | The chrome is Apple's own Liquid Glass, so copying it teaches nothing beyond the WWDC25 session; the novel parts are one row and one tint. The rest is AI and map features. Use the App Store build, not TestFlight (confidentiality). |
+| [untitled] | **Replicate key screens**: library grid, project page, player with waveform and loop, speed and pitch edit, mini-player | Closest to CanonCore's own screens (library, album-like page, player); pairs with the web replica and reuses its tokens; nearly all standard SwiftUI; the owner's permission is reported. Needs recordings, since the stills are marketing frames, and Jacob's check that the permission covers the app. |
+| Brink | **Study sketch** of Home: the paged cover-tinted carousel with directional motion blur, the bottom-accessory mini-player, and the zoom into an episode; optionally the podcast page's per-show theme | The chrome appears to be Apple's own Liquid Glass, so copying it teaches nothing beyond the WWDC25 session; the novel parts are one row and one tint. The rest is AI and map features. Use the App Store build, not TestFlight (confidentiality). |
 | MD Vinyl | **Study sketch** of two interactions: the three-step tab-bar tour, and the spinning record with its tonearm | Everything else is drawn artwork that may not be copied, so a faithful replica is an illustration job; the tour tests whether TipKit fits CanonCore's first run, and the record serves the physical-media theme. Needs a fresh install recorded by Jacob. |
 
 ## Claims not sourced
@@ -258,14 +270,15 @@ shows.
 - That App Store and TestFlight builds lack `get-task-allow`: TN2415 says what the entitlement
   does and shows it in a development build, but does not state that distribution builds omit it.
 - Whether Accessibility Inspector lists third-party App Store apps on a device: not documented,
-  not tested.
+  not tested (WebDriverAgent covers the need, `driving-the-iphone.md`).
 - The UK position on copyright in screen designs (the CJEU's BSA judgment, C-393/09): neither
   EUR-Lex nor InfoCuria returned the text, so it is not relied on.
-- Which licence governs MD Vinyl: its description names none, and it was not checked whether
-  Apple's standard licence then applies by default.
 - The frame rate of an iPhone screen recording: not found in Apple's support page; measure it
-  with `ffprobe` on Jacob's first recording.
+  with `ffprobe` on the agent's first `devicectl` recording (`plan-2026-09-30.md`, Driving the
+  iPhone).
 - That Mobbin holds MD Vinyl's and [untitled]'s flows: inferred from @mobbin posting the MD Vinyl
   tour; unverified until Jacob signs in. Brink's Mobbin page is linked by its maker.
+- That MD Vinyl's tour runs on first launch: `for-jacob.md` says so, but that is the analysing
+  agent's inference; no MD Vinyl source was read.
 - The effort figures are estimates, as the Effort section says.
 - The SGE video on [untitled] was not watched; only its title is cited.

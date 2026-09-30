@@ -17,8 +17,8 @@ features (measured, 30 Sep 2026, every page's `metadata.platforms`). The two are
 [Creating a tvOS media catalog app in SwiftUI](https://developer.apple.com/documentation/swiftui/creating-a-tvos-media-catalog-app-in-swiftui)
 ("TVCatalog") and [Destination Video](https://developer.apple.com/documentation/visionos/destination-video).
 
-**Both build and run on the tvOS 27 simulator with no changes.** Screenshots are below
-(measured, 30 Sep 2026).
+**Both build and run on the tvOS 27 simulator with no changes.** The screenshots are described
+below (measured, 30 Sep 2026).
 
 **They cover different things, and the recreation needs both.** TVCatalog is a component
 catalogue of the TV app's lockups, shelves, fold and product page, with buttons that do nothing.
@@ -26,8 +26,8 @@ Destination Video is a working app: a sidebar with folder sections, SwiftData, d
 `AVPlayerViewController` with an Up Next tab. Neither is a copy of Apple's TV app.
 
 **The licences allow it, but two different licences are in use.** Most samples ship the MIT
-(Expat) text, which ADR 0019 already accepts. Destination Video and the 2026 SharePlay gallery
-ship Apple's older sample licence (SPDX `AML`). Fedora calls that one "free and GPL compatible",
+(Expat) text, which ADR 0019 already accepts. Destination Video, Landmarks, Wishlist and the 2026
+SharePlay gallery ship Apple's older sample licence (SPDX `AML`). Fedora calls that one "free and GPL compatible",
 but the FSF does not list it. Apple's videos and artwork in the samples are a separate question
 (see Licence).
 
@@ -46,9 +46,9 @@ RealityKit, the UIKit navigation bar). "Updated" is the zip's `Last-Modified` (m
 | --- | --- | --- | --- |
 | [Creating a tvOS media catalog app in SwiftUI](https://developer.apple.com/documentation/swiftui/creating-a-tvos-media-catalog-app-in-swiftui) | tvOS 18 | 10 Jun 2024 | Lockups, shelves, hero fold, product page, search, sidebar. **The component base** (next section). |
 | [Destination Video](https://developer.apple.com/documentation/visionos/destination-video) | iOS 18, iPadOS 18, macOS 15, tvOS 18, visionOS 2 | 16 Feb 2026 | One SwiftUI target for every platform CanonCore ships. `sidebarAdaptable` with `TabSection` "Collections", SwiftData models, `AVPlayerViewController` with an Up Next tab, zoom transitions (iOS only). Licence: AML. **The app skeleton.** |
-| [Enhancing your app's content with tab navigation](https://developer.apple.com/documentation/swiftui/enhancing-your-app-content-with-tab-navigation) | same as above | 16 Feb 2026 | An article on Destination Video; it downloads the same `DestinationVideo.zip` (measured). |
+| [Enhancing your app's content with tab navigation](https://developer.apple.com/documentation/swiftui/enhancing-your-app-content-with-tab-navigation) | same as above | 16 Feb 2026 | A second sample page for Destination Video; it downloads the same `DestinationVideo.zip` (measured). |
 | [Creating immersive experiences using a full-screen layout](https://developer.apple.com/documentation/tvuikit/creating-immersive-experiences-using-a-full-screen-layout) | tvOS 13 | 23 Feb 2024 | `TVCollectionViewFullScreenLayout` for full-bleed paging (UIKit, 133 MB). The pattern behind a full-screen hero carousel. |
-| [Building a Full Screen Top Shelf Extension](https://developer.apple.com/documentation/tvservices/building-a-full-screen-top-shelf-extension) | tvOS 13 | 16 Feb 2024 | Top Shelf showing Continue Watching or new items. |
+| [Building a Full Screen Top Shelf Extension](https://developer.apple.com/documentation/tvservices/building-a-full-screen-top-shelf-extension) | tvOS 13 | 16 Feb 2024 | A full-screen Top Shelf carousel (the sample fills it with featured movies), the pattern to carry Continue Watching or new items. |
 | [Mapping Apple TV users to app profiles](https://developer.apple.com/documentation/tvservices/mapping-apple-tv-users-to-app-profiles) | tvOS 15 | 16 Feb 2024 | Maps each Apple TV user to a CanonCore profile ([WWDC22 110384](https://developer.apple.com/videos/play/wwdc2022/110384/)). |
 | [Supporting Multiple Users in Your tvOS App](https://developer.apple.com/documentation/tvservices/supporting-multiple-users-in-your-tvos-app) | tvOS 14 | 16 Feb 2024 | The older per-user data pattern. |
 | [Simplifying User Authentication in a tvOS App](https://developer.apple.com/documentation/authenticationservices/simplifying-user-authentication-in-a-tvos-app) | tvOS 15 | 19 Jun 2024 | Signing in without typing on the remote. |
@@ -71,8 +71,8 @@ is an article and has no download.
 
 | Sample | Platforms (minimum) | Updated | What CanonCore takes |
 | --- | --- | --- | --- |
-| [Landmarks: Building an app with Liquid Glass](https://developer.apple.com/documentation/swiftui/landmarks-building-an-app-with-liquid-glass) | iOS 26, macOS 26 | 22 Jun 2026 | `glassEffect`, `GlassEffectContainer`, `glassEffectID`, `backgroundExtensionEffect()`, and scrolling under a sidebar. Three more Landmarks pages share this zip. The frosted-glass half of the design language. |
-| [Wishlist: Planning travel in a SwiftUI app](https://developer.apple.com/documentation/swiftui/wishlist-planning-travel-in-a-swiftui-app) | iOS 27 | 8 Jun 2026 | "organizes trips into collections", with `navigationTransition(.zoom)` and `matchedTransitionSource`. The nearest Apple sample to a folder that opens into a gallery. |
+| [Landmarks: Building an app with Liquid Glass](https://developer.apple.com/documentation/swiftui/landmarks-building-an-app-with-liquid-glass) | iOS 26, macOS 26 | 22 Jun 2026 | `glassEffect`, `GlassEffectContainer`, `glassEffectID`, `backgroundExtensionEffect()`, and scrolling under a sidebar. Four more Landmarks pages share this zip. The frosted-glass half of the design language. Licence: AML (measured). |
+| [Wishlist: Planning travel in a SwiftUI app](https://developer.apple.com/documentation/swiftui/wishlist-planning-travel-in-a-swiftui-app) | iOS 27 | 8 Jun 2026 | "organizes trips into collections", with `navigationTransition(.zoom)` and `matchedTransitionSource`. The nearest Apple sample to a folder that opens into a gallery. Licence: AML (measured). |
 | [Creating visual effects with SwiftUI](https://developer.apple.com/documentation/swiftui/creating-visual-effects-with-swiftui) | iOS 18 | 12 Jun 2024 | Scroll effects, custom transitions, shaders ([WWDC24 10151](https://developer.apple.com/videos/play/wwdc2024/10151/)). |
 | [Composing advanced graphics effects with SwiftUI](https://developer.apple.com/documentation/swiftui/composing-advanced-graphics-effects-with-swiftui) | iOS 26, macOS 26, visionOS 26 | 20 Jul 2026 | WWDC26 session 322's layered effects. |
 | [Controlling the timing and movements of your animations](https://developer.apple.com/documentation/swiftui/controlling-the-timing-and-movements-of-your-animations) | iOS 17, macOS 14 | 25 Jul 2023 | Phase and keyframe animators, for spring timing. |
@@ -148,27 +148,31 @@ and animating the gradient stops' opacity blurs the whole image. A custom
 
 **How faithful to the TV app it is.** Faithful where the system does the work: the focus lift,
 the specular highlight, the parallax, and a Liquid Glass tab bar and buttons once built against
-tvOS 27 (see the screenshot). Everything else is a placeholder. Every button action is `{}`. The
-data is 15 bundled artworks (portrait and landscape) and lorem ipsum. There is no navigation into a show, no episodes, no
+tvOS 27 (see "What the screenshots show"). Everything else is a placeholder. Every button action
+except the synopsis is `{}`, and More Info pushes a placeholder `Text("Hello")`. The
+data is 15 bundled artworks (portrait and landscape) and lorem ipsum. There are no episodes, no
 Up Next row with progress, no player and no model layer. It shows how to build the TV app's
 parts, but not how they fit together.
 
 ## The app skeleton: Destination Video
 
-**A working multiplatform app from one target.** It has 45 Swift files, 4,329 lines, and one
+**A working multiplatform app from one target.** It has 44 Swift files and 4,329 lines in the app
+folder (46 and 4,372 with the Studio package), and one
 `DestinationVideo` target whose `SUPPORTED_PLATFORMS` covers tvOS, iOS, macOS and visionOS with
-`SDKROOT = auto`. Its git history runs from 4 Jul 2024 to 16 Jan 2026 (measured, 30 Sep 2026).
-The zip is 1.19 GB, most of it two bundled `.mov` files and Reality Composer content.
+`SDKROOT = auto`. Its git history runs from 7 Jun 2024 to 16 Jan 2026 (four commits; measured, 30 Sep 2026).
+The zip is 1.19 GB: about half is the bundled `.git` history, and the rest is mostly Reality
+Composer content, two `.mov` files and the asset catalogue.
 
 **Its tvOS shape is the TV app's sidebar.** Watch Now, Library, New, Favorites and Search come
-first, then `TabSection`s headed "Collections" and "Animations" (see the screenshot). Watch Now
+first, then `TabSection`s headed "Collections" and "Animations" (see "What the screenshots show"). Watch Now
 is a hero plus shelves of `.card` buttons. On tvOS, `Constants.swift` gives its own sizes: a
-card 550 wide, a hero 800 tall, 50 pt padding. The hero is the one `focusSection()` (measured,
-read). The page says each tvOS card "fully scales and lifts up", and that a `Section` header lets
-"the title also lift and move as the card expands".
+card 550 wide, a hero 900 tall with text at most 800 wide, and 50 pt between cards. The hero is the one `focusSection()` (measured,
+read). The page says each tvOS card "fully scales and lifts up", and that a `Section` header
+lets "the title to also lift and move as the card expands".
 
-**It shows playback done the system way.** `PlayerModel` wraps `AVPlayerViewController` and adds
-an Up Next tab through `customInfoViewControllers`, sized 500 x 250 on tvOS. Data is SwiftData
+**It shows playback done the system way.** `PlayerModel` creates the `AVPlayerViewController`,
+and `SystemPlayerView` adds an Up Next tab through `customInfoViewControllers`, sized 500 x 250 on
+tvOS. Data is SwiftData
 (`Video`, `Genre`, `Person`, `UpNextItem`). The zoom navigation transitions are compiled only
 `#if os(iOS)` (measured, read), even though `zoom(sourceID:in:)` is available from tvOS 18
 ([docs](https://developer.apple.com/documentation/swiftui/navigationtransition/zoom(sourceid:in:))).
@@ -220,14 +224,13 @@ with any copied file.
 > notice, no other rights or licenses, express or implied, are granted by Apple herein, including
 > but not limited to any patent rights ...
 
-The 2026 SharePlay gallery sample carries the same text. SPDX registers it as `AML`, "Apple MIT
+Landmarks, Wishlist and the 2026 SharePlay gallery carry the same text. SPDX registers it as `AML`, "Apple MIT
 License", and marks it not OSI-approved ([SPDX AML](https://spdx.org/licenses/AML.html)). Fedora
 says: "This is Apple's variant of MIT. They've added wording around patents ... It is free and
 GPL compatible" ([Fedora, Apple MIT License](https://fedoraproject.org/wiki/Licensing/Apple_MIT_License)).
 It is not on the FSF's list: the only Apple entries there are the APSL and the Common
-Documentation License (measured, `gnu.org/licenses/license-list.html`). ADR 0019 does not name
-AML, and the FSF has not ruled on it. The Owner decided on 30 Sep to accept it like MIT (ADR
-0019), so:
+Documentation License (measured, `gnu.org/licenses/license-list.html`). The FSF has not ruled on
+it. The Owner decided on 30 Sep to accept it like MIT, and ADR 0019 records that, so:
 
 - **copy freely from MIT and AML samples**, keeping Apple's notice on every copied file.
 
@@ -237,7 +240,7 @@ reserved". The samples' images and videos (TVCatalog's 30 bundled image sets, De
 Video's `.mov` files) should stay in the throwaway recreation and never go into the repo. The
 recreation uses its own artwork anyway. Apple's name and marks may not "endorse or promote"
 anything built from the AML samples. So the recreation is never called "Apple TV app", and it
-stays local, like the other replicas (`swiftui-recreation-feasibility.md`).
+lives in its own private repository, like the other replicas (ADR 0022).
 
 ## Building them here
 
@@ -259,8 +262,8 @@ xcodebuild -project DestinationVideo.xcodeproj -scheme DestinationVideo \
 Each was then installed with `xcrun simctl install`, launched with `xcrun simctl launch`
 (bundle ids `com.example.apple-samplecode.TVCatalog` and
 `com.example.apple-samplecode.DestinationVideo`) and captured with
-`xcrun simctl io <udid> screenshot` at 3840 x 2160. The screenshots are in the session
-scratchpad, not the repo:
+`xcrun simctl io <udid> screenshot` at 3840 x 2160. The screenshots were saved to the session
+scratchpad, not the repo, so these copies are temporary:
 `/private/tmp/claude-501/-Users-jacobrees-orca-workspaces-CanonCore-ridgehead/81697d65-8ab7-4cff-a261-d96a9dcf4bb9/scratchpad/shots/`
 (`tvcatalog-stack.png` and `destinationvideo-tvos.png`, with `-small` copies).
 
@@ -287,7 +290,7 @@ for study only.
 | [SRGSSR/pillarbox-apple](https://github.com/SRGSSR/pillarbox-apple) | MIT | 105 | A reactive AVPlayer playback layer from a public broadcaster. A player library, not a client. |
 | [kingslay/KSPlayer](https://github.com/kingslay/KSPlayer) | GPL-3.0 | 1,669 | AVPlayer plus FFmpeg player for iOS, macOS, tvOS and visionOS. |
 | [videolan/vlc-ios](https://github.com/videolan/vlc-ios) | NOASSERTION (API) | 1,304 | VLC for iOS and Apple TV. Mostly UIKit. |
-| [Moonfin-Client/Moonfin-Core](https://github.com/Moonfin-Client/Moonfin-Core) | GPL-2.0 | 769 | Multiplatform Jellyfin client. GPL-2.0 only would not combine with AGPL-3.0 code. |
+| [Moonfin-Client/Moonfin-Core](https://github.com/Moonfin-Client/Moonfin-Core) | GPL-2.0-or-later (README) | 769 | Multiplatform Jellyfin client, mostly Dart/Flutter rather than SwiftUI. GPL-2.0-or-later per its README, so usable as GPL-3.0 alongside AGPL-3.0 code. |
 | [superuser404notfound/Sodalite](https://github.com/superuser404notfound/Sodalite) | NOASSERTION | 50 | Jellyfin client for Apple TV, iPhone and iPad. Study only. |
 
 ## Claims not sourced
@@ -295,12 +298,12 @@ for study only.
 - That the Apple TV app itself adopted Liquid Glass in tvOS 26 and 27: seen only in how the
   samples render on the tvOS 27 SDK, not read from Apple.
 - That AML is compatible with the AGPL: Fedora says "GPL compatible" without naming a version;
-  the FSF has not listed it. The rule above avoids relying on it.
+  the FSF has not listed it. ADR 0019 relies on Fedora's ruling.
 - That the samples' images and videos are outside the MIT grant: the licence does not say either
   way; only one sample carries an explicit note, for WWDC videos.
-- That Apple TV screens can be recorded for the recreation (QuickTime over a cable or AirPlay to
-  a Mac): not checked here. The iPhone path is in `driving-the-iphone.md`, which another agent is
-  writing.
+- That Apple TV screens can be recorded for the recreation: unverified. The tvOS recreation's
+  first ticket tests `devicectl`, with QuickTime or a capture card as the fallback
+  (`plan-2026-09-30.md`). The iPhone path is in `driving-the-iphone.md`.
 - Infuse's and Plex's tvOS apps were not opened or recorded; what is said about them is judgement.
 - Browsing and Modifying Photo Albums' date was not fetched.
 
@@ -314,8 +317,8 @@ for study only.
 
 **Order.** Build TVCatalog's Stack and Description pages on CanonCore sample data. Graft in
 Destination Video's sidebar (AML, copied with Apple's notice since ADR 0019 accepts it) with Collections as folders.
-Then match the result to recordings of the tvOS 27 TV app. Keep the recreation in a local folder
-outside the repo, like `~/canoncore/untitled-replica`.
+Then match the result to recordings of the tvOS 27 TV app. Keep the recreation in its own repository
+under `~/canoncore/` with a private remote (ADR 0022), like `~/canoncore/untitled-replica`.
 
 ## Every sample, sorted
 
@@ -328,15 +331,15 @@ follow. Of the 653, 652 have role `sampleCode` and a download. The other one,
 has role `article` and no download, so it is not a sample. All 653 page JSONs were fetched with
 no failures, and each sample's title, abstract and `metadata.platforms` was read. **Total
 fetched: 652 samples. Total classified: 652. The count matches the library's 652**
-(measured, 30 Sep 2026). The 652 samples share 638 distinct zips (measured).
+(measured, 30 Sep 2026). The 652 samples share 637 distinct zips (measured).
 
 The manifest has one row per sample: path, title, platforms, verdict and reason. It is in the
 session scratchpad, not the repo:
 `/private/tmp/claude-501/-Users-jacobrees-orca-workspaces-CanonCore-ridgehead/81697d65-8ab7-4cff-a261-d96a9dcf4bb9/scratchpad/apple-samples.tsv`.
 
 **How the verdicts were set.** The clients are iPhone, iPad, Mac, Apple TV and the web.
-visionOS and watchOS are not clients (the Owner's decision, 30 Sep 2026). A sample that runs
-only on those two is a Drop. A multiplatform sample is judged only on iOS, iPadOS, macOS and
+visionOS and watchOS are not clients (the Owner's decision, 30 Sep 2026). A sample built for
+those two, even with an iPhone companion, is a Drop. A multiplatform sample is judged only on iOS, iPadOS, macOS and
 tvOS. iPad is a client with its own adaptive layout, so iPadOS samples count.
 
 | Verdict | Meaning | Count |
@@ -353,7 +356,7 @@ tvOS. iPad is a client with its own adaptive layout, so iPadOS samples count.
 | --- | --- | --- |
 | [Creating a tvOS media catalog app in SwiftUI](https://developer.apple.com/documentation/swiftui/creating-a-tvos-media-catalog-app-in-swiftui) | MIT | The component base: lockups, shelves, the fold, the product page, search and sidebar. |
 | [Destination Video](https://developer.apple.com/documentation/visionos/destination-video) | AML | The app skeleton: one target for tvOS, iOS, iPadOS and macOS, a sidebar with Collections sections, and `AVPlayerViewController` with Up Next. AML: copy with Apple's notice (ADR 0019). |
-| [Enhancing your app's content with tab navigation](https://developer.apple.com/documentation/swiftui/enhancing-your-app-content-with-tab-navigation) | AML | An article on Destination Video. It downloads the same zip. |
+| [Enhancing your app's content with tab navigation](https://developer.apple.com/documentation/swiftui/enhancing-your-app-content-with-tab-navigation) | AML | A second sample page for Destination Video. It downloads the same zip. |
 
 ### Combine (13)
 
@@ -368,7 +371,7 @@ tvOS. iPad is a client with its own adaptive layout, so iPadOS samples count.
 | motion study | [Controlling the timing and movements of your animations](https://developer.apple.com/documentation/swiftui/controlling-the-timing-and-movements-of-your-animations) | MIT | Phase and keyframe animators, for spring timing to measure against recordings. |
 | motion study | [Creating visual effects with SwiftUI](https://developer.apple.com/documentation/swiftui/creating-visual-effects-with-swiftui) | MIT | Scroll effects, custom transitions, shaders and a text renderer. |
 | motion study | [Composing advanced graphics effects with SwiftUI](https://developer.apple.com/documentation/swiftui/composing-advanced-graphics-effects-with-swiftui) | MIT | The layered effects from WWDC26, on iOS and macOS 26. |
-| untitled app replica | [Creating visuals with Music Understanding analysis results](https://developer.apple.com/documentation/musicunderstanding/create-visuals-using-musicunderstanding-analysis-results) | MIT | Charts a song's loudness over time, beats and sections: a source for the player's waveform. iOS and macOS 27 only. Also serves project 5. |
+| untitled app replica | [Creating visuals with Music Understanding analysis results](https://developer.apple.com/documentation/musicunderstanding/create-visuals-using-musicunderstanding-analysis-results) | MIT | Charts a song's loudness over time, beats and sections: a source for the player's waveform. iOS, iPadOS, Mac Catalyst, macOS and visionOS 27 only. Also serves project 5. |
 | prototype's Apple half | [Landmarks: Applying a background extension effect](https://developer.apple.com/documentation/swiftui/landmarks-applying-a-background-extension-effect) | AML | `backgroundExtensionEffect()`: artwork that extends under the sidebar on iPad and Mac. |
 | prototype's Apple half | [Landmarks: Extending horizontal scrolling under a sidebar or inspector](https://developer.apple.com/documentation/swiftui/landmarks-extending-horizontal-scrolling-under-a-sidebar-or-inspector) | AML | Shelves that scroll under a sidebar on iPad and Mac. |
 | prototype's Apple half | [Landmarks: Refining the system provided Liquid Glass effect in toolbars](https://developer.apple.com/documentation/swiftui/landmarks-refining-the-system-provided-glass-effect-in-toolbars) | AML | Toolbar groupings that read well in glass. |
@@ -402,7 +405,7 @@ No sample serves project 4 (the CMPP Store) or project 7 (Comics). Unless marked
 | 5 | [Playing custom audio with your own player](https://developer.apple.com/documentation/avfaudio/playing-custom-audio-with-your-own-player) | A gapless queue on `AVSampleBufferAudioRenderer`, with long-form AirPlay 2, for music, audiobooks and podcasts. |
 | 5 | [Integrating CarPlay with Your Music App](https://developer.apple.com/documentation/carplay/integrating-carplay-with-your-music-app) | CarPlay for music, audiobooks and podcasts. |
 | 5 | [Integrating your music app with Apple Intelligence](https://developer.apple.com/documentation/appintents/integrating-your-music-app-with-apple-intelligence) | The audio App Intents schema, so Siri can play from the Library. |
-| 6 | [Building a cross-platform web browser](https://developer.apple.com/documentation/webkit/building-a-cross-platform-web-browser) | SwiftUI `WebView` and `WebPage` on iOS and macOS 26, to host the ebook reader. ADR 0009 keeps ebooks off tvOS. |
+| 6 | [Building a cross-platform web browser](https://developer.apple.com/documentation/webkit/building-a-cross-platform-web-browser) | SwiftUI `WebView` and `WebPage` (iOS and macOS 26; the sample itself needs iOS, iPadOS and macOS 26.4), to host the ebook reader. ADR 0009 keeps ebooks off tvOS. |
 | 8 | [Adopting Picture in Picture playback in tvOS](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-playback-in-tvos) | PiP on tvOS. |
 | 8 | [Creating a seamless multiview playback experience](https://developer.apple.com/documentation/avfoundation/creating-a-seamless-multiview-playback-experience) | Several synchronised players plus AVRouting. |
 | 8 | [Editing and playing HDR video](https://developer.apple.com/documentation/avfoundation/editing-and-playing-hdr-video) | HDR playback. |
@@ -415,7 +418,7 @@ No sample serves project 4 (the CMPP Store) or project 7 (Comics). Unless marked
 | 9 | [Annotating a Map with Custom Data](https://developer.apple.com/documentation/mapkit/annotating-a-map-with-custom-data) | Filming locations as custom annotations with callouts. |
 | 9 | [Decluttering a Map with MapKit Annotation Clustering](https://developer.apple.com/documentation/mapkit/decluttering-a-map-with-mapkit-annotation-clustering) | Clustering many filming locations. |
 | 9 | [Searching, displaying, and navigating to places](https://developer.apple.com/documentation/mapkit/searching-displaying-and-navigating-to-places) | Place names from coordinates, and opening a place in Maps. |
-| 10 | [Building a Full Screen Top Shelf Extension](https://developer.apple.com/documentation/tvservices/building-a-full-screen-top-shelf-extension) | Top Shelf with Continue Watching. |
+| 10 | [Building a Full Screen Top Shelf Extension](https://developer.apple.com/documentation/tvservices/building-a-full-screen-top-shelf-extension) | A full-screen Top Shelf carousel (the sample shows featured movies), to carry CanonCore's Continue Watching. |
 | 10 | [Building Widgets Using WidgetKit and SwiftUI](https://developer.apple.com/documentation/widgetkit/building-widgets-using-widgetkit-and-swiftui) | Home Screen widgets. |
 | 10 | [Accelerating app interactions with App Intents](https://developer.apple.com/documentation/appintents/acceleratingappinteractionswithappintents) | Siri, Spotlight and Shortcuts. |
 | 10 | [Adopting App Intents to support system experiences](https://developer.apple.com/documentation/appintents/adopting-app-intents-to-support-system-experiences) | Intents and entities across system experiences on iOS and macOS 27. AML. |
@@ -443,10 +446,10 @@ No sample serves project 4 (the CMPP Store) or project 7 (Comics). Unless marked
 | Web and browser | 10 | Safari extensions, and a UIKit web view that the SwiftUI one replaces. |
 | Games and haptics | 10 | Games, controllers and haptics. |
 | Video authoring and encoding | 8 | Encoding and editing. The server prepares media on Linux, and HLS interstitials exist for ads. |
-| watchOS | 8 | Not a client. |
+| watchOS | 8 | Not a client. Apple lists iOS for each, but only as the watch app's companion. |
 | Maps and location (not project 9) | 8 | User location, indoor maps and overlays. Filming locations need only the three MapKit samples under Later. |
 | StoreKit, payments and commerce | 8 | CanonCore sells nothing in the app. |
-| Accessibility (covered) | 7 | UIKit, AppKit and WWDC challenge versions of the two SwiftUI accessibility samples under Later. |
+| Accessibility (covered) | 7 | UIKit, AppKit and WWDC challenge versions of the two SwiftUI accessibility samples under Later, plus the Dim Flashing Lights sample for apps that draw their own flashing content. |
 | TVML | 6 | The TV client is SwiftUI. |
 | MusicKit | 3 | The Apple Music catalogue. CanonCore plays its own files. |
 | CarPlay (not media) | 2 | Navigation and food ordering. |
@@ -469,7 +472,8 @@ This note's first two tables named 36 samples. The sweep keeps 31 of them as Kee
   for every client. Vision runs only on Apple devices.
 - **Wishlist and Landmarks keep their places, but their licence is corrected.** Both are AML,
   not MIT (measured, 30 Sep 2026, each zip's `LICENSE.txt`). Landmarks' grant also excludes "any
-  accompanying photographs". Under the rule in Licence, take only their patterns.
+  accompanying photographs". Under the rule in Licence (ADR 0019), their code is copied with
+  Apple's notice kept; Landmarks' photographs are not.
 
 ### Licences found in this sweep
 
@@ -480,7 +484,7 @@ MIT except these AML ones:
 - The older Destination Video zip behind "Customizing window styles".
 - All five Landmarks pages, which share one zip.
 - Wishlist.
-- Localizing Landmarks.
+- Localizing Landmarks, whose grant also excludes "any accompanying photographs".
 - Adopting App Intents to support system experiences.
 - The SharePlay gallery.
 
