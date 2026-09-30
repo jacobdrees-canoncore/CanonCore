@@ -34,14 +34,22 @@ jobs:
         run: |
           lines=$(wc -l < CLAUDE.md)
           echo "CLAUDE.md is $lines lines"
-          if [ "$lines" -gt 200 ]; then
-            echo "::error file=CLAUDE.md::CLAUDE.md is $lines lines, over the 200-line limit set in its own Principles."
+          if [ "$lines" -ge 200 ]; then
+            echo "::error file=CLAUDE.md::CLAUDE.md is $lines lines. The 13th principle in docs/agents/standard.md: \"Keep this file a pointer file, under 200 lines. Repeated gotchas become checks (lint, hooks, CI), not prose here.\""
             exit 1
           fi
+      # CanonCore holds the one copy of the standard, so there is nothing to compare it
+      # with here; each other repository's CI is to compare its copy with this repo's main.
+      - name: CLAUDE.md imports the standard
+        run: |
+          grep -qx '@docs/agents/standard.md' CLAUDE.md || {
+            echo "::error file=CLAUDE.md::CLAUDE.md must import @docs/agents/standard.md on a line of its own."
+            exit 1
+          }
       - name: Agent docs referenced by CLAUDE.md exist
         run: |
           fail=0
-          for f in docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md; do
+          for f in docs/agents/standard.md docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md; do
             [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
           done
           exit $fail
