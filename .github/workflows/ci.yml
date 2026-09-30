@@ -34,12 +34,12 @@ jobs:
         run: |
           lines=$(wc -l < CLAUDE.md)
           echo "CLAUDE.md is $lines lines"
-          if [ "$lines" -gt 200 ]; then
+          if [ "$lines" -ge 200 ]; then
             echo "::error file=CLAUDE.md::CLAUDE.md is $lines lines. The 13th principle in docs/agents/standard.md: \"Keep this file a pointer file, under 200 lines. Repeated gotchas become checks (lint, hooks, CI), not prose here.\""
             exit 1
           fi
       # CanonCore holds the one copy of the standard, so there is nothing to compare it
-      # with here; other repositories' CI compares their copy with this repo's main.
+      # with here; each other repository's CI is to compare its copy with this repo's main.
       - name: CLAUDE.md imports the standard
         run: |
           grep -qx '@docs/agents/standard.md' CLAUDE.md || {
