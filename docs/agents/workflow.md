@@ -1,9 +1,19 @@
 # Workflow: decision to merged slice
 
 How the skills fit together, from a decision to a slice merged on `main`. It is Matt Pocock's main
-flow (`/ask-matt` draws it) with our own skills at the points where it kept going wrong. Every
-repository in the estate works this way; their `CLAUDE.md` files point here. **Main** is the one
-session that plans, dispatches and merges.
+flow (`/ask-matt` draws it) with our own skills at the points where it kept going wrong. **Main** is
+the one session that plans, dispatches and merges.
+
+Every CanonCore repository works this way, and each one's `CLAUDE.md` points here. These are the
+**sibling repositories** a trace reads, with their checkouts:
+
+| Repository | Checkout |
+| --- | --- |
+| `jacobdrees-canoncore/CanonCore` | `~/orca/projects/CanonCore` |
+| `jacobdrees-canoncore/untitled-replica` | `~/canoncore/untitled-replica` |
+| `jacobdrees-canoncore/prototype-snapshot` | `~/canoncore/prototype-snapshot` |
+| `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` |
+| `jacobdrees/claude-skills` | `~/.claude/skills` |
 
 ## The flow
 
@@ -38,7 +48,8 @@ session that plans, dispatches and merges.
 ## Context hygiene
 
 Keep steps 1 to 5 in one unbroken context, so the spec, the tickets and the check are built on the
-grill's thinking rather than a summary of it. Each `/implement` starts fresh from its ticket.
+grill's thinking rather than a summary of it. Matt's window ends at `/to-tickets`; the check joins it
+here because Main runs it straight after. Each `/implement` starts fresh from its ticket.
 
 ## Where verification lives
 

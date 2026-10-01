@@ -53,13 +53,13 @@ merge gate is convention. Do not assume a check blocked anything.
 `orca worktree create` and `orca linear`. Secrets live in `~/.config/canoncore/` and in the
 gitignored `.env`, never in a commit, PR body or log.
 
-## Our skills
+## CanonCore's own skills
 
-Written for this estate and kept in `jacobdrees/claude-skills` (`~/.claude/skills`). How they fit
+Written for CanonCore's repositories and kept in `jacobdrees/claude-skills` (`~/.claude/skills`). How they fit
 from a decision to a merged slice: [`docs/agents/workflow.md`](docs/agents/workflow.md).
 
-- `tracing-a-decision`: before an ADR, a spec or a `CONTEXT.md` term is recorded or changed; lists
-  every sentence the decision makes false and verifies what it rests on.
+- `tracing-a-decision`: once, at a grill's end, before its ADRs, spec changes or `CONTEXT.md` terms
+  are committed; lists every sentence they make false and verifies what they rest on.
 - `verify`: when a version, limit, price or a just-made ticket, PR or doc is about to bear weight.
 - `checking-a-spec`: straight after `/to-tickets`; nothing of the spec is dispatched until it runs clean.
 - `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
