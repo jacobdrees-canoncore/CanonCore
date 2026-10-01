@@ -9,6 +9,13 @@ with the standard kept in one place. Every new repository lives in the `jacobdre
 and files its tickets in the existing Linear workspace `jacobrees-canoncore`, team `CC`, project
 Design references (Owner, 30 Sep 2026), so no org, workspace or team is ever created for one.
 
+**Changed 1 Oct 2026 by the Owner:** the standard is written inline in every repository's
+`CLAUDE.md`, not imported ("I really wanted that to stay in CLAUDE.md and everyone's CLAUDE.mds",
+CC-84). The master copy is CanonCore's `CLAUDE.md`, between the lines `<!-- standard:start -->` and
+`<!-- standard:end -->`; every other repository carries the identical block between the same
+markers, and its CI compares the two. The separate standard file this note first recommended was
+made in #14 and deleted by CC-84. The recommendation below is written to that decision.
+
 "(measured, 30 Sep 2026)" means read or run on this Mac on this date. Everything else is linked, or
 listed under "Claims not sourced".
 
@@ -35,11 +42,11 @@ repository copies once with no link back. What Free does give is 2,000 Actions m
 private repositories, and a private repository's workflow may read anything in CanonCore, because
 CanonCore is public.
 
-**Recommendation:** keep the text in one file in CanonCore, `docs/agents/standard.md`, which
-CanonCore's own `CLAUDE.md` imports. Make `setup-orca-linear-project` the one way a repository gets
+**Recommendation:** keep the master text in CanonCore's own `CLAUDE.md`, between two marker
+comments, and carry the same block inline in every other repository's `CLAUDE.md`. Make `setup-orca-linear-project` the one way a repository gets
 it: a new "Add a repository to an existing project" path that runs only the repo-level steps, whose
-template imports that file instead of carrying its own copy, and whose `ci.yml` fails when a
-repository's copy differs from CanonCore's `main`. A new repository gets it from the first ticket of
+template carries the block fetched from CanonCore, and whose `ci.yml` fails when a
+repository's block differs from CanonCore's `main`. A new repository gets it from the first ticket of
 its spec. A change to the standard is one CanonCore PR; every other repository then goes red at its
 next push or on Monday's scheduled run, and the error prints the one-line fix.
 
@@ -212,19 +219,18 @@ checks themselves change often enough to hurt.
 
 ## Recommendation
 
-**One file holds the standard: `docs/agents/standard.md` in CanonCore.** It carries "Most Important:
-Verify, don't recall" and the Principles, merged from both copies (draft below). CanonCore's
-`CLAUDE.md` replaces those two sections with `@docs/agents/standard.md`. A relative import inside the
-repository needs no approval. Everything CanonCore-only stays in CanonCore's `CLAUDE.md`: "How a
+**CanonCore's `CLAUDE.md` holds the master copy,** between `<!-- standard:start -->` and
+`<!-- standard:end -->`. The block carries "Most Important: Verify, don't recall" and the
+Principles, merged from both copies (draft below). HTML comments are stripped before Claude reads
+the file, so the markers cost no context. Everything CanonCore-only stays in CanonCore's `CLAUDE.md`: "How a
 project closes" (the Owner's walk on their install, the accessibility pass and axe, the README
 recording, diagram and ADR links, and "never the habits of this product's earlier attempt"),
 Commands, and the Gotchas about `main`'s ruleset, which only a public repository has.
 
 **Each repository gets, at creation:**
 
-- `docs/agents/standard.md`, a byte-for-byte copy fetched from CanonCore's `main`.
-- `CLAUDE.md` from the template: its own summary, then `@docs/agents/standard.md`, then its own
-  Rules, Commands, Gotchas, Working substrate and landing. Under 200 lines.
+- `CLAUDE.md` from the template: its own summary, then the marked block copied byte for byte
+  from CanonCore's `main`, then its own Rules, Commands, Gotchas, Working substrate and landing. Under 200 lines.
 - `docs/agents/issue-tracker.md` (Linear `jacobrees-canoncore`, team `CC`, project Design references,
   and how this repo lands), plus `triage-labels.md` and `domain.md` copied from CanonCore.
 - `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.claude/settings.json` and `.gitignore` from
@@ -237,26 +243,27 @@ Commands, and the Gotchas about `main`'s ruleset, which only a public repository
    14 (the copy form above), 15, and 16 only for a repo that lands by PR. Keep
    `disable-model-invocation: true`, since the full skill creates orgs and workspaces; the first
    ticket names the section and the worker reads the file by path.
-2. **Delete the template's Principles and Verify sections** and put in their place the import line
-   and the fetch command. The skill then holds no copy of the text, only the way to get it.
+2. **Delete the template's Principles and Verify sections** and put in their place the two markers
+   and the command that fills the block from CanonCore's `main`. The skill then holds no copy of the
+   text, only the way to get it.
 3. **Add two steps to `templates/ci.yml`'s "Agent docs" job**, and a weekly `schedule` so an idle
-   repository still goes red. The same two steps without the comparison go into CanonCore's own
-   `ci.yml`, since the source cannot be compared with itself on a PR that changes it:
+   repository still goes red: one that the markers exist and wrap a non-empty block, and one that
+   the block matches CanonCore's `main`. CanonCore's own `ci.yml` runs only the first ("CLAUDE.md
+   carries the standard between its markers"), since the master cannot be compared with itself on a
+   PR that changes it. The comparison extracts the block, markers included, from both files:
 
    ```yaml
-   - name: CLAUDE.md imports the standard
-     run: grep -qx '@docs/agents/standard.md' CLAUDE.md || { echo "::error file=CLAUDE.md::CLAUDE.md must import @docs/agents/standard.md on a line of its own"; exit 1; }
    - name: The standard matches CanonCore's main
      run: |
-       url=https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/docs/agents/standard.md
-       curl -fsSL "$url" -o "$RUNNER_TEMP/standard.md"
-       cmp -s "$RUNNER_TEMP/standard.md" docs/agents/standard.md || {
-         diff "$RUNNER_TEMP/standard.md" docs/agents/standard.md
-         echo "::error file=docs/agents/standard.md::differs from CanonCore main. Fix: curl -fsSL $url -o docs/agents/standard.md"
+       url=https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/CLAUDE.md
+       block() { sed -n '/^<!-- standard:start -->$/,/^<!-- standard:end -->$/p' "$1"; }
+       curl -fsSL "$url" -o "$RUNNER_TEMP/CLAUDE.md"
+       diff <(block "$RUNNER_TEMP/CLAUDE.md") <(block CLAUDE.md) || {
+         echo "::error file=CLAUDE.md::The standard block differs from CanonCore main. Fix: replace the lines between the markers with the same lines in $url"
          exit 1; }
    ```
 
-4. **Fix the 200-line error text** in both `ci.yml` files to name the Principle that now states it.
+4. **Keep the 200-line check,** its error quoting the 13th Principle.
 
 **A new repository gets it from the first ticket of its spec,** "Start the `<name>` repository",
 whose acceptance criteria are the file list above and a green first CI run. The two existing
@@ -264,7 +271,7 @@ repositories each need one ticket to catch up: `untitled-replica` (CI runs when 
 pushes `main`) and `prototype-snapshot` (after CC-42 lands, so the running agent is not disturbed).
 
 **A change to the standard reaches every repository like this:** a CanonCore PR edits
-`docs/agents/standard.md`. Each other repository's next push, or Monday's scheduled run, fails
+the block in `CLAUDE.md`. Each other repository's next push, or Monday's scheduled run, fails
 "The standard matches CanonCore's main" with the fix printed, and whoever works there next lands the
 copy the way that repository lands anything. A change to the other templates (`ci.yml`,
 `settings.json`, `.gitignore`) does not travel on its own: it is re-applied per repository with
@@ -275,12 +282,9 @@ step 15's `rsync`, which is honest for files that change a few times a year.
 test, a Swift build); Dependabot ecosystems; `.gitignore` additions such as `/captures/`; browser
 exceptions such as untitled's Playwright capture; and `issue-tracker.md`'s landing section.
 
-### Draft `docs/agents/standard.md`
+### Draft of the standard block
 
 ```markdown
-<!-- The one copy of the standard every CanonCore repository imports. Edit it only in
-jacobdrees-canoncore/CanonCore; every other repository's CI compares its copy with main. -->
-
 ## Most Important: Verify, don't recall
 
 Look up any version, API signature, limit or price before stating it (`context7` for a library,
@@ -314,7 +318,7 @@ Owner may want that said, or left to each repository's landing rules.
   already enforces, dropping the template's `.claude/rules/` advice (reference, better in
   `writing-for-agents`). Either original could win instead.
 - **Sift and XMCP** carry the template's older text. Once the template stops carrying its own copy,
-  a future non-CanonCore project would import CanonCore's standard too; whether that is wanted, or
+  a future non-CanonCore project would carry CanonCore's standard block too; whether that is wanted, or
   those projects keep their own, is a separate call.
 
 ## Claims not sourced
