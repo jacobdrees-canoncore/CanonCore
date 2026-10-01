@@ -32,6 +32,7 @@ publish, check what competitors do and run `/verify` on every claim a decision r
 - Report status with evidence. "Tests pass" requires the command and its output. If a check was skipped, or failed, say so plainly rather than describing the work as complete.
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - Keep this file a pointer file, under 200 lines. Repeated gotchas become checks (lint, hooks, CI), not prose here.
+<!-- standard:end -->
 
 ## How a project closes
 
