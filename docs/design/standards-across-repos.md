@@ -284,6 +284,9 @@ exceptions such as untitled's Playwright capture; and `issue-tracker.md`'s landi
 
 ### Draft of the standard block
 
+The 30 Sep proposal, kept as the record of what was weighed. The text in force is the block in
+CanonCore's `CLAUDE.md`, whose 13th Principle kept CanonCore's own wording.
+
 ```markdown
 ## Most Important: Verify, don't recall
 
