@@ -56,7 +56,7 @@ jobs:
       - name: Agent docs referenced by CLAUDE.md exist
         run: |
           fail=0
-          for f in docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md; do
+          for f in docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md docs/agents/workflow.md; do
             [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
           done
           exit $fail

@@ -218,7 +218,7 @@ to simulate pages in hard-to-reach states", and only then integrate with the bac
 ([Component Driven UIs](https://www.componentdriven.org/)). *Done when* the Owner has picked a
 variant per screen on each client, DESIGN.md holds the tokens, and the verdicts are on CC-2.
 
-**Step 8. Refresh CC-2 and build project 1.** `/grill-me` on its open decisions, `/to-spec`,
+**Step 8. Refresh CC-2 and build project 1.** `/grill-with-docs` on its open decisions, `/to-spec`,
 `/to-tickets`, `/implement` (CC-2 header and D-98 step 9). *Done when* its own "Done when" is met:
 the Owner imports Doctor Who (2005), matches Rose.mkv, watches it on the Apple TV and resumes it on
 the iPhone, the Mac and the web, and walks it with the accessibility pass (`CLAUDE.md`, "How a
