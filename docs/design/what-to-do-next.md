@@ -19,6 +19,13 @@
 > America.gov, and the brand no longer feeds the prototype. Later the same day the replica's
 > coverage report was regenerated (13:41 UTC: 27 captured, 2 partial, 21 not captured, 12 built).
 > The research below stands as a snapshot of 30 Sep.
+>
+> **Superseded in part again, 2 Oct 2026.** ADR 0023 replaces the web styling stack (ADR 0021):
+> the web client uses Arc as it ships, shadcn on Radix, DESIGN.md as a mirror of Arc's tokens and
+> no shadcn/lint; ObsidianUI and uselayouts are dropped. So "Adopt: shadcn/lint" and "Evaluate:
+> Arc and ObsidianUI" below, step 4, recommendation 5 and the licence table's ObsidianUI,
+> uselayouts and shadcn-ui/lint rows describe a plan that has ended. The accessibility pass at a
+> spec's audit, which replaced "How a project closes", does not report missing focus rings.
 
 Research note, 30 Sep 2026. Question from Jacob: "what we should do and in what order", written
 so the plan can be grilled with `/grill-with-docs`. It covers the design references (the

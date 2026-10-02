@@ -50,7 +50,8 @@ Every CanonCore repository works this way, and each one's `CLAUDE.md` points her
    blocked by all of them, and the round repeats until an audit files nothing. That last audit also
    reads every acceptance criterion off the code, checks the records, and carries the Owner's walk,
    the accessibility pass and the README additions, or what the spec names in their place. The
-   Owner sets it Done after the walk, and the spec closes with it.
+   accessibility pass does not report missing focus rings, since the web client draws none (ADR
+   0023). The Owner sets it Done after the walk, and the spec closes with it.
 
 ## Context hygiene
 

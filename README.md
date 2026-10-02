@@ -21,4 +21,6 @@ tracker, triage label and domain doc conventions.
 
 ## Licence
 
-AGPL-3.0. See [LICENSE](LICENSE).
+AGPL-3.0. See [LICENSE](LICENSE). Arc Pro files, once any are added, keep their Arc Pro notice, are not
+covered by the AGPL, and ship under an additional permission under AGPL section 7 (ADR 0018); this
+section will name each one. There are none yet.
