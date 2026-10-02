@@ -102,9 +102,16 @@ If this team has GitHub PR automation configured, these transitions happen on th
 Do not set these states by hand with `orca linear status set`. Open the PR and let the automation
 fire; setting it manually hides whether the linkage actually works.
 
-Link a PR to an issue by putting the identifier in the branch name (Orca does this when a
-worktree is created with `--linear-issue`) or by a magic word in the PR body:
-`Fixes CC-12`. Use `Refs CC-12` to touch a ticket without closing it.
+Link a PR to an issue by putting the identifier in the branch name (Orca names the branch from
+`--name`, so a worktree named `cc-12` carries it) or by a magic word in the PR body: `Fixes CC-12`.
+A branch carrying the identifier links as if closing, and Linear does not document whether a
+`Part of` in the body overrides it, so a ticket that must stay open keeps its id out of the branch.
+
+**Audit tickets are the exception.** Which audit is a spec's last is known only when it files
+nothing, so every audit's worktree `--name` leaves the identifier out and its PR says
+`Part of CC-12`, which links it without closing it on merge (linear.app/docs/github, non-closing
+magic words). An audit that filed follow-ups is set Done by hand when it merges; the one that filed
+nothing stays open until the Owner has walked it, and the Owner sets it Done.
 
 `orca linear status set` is still correct for states no PR event covers, such as Canceled.
 

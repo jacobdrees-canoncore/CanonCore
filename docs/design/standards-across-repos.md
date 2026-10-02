@@ -227,6 +227,10 @@ project closes" (the Owner's walk on their install, the accessibility pass and a
 recording, diagram and ADR links, and "never the habits of this product's earlier attempt"),
 Commands, and the Gotchas about `main`'s ruleset, which only a public repository has.
 
+_Since 2 October 2026 "How a project closes" is gone: the walk, the accessibility pass and the README
+additions moved into every spec's last audit, and the block gained the audit-ticket line
+(`docs/agents/workflow.md`, step 8)._
+
 **Each repository gets, at creation:**
 
 - `CLAUDE.md` from the template: its own summary, then the marked block copied byte for byte

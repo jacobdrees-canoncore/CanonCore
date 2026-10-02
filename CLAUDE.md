@@ -32,14 +32,14 @@ publish, check what competitors do and run `/verify` on every claim a decision r
 - Report status with evidence. "Tests pass" requires the command and its output. If a check was skipped, or failed, say so plainly rather than describing the work as complete.
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - Keep this file a pointer file, under 200 lines. Repeated gotchas become checks (lint, hooks, CI), not prose here.
+- End every spec's tickets with an audit ticket, blocked by all the others, that runs `auditing-a-spec`. It checks what was built against the spec's own stories and every spec blocked by it, files every gap as a follow-up, and repeats until an audit files nothing; the Owner walks the last one.
 <!-- standard:end -->
 
-## How a project closes
+## Rebuilding
 
-- A project closes only after the Owner has walked it on their own install; every stall found becomes a ticket before close.
-- The same walk includes a manual accessibility pass (keyboard only, a screen reader, 200% zoom). CI runs axe on every web merge; together they are "automated checks plus a manual review", never called WCAG compliance.
-- Each close adds to the README: a short screen recording, an architecture diagram, and links to the founding ADRs it built on.
 - Follow industry practice and what competitors do today, never the habits of this product's earlier attempt.
+- CI runs axe on every web merge. With the manual pass in each spec's last audit (keyboard only, a screen
+  reader, 200% zoom) they are "automated checks plus a manual review", never called WCAG compliance.
 
 ## Commands
 
@@ -64,7 +64,9 @@ from a decision to a merged slice: [`docs/agents/workflow.md`](docs/agents/workf
 - `checking-a-spec`: straight after `/to-tickets`; nothing of the spec is dispatched until it runs clean.
 - `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
 - `tracker-sweep`: when asked, to repair tickets that drifted from the tracker doc's filing standard.
-- `closing-a-spec`: when a spec's last ticket merges, before the Owner walks the install.
+- `auditing-a-spec`: the audit ticket every spec ends with. It carries the Owner's walk, the
+  accessibility pass and the README additions on its last, clean round. Being built; until it lands,
+  `closing-a-spec` closes a spec.
 - `design-panel`: the Owner invokes it, to put one UI question past nine design lenses.
 - `setup-orca-linear-project`: the Owner invokes it, to stand up a project or add a repository.
 
@@ -86,5 +88,6 @@ Single-context: one `CONTEXT.md` and one `docs/adr/` at the root. See `docs/agen
 
 ## Working substrate
 
-Every implementer runs in an Orca worktree bound with `--linear-issue CC-<n>`. Use Orca's browser
+Every implementer runs in an Orca worktree bound with `--linear-issue CC-<n>`. An audit ticket's
+`--name` leaves the ticket id out, so its merge does not close it (`docs/agents/issue-tracker.md`). Use Orca's browser
 and `orca terminal` rather than Playwright or ad hoc PTYs.

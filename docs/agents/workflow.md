@@ -29,7 +29,9 @@ Every CanonCore repository works this way, and each one's `CLAUDE.md` points her
    fix land together.
 3. **Spec.** `/to-spec` turns the thread into a spec in Linear.
 4. **Tickets.** `/to-tickets` splits it into tracer-bullet tickets, each a sub-issue of the spec
-   with its `blocked-by` edges.
+   with its `blocked-by` edges, and ends them with an **audit ticket** blocked by all the others.
+   A later spec that builds on this one is blocked by that first audit, and by any follow-up it
+   needs in particular.
 5. **Check.** Main runs `checking-a-spec` straight after: five angles over the spec and every
    ticket, each finding put to a refuter. The Owner chooses reshape, fix or read, and it re-runs
    over whatever was rewritten until a run comes back clean. **Nothing is dispatched before clean.**
@@ -40,10 +42,15 @@ Every CanonCore repository works this way, and each one's `CLAUDE.md` points her
    can answer goes to the agent's own question widget, never to Main; with the Owner away, the
    agent writes `OWNER-QUESTION.md` and stops. A defect found at merge goes back through
    `/implement`, never as a free-text fix.
-8. **Close.** When the spec's last ticket merges, Main runs `/closing-a-spec`: the install walked,
-   every acceptance criterion read off the code, the records checked, and a ticket for whatever is
-   wrong. Then Main guides the Owner's own walk of their install, with the accessibility pass, and
-   every stall becomes a ticket. The spec closes after that walk.
+8. **Audit.** The audit ticket runs `auditing-a-spec` (being built; until it lands,
+   `/closing-a-spec`). Every row of what the spec and the specs blocked by it need gets one verdict:
+   COVERED, PRESENT-UNCHECKED, GAP-FILLABLE, GAP-UNFILLABLE or OUT. It adds a check for what is
+   built but unchecked, each with a mutation that removes exactly that state; it fills nothing. Every
+   gap goes through `/to-tickets` as a follow-up per theme, blocked by the audit, with a re-audit
+   blocked by all of them, and the round repeats until an audit files nothing. That last audit also
+   reads every acceptance criterion off the code, checks the records, and carries the Owner's walk,
+   the accessibility pass and the README additions, or what the spec names in their place. The
+   Owner sets it Done after the walk, and the spec closes with it.
 
 ## Context hygiene
 
