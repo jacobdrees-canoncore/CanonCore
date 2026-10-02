@@ -11,15 +11,15 @@ Everything imported into an install of CanonCore, owned or not.
 _Avoid_: catalogue, collection, database
 
 **Item**:
-One thing in the Library: a film, show, season, story, episode, part, book, issue, track, audio drama or extra. It exists whether or not any media for it exists.
-_Avoid_: record, entry, title, work, media item
+One thing in the Library: a film, show, season, story, episode, part, book, issue, track, work, audio drama or extra. It exists whether or not any media for it exists.
+_Avoid_: record, entry, title, media item
 
 **Edition**:
 One cut of an Item, with its own runtime and watched state: broadcast, remastered, extended, a reconstruction. Every Item has a default Edition.
 _Avoid_: cut, release (for a cut), version (for a cut)
 
 **Version**:
-One copy of an Edition, such as 1080p, 4K or NTSC.
+One copy of an Edition, such as 1080p, 4K, PAL or NTSC.
 _Avoid_: file (for the concept), copy, edition (for a quality)
 
 **Segment**:
@@ -77,11 +77,15 @@ A release by an Artist, holding Tracks.
 _Avoid_: record, release group (as the level)
 
 **Track**:
-One recording on an Album.
+One recording on an Album, a "recording of" the Work it performs where one is known.
 _Avoid_: song (as the level), record
 
+**Work**:
+A composition: the song or piece that Tracks perform, credited to its writers. A Work is its own Item, beside the Artist, Album, Track hierarchy rather than in it.
+_Avoid_: composition (as the term), song (for this), piece
+
 **Music cue**:
-A Track heard in an Item, with its start time, duration and order, sourced like any Statement.
+A Track heard in an Item, with its start time, duration and order, sourced like any Statement. It holds a Track or, until it is imported, only the Provider's title and id, shown as song and artist; importing the Track attaches it to the same cue.
 _Avoid_: song (for this), sync, needle drop
 
 **Book series**:
@@ -189,7 +193,7 @@ A typed link between two Entities, such as parent of, member of or located in.
 _Avoid_: Relationship (between Entities), relation, association
 
 **Relationship**:
-A typed, directed link between two Items: based on, spin-off of, soundtrack of, remake of, version of, crossover with.
+A typed, directed link between two Items: based on, spin-off of, soundtrack of, remake of, version of, crossover with, recording of.
 _Avoid_: relation, association, Entity link (between Items), link (for Matches), Prerequisite (for "watch first")
 
 ### Providers and provenance
@@ -211,7 +215,7 @@ The in-app listing of public Providers that an Admin can install. A private Prov
 _Avoid_: marketplace, plugin repository
 
 **Proposal**:
-What a Provider offers to add to or change in the Library structure, imported only when an Admin accepts it.
+What a Provider, or a file an Admin imports, offers to add to or change in the Library structure, imported only when an Admin accepts it.
 _Avoid_: suggestion, candidate, sync
 
 **Rejection**:
@@ -223,11 +227,11 @@ The attachment of a media file to an Item's Edition as a Version.
 _Avoid_: link, identify, attach
 
 **Statement**:
-One value for one field of one Item, from one Source. The shown value is the winning Statement.
+One value for one field of one Item, from one Source. The shown value is the winning Statement: a Lock, or else the Statement of the Provider ranked first for that field.
 _Avoid_: fact, claim, property value
 
 **Source**:
-Where a Statement came from: a Provider, a local file, or an Admin.
+Where a Statement came from: a Provider, a local file, an Admin, or a file the Admin imports, such as a CBL reading list, which records the origin it states and "no licence stated".
 _Avoid_: origin, provenance (as the noun for one source)
 
 **Lock**:
@@ -249,11 +253,11 @@ An Account allowed to edit the Library, install Providers and invite people.
 _Avoid_: owner (as the role), superuser
 
 **Continue Watching**:
-A Profile's row of started, unfinished Items.
+A Profile's row of started, unfinished Items, and the next Item after one it finished, taken from the Ordering it was walking.
 _Avoid_: on deck, in progress, resume row
 
 **Progress**:
-Where a Profile is in an Edition.
+Where a Profile is in an Edition, kept for video and audio as a proportion of the Version's runtime, so switching Versions lands on the same scene.
 _Avoid_: resume point
 
 **Invite**:
