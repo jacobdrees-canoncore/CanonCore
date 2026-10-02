@@ -14,7 +14,7 @@ The web client (React 19, Vite and TanStack Router, ADR 0016) uses Tailwind CSS 
 
 ## Consequences
 
-- The replica (React 19, Vite 8, Tailwind 4) and the folder component (Tailwind 4 and Motion 12) port without changing styling or animation engine: the folder's Astro markup and imperative Motion calls are rewritten as React components on Motion for React, and the replica's React Router routes as TanStack Router routes.
+- The replica (React 19, Vite 8, Tailwind 4) and the folder component (Tailwind 4 and Motion 12) port without changing styling or animation engine: the folder's Astro markup and imperative Motion calls are rewritten as React components on Motion for React, and the replica's React Router routes as TanStack Router routes. Under ADR 0023 this no longer holds for styling: the web client styles with Arc's CSS modules, so the replica's and the folder's Tailwind classes are ported onto Arc's roles, not carried over.
 - `@shadcn/lint` "works with Tailwind v4 projects (shadcn/ui not required)" and gives coding agents rules they can verify; DESIGN.md's own `lint` checks the file itself. Superseded: ADR 0023 drops `@shadcn/lint`, and agents follow Arc's rules instead.
 - Arc, ObsidianUI and uselayouts install through the shadcn CLI, so they arrive as registry source rather than as runtime dependencies. ADR 0023 keeps Arc only; ObsidianUI and uselayouts are dropped.
 - On npm on 2026-09-30 (not re-read for ADR 0023, which names shadcn 4.21.1): tailwindcss 4.3.3, motion 13.4.6 (MIT), shadcn 4.21.0 and @shadcn/lint 0.2.0.

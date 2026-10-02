@@ -111,7 +111,7 @@ prefix or scoping option for any of this.
 **Correction, 2 Oct 2026.** Re-verified for ADR 0023: Radix in 17 of 123 free items, never Base UI. A
 second read of `/r/registry.json` at 13:07 UTC the same day found 128 items, all `tier: "free"`,
 with 19 using Radix (button-group and floating-button-group added) and the same nine packages: the
-registry grows, so quote a count with its date. The tally below is the 1 Oct snapshot.
+registry grows, so quote a count with its date. The tally below is the 1 Oct snapshot of 124 items; why the 2 Oct verify counted 123 free items was not traced.
 
 Source: https://uiarc.dev/r/registry.json (shadcn `registry.json` schema, name `arc`, 124 items: `arc-foundation`,
 `arc-skill`, 100 `registry:ui`, 22 `registry:block`). `/r/index.json` and `/registry.json` return 404. Full tally of

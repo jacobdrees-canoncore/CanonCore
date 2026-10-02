@@ -1,10 +1,10 @@
 # The code is AGPL-3.0
 
-The code is AGPL-3.0, so anyone who runs a modified CanonCore for other people must offer those users the Corresponding Source of their version (AGPL-3.0 section 13). Nobody can turn it into a closed hosted service. Provider data is used under each Provider's own terms, most of them non-commercial, which the README states and the app shows as attribution (Settings › About, plus TMDB's logo and notice). Where a Provider's terms ask for credit on every page that uses its data, each such page links back to the source, built from the Source every value already carries.
+The code is AGPL-3.0, so anyone who runs a modified CanonCore for other people must offer those users the Corresponding Source of their version (AGPL-3.0 section 13). Nobody can turn it into a closed hosted service. Provider data is used under each Provider's own terms, most of them non-commercial, which the README states and the app shows as attribution (Settings › About, plus TMDB's logo and notice). Where a Provider's terms ask for credit on every page that uses its data, each such page links back to the source, built from the Source every value already carries. Arc Pro files ship under an additional permission, below.
 
 ## Arc Pro files (ADR 0023, 2 Oct 2026)
 
-Arc Pro files may ship in the public repository under an additional permission granted by AGPL-3.0 section 7, which lets a copyright holder add permissions that recipients may also remove. The README names the files it covers, and each keeps its Arc Pro notice. The notice starts from the GNU FAQ's sample (gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs), adapted to the AGPL:
+Arc Pro files may ship in the public repository under an additional permission granted by AGPL-3.0 section 7, which lets a copyright holder add permissions that recipients may also remove. The README names the files it covers, and each keeps its Arc Pro notice. The permission's text starts from the GNU FAQ's sample (gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs), adapted to the AGPL:
 
 > Additional permission under GNU AGPL version 3 section 7
 >

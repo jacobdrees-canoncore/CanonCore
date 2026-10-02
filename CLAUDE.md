@@ -40,8 +40,8 @@ publish, check what competitors do and run `/verify` on every claim a decision r
 - Follow industry practice and what competitors do today, never the habits of this product's earlier attempt.
 - CI runs axe on every web merge. With the manual pass in each spec's last audit (keyboard only, a screen
   reader, 200% zoom) they are "automated checks plus a manual review", never called WCAG compliance.
-  CanonCore claims no WCAG 2.2 AA conformance, and the keyboard pass does not report missing focus
-  rings: the web client draws none, as Arc ships (ADR 0023).
+  CanonCore claims no WCAG 2.2 AA conformance, and on the web the keyboard pass does not report
+  missing focus rings: the web client draws none, as Arc ships (ADR 0023; Apple waits on CC-39).
 
 ## Commands
 
