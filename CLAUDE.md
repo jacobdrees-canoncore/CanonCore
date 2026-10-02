@@ -97,6 +97,6 @@ yet). Agents use Arc's MCP server, its `arc` skill at project scope (`.claude/sk
 
 ## Working substrate
 
-Every implementer runs in an Orca worktree bound with `--linear-issue CC-<n>`. An audit ticket's
+Every implementer runs in an Orca worktree bound with `--linear-issue CC-<n>`. How many run at once is in `docs/agents/dispatching.md`. An audit ticket's
 `--name` leaves the ticket id out, so its merge does not close it (`docs/agents/issue-tracker.md`). Use Orca's browser
 and `orca terminal` rather than Playwright or ad hoc PTYs.
