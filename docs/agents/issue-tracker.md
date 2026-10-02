@@ -65,6 +65,9 @@ orca linear attach --current --url <pr-url> --title "PR link" --json
 
 Multi-line bodies go through `--body-file -` on stdin, never a giant `--body` string.
 
+**File every audit ticket with `--label audit`**: the one `/to-tickets` ends a spec with, and each
+re-audit. Dispatch recognises an audit by that label alone (the audit exception, under Status).
+
 **Always pass `--state`.** The CLI writes as an OAuth integration, and Linear routes
 integration-authored issues to the Triage inbox *only when no state is named*. Triage is excluded
 from every default view, so a ticket filed without a state is invisible, not merely unaccepted.
@@ -110,8 +113,10 @@ A branch carrying the identifier links as if closing, and Linear does not docume
 **Audit tickets are the exception.** Which audit is a spec's last is known only when it files
 nothing, so every audit's worktree `--name` leaves the identifier out and its PR says
 `Part of CC-12`, which links it without closing it on merge (linear.app/docs/github, non-closing
-magic words). An audit that filed follow-ups is set Done by hand when it merges; the one that filed
-nothing stays open until the Owner has walked it, and the Owner sets it Done.
+magic words). Every audit ticket carries the label `audit` (Writing, above):
+dispatch recognises an audit by it alone, and gives one without it the ordinary brief and a branch
+that closes it. An audit that filed follow-ups is set Done by hand when it merges;
+the one that filed nothing stays open until the Owner has walked it, and the Owner sets it Done.
 
 `orca linear status set` is still correct for states no PR event covers, such as Canceled.
 
