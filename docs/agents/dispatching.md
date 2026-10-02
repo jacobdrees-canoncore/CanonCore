@@ -15,7 +15,7 @@ There is no fixed number of agents. The ceiling is whatever actually contends on
   memory is about 45% free or more, swap is not near full, and no other open branch or pull request in
   that repository touches the files the ticket names.
 
-Before each dispatch, check `memory_pressure`, `sysctl vm.swapusage` and the target repository's open
+After every merge, look across every lane and the free spikes for anything that now fits, not only the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026. Before each dispatch, check `memory_pressure`, `sysctl vm.swapusage` and the target repository's open
 pull requests and worktrees, and say which check allowed it. `monitor.sh`'s `ROOM` line counts only
 this repository's worktrees and cannot see the sibling repositories, so count running agents yourself.
 
