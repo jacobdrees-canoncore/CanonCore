@@ -110,8 +110,10 @@ A branch carrying the identifier links as if closing, and Linear does not docume
 **Audit tickets are the exception.** Which audit is a spec's last is known only when it files
 nothing, so every audit's worktree `--name` leaves the identifier out and its PR says
 `Part of CC-12`, which links it without closing it on merge (linear.app/docs/github, non-closing
-magic words). An audit that filed follow-ups is set Done by hand when it merges; the one that filed
-nothing stays open until the Owner has walked it, and the Owner sets it Done.
+magic words). Every audit ticket, the one `/to-tickets` ends a spec with and each re-audit, carries
+the label `audit`: dispatch recognises an audit by it alone, and gives one without it the ordinary
+brief and a branch that closes it. An audit that filed follow-ups is set Done by hand when it merges;
+the one that filed nothing stays open until the Owner has walked it, and the Owner sets it Done.
 
 `orca linear status set` is still correct for states no PR event covers, such as Canceled.
 
