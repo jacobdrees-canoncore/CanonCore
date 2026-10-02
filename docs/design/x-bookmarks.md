@@ -19,9 +19,9 @@ An app with no website is recreated as a **SwiftUI replica** of its key screens,
 
 - **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep.
 - **The frosted-folder portfolio gives CanonCore one signature component, the folder (ADR 0020); untitled.stream is the foundation.** The folders' contents peek out and open into springy galleries (github.com/fayazara/portfolio-site-template). It is not recreated: its own code is used, with the author's permission, and ships once a licence is in its repo (ADR 0019). (Revised 30 Sep: this bullet first called the portfolio the foundation.)
-- **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore.
-- **Evaluate as web-client dependencies:** Arc and ObsidianUI.
-- **Study, and use where they fit:** Bencho.dev (a favourite), React Bits Micro, Interaction Kit, uselayouts (MIT), dqnamo's Kitchen, Cuelume, dither-kit, the progressive-blur component, and fayazara's macOS app skills for the Mac app.
+- **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore. (Revised 2 Oct, ADR 0023: `@shadcn/lint` is dropped; DESIGN.md stays as a mirror of Arc's tokens.)
+- **Evaluate as web-client dependencies:** Arc and ObsidianUI. (Revised 2 Oct, ADR 0023: the web client uses Arc as it ships; ObsidianUI is dropped.)
+- **Study, and use where they fit:** Bencho.dev (a favourite), React Bits Micro, Interaction Kit, uselayouts (MIT), dqnamo's Kitchen, Cuelume, dither-kit, the progressive-blur component, and fayazara's macOS app skills for the Mac app. (Revised 2 Oct, ADR 0023: uselayouts is dropped; on the web, anything used here meets Arc's rules.)
 - **Assets and tools:** Grainient, perhaps paid; texture packs; Grainrad; a Midjourney style code; Appthetics as one way to make a mascot.
 - **CanonCore needs a brand, including a mascot.** Mascot and branding research is its own piece of work, later; bookmarks 21, 23, 68, 69 and 75 feed it.
 - **A possible philosophy for the iOS app:** use Apple's system components as they ship and let content carry the brand (bookmark 24).
@@ -33,6 +33,8 @@ What Jacob kept returning to, for whoever designs the prototype:
 - **Physical media**: object-like icons, stamps, shelves, crates, records, collectible cards.
 - **Dither and ASCII**: dithered gradients, halftone screens and character-grid images.
 - **Serif mixed with sans**: an editorial or bookish serif for titles over a plain sans UI.
+
+Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: Geist and Inter only, weights 400 and 500, and no decorative gradients or glows. The prototype decides which gradients count as decorative; a serif on the web means revisiting the type rule.
 
 ## Follow-ups
 
@@ -55,12 +57,12 @@ What Jacob kept returning to, for whoever designs the prototype:
 
 ### UI system (18)
 
-- 7. @eliakuratli, Arc UI site, recommended as an AI-agent skill source: Arc, study and evaluate as a web-client dependency (covers n=7, 9, 10)
+- 7. @eliakuratli, Arc UI site, recommended as an AI-agent skill source: Arc, study and evaluate as a web-client dependency (covers n=7, 9, 10). Since 2 Oct: adopted whole (ADR 0023)
 - 9. @eliakuratli, Arc UI library launch reel: stateful controls, rolling numbers, dashboards: Arc (answered with n=7)
 - 10. @eliakuratli, Arc: a React component library with calm, per-state motion: Arc (answered with n=7)
-- 18. @athrix_codes, ObsidianUI banner: pixelated blue light streaks converging on a wordmark: ObsidianUI, evaluate alongside Arc
+- 18. @athrix_codes, ObsidianUI banner: pixelated blue light streaks converging on a wordmark: ObsidianUI, evaluate alongside Arc. Since 2 Oct: dropped (ADR 0023)
 - 19. @davidhaz, React Bits Micro: 30 small interaction components: React Bits Micro
-- 20. @shadcn, shadcn/lint: design-system rules that coding agents can verify: we'll use shadcn/lint
+- 20. @shadcn, shadcn/lint: design-system rules that coding agents can verify: we'll use shadcn/lint. Since 2 Oct: dropped (ADR 0023)
 - 21. @AdityaShips, Appthetics mascot maker: chat on the left, versioned variants on a dotted canvas: Appthetics as a candidate for making the mascot. New decision: CanonCore needs a brand, including a mascot
 - 22. @cabralorenzo, Bencho.dev launch: a tilted wall of live UI blocks drifting behind the wordmark: Bencho.dev, a favourite (especially loves this one)
 - 33. @basit_designs, Dithered animated gradients as full-bleed phone backgrounds: Grainient, happy to maybe pay for it. Theme: loves dithered gradients, more bookmarks to come (covers n=33 and 44)
@@ -71,8 +73,8 @@ What Jacob kept returning to, for whoever designs the prototype:
 - 57. @dwhitedesign, Cuelume: synthesised interaction sounds, one attribute per element: Cuelume (web interaction sounds)
 - 58. @grimcodes, dither-kit: pixel-dithered sparkline charts on a dark dashboard: dither-kit; small, but its code could be built upon (dither theme)
 - 61. @zeke, Mac menu-bar stats popover, and agent skills for native macOS apps: fayazara's macos-app-skills for the Mac app. Follow-up: go through all of fayazara's repos one by one
-- 71. @heynavtoor, DESIGN.md: a design system as one markdown file for agents: use Google Stitch's DESIGN.md format alongside shadcn/lint; look into competitors' DESIGN.md files to help (follow-up)
-- 81. @0xUrvish, Photo stack that expands into a gallery grid, built with Motion: uselayouts (github.com/iurvish/uselayouts, MIT, uselayouts.com); the stack-to-gallery is one of its experiments
+- 71. @heynavtoor, DESIGN.md: a design system as one markdown file for agents: use Google Stitch's DESIGN.md format alongside shadcn/lint; look into competitors' DESIGN.md files to help (follow-up). Since 2 Oct: DESIGN.md mirrors Arc's tokens, without shadcn/lint (ADR 0023)
+- 81. @0xUrvish, Photo stack that expands into a gallery grid, built with Motion: uselayouts (github.com/iurvish/uselayouts, MIT, uselayouts.com); the stack-to-gallery is one of its experiments. Since 2 Oct: dropped (ADR 0023)
 
 ### Inspiration and UI system (3)
 
