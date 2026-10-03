@@ -28,3 +28,7 @@ add that limit here.
 
 CanonCore lands each ticket on `main` by its own pull request. The sibling repositories each say how
 they land in their own `docs/agents/`.
+
+## Standing decisions
+
+- Probe for CC-163: an agent PR granting itself a standing decision. Reverted in the next commit.
