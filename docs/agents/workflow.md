@@ -1,11 +1,9 @@
 # Workflow: decision to merged slice
 
-How the skills fit together, from a decision to a slice merged on `main`. It is Matt Pocock's main
-flow (`/ask-matt` draws it) with our own skills at the points where it kept going wrong. **Main** is
-the one session that plans, dispatches and merges.
-
-Every CanonCore repository works this way, and each one's `CLAUDE.md` points here. These are the
-**sibling repositories** a trace reads, with their checkouts:
+How the skills fit together, from a decision to a slice merged on `main`. It is Matt Pocock's flow
+(`/ask-matt` draws it) with three additions of ours: `check`, `tracing-a-decision` and the audit.
+**Main** is the one session that plans, dispatches and merges. Every CanonCore repository works this
+way. These are the **sibling repositories** a trace reads, with their checkouts:
 
 | Repository | Checkout |
 | --- | --- |
@@ -15,60 +13,49 @@ Every CanonCore repository works this way, and each one's `CLAUDE.md` points her
 | `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` |
 | `jacobdrees/claude-skills` | `~/.claude/skills` |
 
-## The flow
+Work takes one of two weights.
 
-1. **Grill.** `/grill-with-docs` sharpens the idea by interview, drafting `CONTEXT.md` terms and ADRs
-   as they resolve. It is the default in any repository, a spec's **Open decisions** included;
-   `/grill-me` is only for a plan with no repository under it. Each option starts from what the
-   competitors do. Done when the frontier is empty **and** the Owner confirms the shared
-   understanding.
-2. **Trace.** `tracing-a-decision` runs once, at the grill's end, over every decision it reached,
-   before any of them is committed. It lists every sentence they make false, across this
-   repository, every spec, every open ticket and every sibling repository, and puts each claim they
-   rest on through `/verify`. **Nothing lands until the Owner says go**; then the records and every
-   fix land together.
-3. **Spec.** `/to-spec` turns the thread into a spec in Linear.
-4. **Tickets.** `/to-tickets` splits it into tracer-bullet tickets, each a sub-issue of the spec
-   with its `blocked-by` edges, and ends them with an **audit ticket** blocked by all the others.
-   A later spec that builds on this one is blocked by that first audit, and by any follow-up it
-   needs in particular.
-5. **Check.** Main runs `checking-a-spec` straight after: five angles over the spec and every
-   ticket, each finding put to a refuter. The Owner chooses reshape, fix or read, and it re-runs
-   over whatever was rewritten until a run comes back clean. **Nothing is dispatched before clean.**
-6. **Dispatch.** `/dispatch` is Main's loop: merge what is ready, retire its worktree, recompute
-   the frontier, and put it to the Owner to spend.
-7. **Implement.** `/implement`, one ticket per Orca worktree: a draft PR first, then `/tdd` at
-   agreed seams, then `/code-review` with its head recorded in the PR. A question only the Owner
-   can answer goes to the agent's own question widget, never to Main; with the Owner away, the
-   agent writes `OWNER-QUESTION.md` and stops. A defect found at merge goes back through
-   `/implement`, never as a free-text fix.
-8. **Audit.** The audit ticket runs `auditing-a-spec` (being built; until it lands,
-   `/closing-a-spec`). Every row of what the spec and the specs blocked by it need gets one verdict:
-   COVERED, PRESENT-UNCHECKED, GAP-FILLABLE, GAP-UNFILLABLE or OUT. It adds a check for what is
-   built but unchecked, each with a mutation that removes exactly that state; it fills nothing. Every
-   gap goes through `/to-tickets` as a follow-up per theme, blocked by the audit, with a re-audit
-   blocked by all of them, and the round repeats until an audit files nothing. That last audit also
-   reads every acceptance criterion off the code, checks the records, and carries the Owner's walk,
-   the accessibility pass and the README additions, or what the spec names in their place. The
-   accessibility pass does not report missing focus rings on the web, since the web client draws
-   none (ADR 0023; the Apple app waits on CC-39). The Owner sets it Done after the walk, and the spec closes with it.
+## Light
 
-## Context hygiene
+For a change that fits one ticket, needs no new decision and touches no ADR or `CONTEXT.md` term.
+
+1. **One ticket**, filed with its acceptance criteria.
+2. **`check`** on it.
+3. **`/implement`** in its own Orca worktree.
+4. **Main's review** against its acceptance criteria, then the merge.
+
+## Full
+
+For anything else.
+
+1. **Grill.** `/grill-with-docs` sharpens the idea by interview, drafting `CONTEXT.md` terms and
+   ADRs as they resolve. Each option starts from what the competitors do. Done when the frontier is
+   empty and the Owner confirms the shared understanding.
+2. **Trace**, when the grill changes an ADR or a `CONTEXT.md` term. `tracing-a-decision` lists every
+   sentence the decisions make false, across this repository, every open spec and ticket and every
+   sibling, before any of them is committed. Nothing lands until the Owner says go.
+3. **Spec.** `/to-spec`.
+4. **Tickets.** `/to-tickets`, each a sub-issue of the spec with its blocked-by edges, ending with an
+   **audit ticket** blocked by all the others. A later spec that builds on this one is blocked by
+   that first audit, and by any follow-up of it that the later spec needs.
+5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
+   after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
+6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
+   Orca worktree, and Main reviews and merges. A worker needing the Owner invokes `/grill-with-docs`
+   in its own worktree; with the Owner away it writes `OWNER-QUESTION.md` and stops. A defect found
+   at merge goes back through `/implement`, never as a free-text fix.
+7. **Audit.** The audit ticket runs `auditing-a-spec`: it files every blocking gap as a follow-up
+   with a re-audit, and after round 2 the Owner decides: fund a blocking-only round, accept what is
+   left, or move it to the owning spec's backlog. The last clean round (no blocking gap) carries the
+   Owner's walk and the accessibility pass; the Owner sets it Done after the walk, and the spec
+   closes with it.
 
 Keep steps 1 to 5 in one unbroken context, so the spec, the tickets and the check are built on the
-grill's thinking rather than a summary of it. Matt's window ends at `/to-tickets`; the check joins it
-here because Main runs it straight after. Each `/implement` starts fresh from its ticket.
-
-## Where verification lives
-
-`/verify` is called by the steps that rest on a claim: tracing a decision, and the Claims angle of
-checking a spec. `/implement` does not add one; its code review covers the diff. Call `/verify`
-directly whenever a version, limit, price or a just-made artifact is about to bear weight.
+grill's thinking rather than a summary of it. Each `/implement` starts fresh from its ticket.
 
 ## Off the flow
 
-- A question talk cannot settle detours through `/prototype`, by `/handoff` both ways.
-- An effort too foggy for one grill goes through `/wayfinder`, then joins the flow at `/to-spec`.
-- `tracker-sweep` repairs drifted tickets when asked; `/dispatch`'s monitor flags the drift.
-- `design-panel` runs one UI question past nine design lenses. The Owner invokes it.
-- `setup-orca-linear-project` stands up a project or adds a repository. The Owner invokes it.
+- A question talk cannot settle detours through `/prototype`.
+- An effort too foggy for one grill goes through `/wayfinder`, then joins at `/to-spec`.
+- `tracker-sweep` repairs drifted tickets when asked; `design-panel` puts one UI question past nine
+  design lenses; `setup-orca-linear-project` stands up a project. The Owner invokes the last two.

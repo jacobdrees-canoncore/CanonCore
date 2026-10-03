@@ -1,0 +1,58 @@
+name: Standing decisions
+
+# A standing decision is acted on without asking the Owner, so an agent's PR must not grant itself
+# one. This fails a PR that changes `## Standing decisions` in docs/agents/dispatching.md unless Main
+# labelled it `standing-decisions` at its current head. It is the guard merge-if-green.sh holds for
+# the private repositories, here because CanonCore merges with `gh pr merge --auto` (CC-163).
+#
+# `pull_request_target` runs this file as it stands on main, so a PR cannot edit or delete its own
+# guard. Nothing from the PR is executed: its commits are only read with `git show`, which is the
+# safe use GitHub documents. Its own workflow, so a label change re-runs this check alone.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  standing:
+    name: Standing decisions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: A change to the section carries Main's label at this head
+        env:
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          # The label covers the head it was added at: a push after it re-runs this check on
+          # `synchronize`, which does not count it, so Main re-adds the label after reading the push.
+          LABELLED: ${{ github.event.action == 'labeled' && github.event.label.name == 'standing-decisions' }}
+        run: |
+          git fetch --no-tags --quiet "https://github.com/$REPO" "+refs/pull/$NUMBER/head:refs/remotes/pr/head"
+          git cat-file -e "$BASE^{commit}"
+          git cat-file -e "$HEAD^{commit}"
+          doc=docs/agents/dispatching.md
+          # Compared where the branch left its base, so a branch cut before a standing decision
+          # landed does not read as reverting it. A commit without the file has an empty section.
+          section_at() {
+            if git cat-file -e "$1:$doc" 2>/dev/null; then
+              git show "$1:$doc" |
+                awk '/^## Standing decisions[[:space:]]*$/ { on = 1; print; next } on && /^## / { on = 0 } on'
+            fi
+          }
+          fork=$(git merge-base "$BASE" "$HEAD")
+          if [ "$(section_at "$fork")" = "$(section_at "$HEAD")" ]; then
+            echo "This PR leaves \`## Standing decisions\` in $doc unchanged"
+          elif [ "$LABELLED" = true ]; then
+            echo "This PR changes \`## Standing decisions\` in $doc and Main labelled it standing-decisions at this head"
+          else
+            echo "::error file=$doc::This PR changes \`## Standing decisions\`, which only Main's own PR from the Owner's answers may. Main adds the label standing-decisions after reading its last push; an agent's PR goes back to its agent."
+            diff <(section_at "$fork") <(section_at "$HEAD") || true
+            exit 1
+          fi

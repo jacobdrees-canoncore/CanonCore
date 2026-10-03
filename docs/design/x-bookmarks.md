@@ -1,6 +1,10 @@
 # X bookmarks: what CanonCore takes from them
 
-Decision record, 30 Sep 2026. Jacob went through his X bookmarks one at a time in a grill, with each post, its linked sites and its App Store pages open in Safari. Every bookmark was first analysed with the `analysing-design-bookmarks` skill; the method is in `analysing-bookmarks-for-design.md` beside this file. The cards, sheets, bursts and captures live outside the repo in `~/orca/projects/CanonCore/xmcp/analysis/`, one folder per post, because they are derived from other people's posts.
+Decision record, 30 Sep 2026. Jacob went through his X bookmarks one at a time in a grill, with each post, its linked sites and its App Store pages open in Safari. Every bookmark was first analysed with the `analysing-design-bookmarks` skill, which holds the method. The cards, sheets, bursts and captures live outside the repo in `~/orca/projects/CanonCore/xmcp/analysis/`, one folder per post, because they are derived from other people's posts.
+
+> **Revised 3 Oct 2026.** The America.gov (bookmark 2) and MD Vinyl (bookmark 80) recreations are
+> dropped, their specs CC-40 and CC-35 canceled. untitled.stream and Brink remain, with the tvOS
+> recreation beside them.
 
 **Scope.** 101 bookmarks were archived on 30 Sep 2026. Ten personal ones were left out, and six text-only posts that are not design material were set aside, leaving the 85 below. The numbers are the grill's order, newest first.
 
@@ -48,12 +52,12 @@ Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: G
 
 ### Recreate (4, plus the foundation and one dropped)
 
-- 2. @fayazara, Serif-led government site: one ask bar over an image stage: America.gov, standalone website replica
+- 2. @fayazara, Serif-led government site: one ask bar over an image stage: America.gov, standalone website replica (dropped 3 Oct 2026)
 - 15. @gow88_, Cover-tinted episode carousel with motion blur, and a floating mini-player: Brink, SwiftUI replica of key screens
 - 29. @kazarov_d, Wafer console: painted backdrop behind sign-in and a translucent model catalogue: dropped 30 Sep (was a maybe recreation of app.wafer.ai)
 - 48. @fayazara, Portfolio of frosted "folders" that open into springy galleries: use its existing code exactly, or at least base CanonCore off it; not recreated (permission reported by Jacob to copy the folders and opening animation)
 - 70. @byhewar, [untitled]: a dark, quiet home for work-in-progress music: web replica under way in butterfish; also do its SwiftUI app replica (App Store id 6445854828)
-- 80. @mobbin, MD Vinyl's first-run tour: one tooltip that walks along the tab bar: MD Vinyl, SwiftUI replica (App Store id 1606306441)
+- 80. @mobbin, MD Vinyl's first-run tour: one tooltip that walks along the tab bar: MD Vinyl, SwiftUI replica (App Store id 1606306441) (dropped 3 Oct 2026)
 
 ### UI system (18)
 

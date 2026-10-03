@@ -6,6 +6,7 @@ physical iPhone well enough to do the recording and study work for the SwiftUI r
 screen video with frame timing good enough to measure an animation to the frame, taps, swipes and
 typing to navigate, and the accessibility tree. The apps are third-party App Store builds he did
 not make: Brink: Podcast Player (6760338948), MD Vinyl (1606306441) and [untitled] (6445854828).
+MD Vinyl's recreation was dropped on 3 Oct 2026 (CC-35 canceled); its rows below are kept as measured.
 
 "(measured)" means read on this date on this Mac or from the named source. Everything else carries
 a link to its owner, or is listed under "Claims not sourced" at the end. Nothing was run against
