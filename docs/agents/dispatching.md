@@ -18,9 +18,8 @@ on Main's review:
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
   only lengthens the queue (the Owner, 3 Oct 2026).
 
-Before each dispatch, run dispatch's `room.sh`, which refuses on memory (45% free or less), swap
-(near full and paging), load (above the core count) and the review cap (3 non-draft PRs open across
-the dispatch's repositories), and say which readings allowed it. Then start the agent with
+Before each dispatch, run dispatch's `room.sh`, which refuses on memory, swap, load and the review
+cap (its thresholds are the Owner's, in the script), and say which readings allowed it. Then start the agent with
 `launch.sh`, never a raw `orca terminal create ... claude`: it holds a lock and refuses a worktree
 where a Claude tab already stands, and this repository's hook refuses the raw form. `monitor.sh`'s
 `ROOM` line counts only this repository's worktrees, so count the siblings' running agents yourself.
@@ -28,8 +27,7 @@ where a Claude tab already stands, and this repository's hook refuses the raw fo
 After every merge, look across every lane and the free spikes for anything that now fits, not only
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
 
-Every agent runs locally. The cloud-session pilot for browserless skills work was reversed on
-3 Oct 2026, before it ran.
+Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
 CanonCore has no test suite yet. When the first project adds one, measure its database connections
 per run and add that limit here.
@@ -39,7 +37,8 @@ per run and add that limit here.
 CanonCore lands each ticket on `main` by its own pull request. Main merges it with
 `gh pr merge <n> --auto --squash` once the review is done, and GitHub merges when the required checks
 pass. The `Standing decisions` check fails a PR that changes `## Standing decisions` in this file
-unless Main has labelled it `standing-decisions`.
+unless Main labelled it `standing-decisions` at its current head; after a later push, Main reads
+the push and adds the label again.
 
 The private sibling repositories have no required checks, so they merge through dispatch's
 `merge-if-green.sh`, which gates on the head commit's checks and on a change to the repository's own

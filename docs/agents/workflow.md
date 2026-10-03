@@ -39,14 +39,16 @@ For anything else.
    **audit ticket** blocked by all the others. A later spec that builds on this one is blocked by
    that first audit, and by any follow-up of it that the later spec needs.
 5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
-   after two rounds, what still blocks goes to the Owner, who decides.
+   after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
    Orca worktree, and Main reviews and merges. A worker needing the Owner invokes `/grill-with-docs`
-   in its own worktree.
+   in its own worktree; with the Owner away it writes `OWNER-QUESTION.md` and stops. A defect found
+   at merge goes back through `/implement`, never as a free-text fix.
 7. **Audit.** The audit ticket runs `auditing-a-spec`: it files every blocking gap as a follow-up
-   with a re-audit, and after round 2 the Owner decides whether another round is funded. The last
-   clean round (no blocking gap) carries the Owner's walk and the accessibility pass; the Owner sets
-   it Done after the walk, and the spec closes with it.
+   with a re-audit, and after round 2 the Owner decides: fund a blocking-only round, accept what is
+   left, or move it to the owning spec's backlog. The last clean round (no blocking gap) carries the
+   Owner's walk and the accessibility pass; the Owner sets it Done after the walk, and the spec
+   closes with it.
 
 Keep steps 1 to 5 in one unbroken context, so the spec, the tickets and the check are built on the
 grill's thinking rather than a summary of it. Each `/implement` starts fresh from its ticket.
