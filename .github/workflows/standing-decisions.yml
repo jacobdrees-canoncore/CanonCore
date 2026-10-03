@@ -1,0 +1,45 @@
+name: Standing decisions
+
+# A standing decision is acted on without asking the Owner, so an agent's PR must not grant itself
+# one. This fails a PR that changes `## Standing decisions` in docs/agents/dispatching.md unless Main
+# has labelled it `standing-decisions`. It is the guard merge-if-green.sh holds for the private
+# repositories, here because CanonCore merges with `gh pr merge --auto` (CC-163). Its own workflow,
+# so adding the label re-runs this check alone.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  standing:
+    name: Standing decisions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: A change to the section carries Main's label
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'standing-decisions') }}
+        run: |
+          doc=docs/agents/dispatching.md
+          # Compared where the branch left its base, so a branch cut before a standing decision
+          # landed does not read as reverting it. A commit without the file has an empty section.
+          section_at() {
+            git show "$1:$doc" 2>/dev/null |
+              awk '/^## Standing decisions[[:space:]]*$/ { on = 1; print; next } on && /^## / { on = 0 } on'
+          }
+          fork=$(git merge-base "$BASE" "$HEAD")
+          if [ "$(section_at "$fork")" = "$(section_at "$HEAD")" ]; then
+            echo "This PR leaves \`## Standing decisions\` in $doc unchanged"
+          elif [ "$LABELLED" = true ]; then
+            echo "This PR changes \`## Standing decisions\` in $doc and carries Main's label standing-decisions"
+          else
+            echo "::error file=$doc::This PR changes \`## Standing decisions\`, which only Main's own PR from the Owner's answers may. Main adds the label standing-decisions to let it through; an agent's PR goes back to its agent."
+            diff <(section_at "$fork") <(section_at "$HEAD") || true
+            exit 1
+          fi

@@ -61,5 +61,28 @@ jobs:
           done
           exit $fail
 
+  hooks:
+    name: Claude hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: The launch hook refuses a raw Claude launch and allows the rest
+        run: |
+          set +e  # the cases expect exit 2; Actions runs bash with -e
+          hook=.claude/hooks/refuse-raw-claude-launch.sh
+          fail=0
+          expect() { # <exit code> <command>
+            jq -n --arg c "$2" '{tool_name: "Bash", tool_input: {command: $c}}' | "$hook" 2>/dev/null
+            got=$?
+            if [ "$got" = "$1" ]; then echo "ok   exit $got: $2"; else echo "::error::exit $got, wanted $1: $2"; fail=1; fi
+          }
+          expect 2 'orca terminal create --worktree path:/w --title Claude --command claude'
+          expect 2 "orca terminal create --worktree path:/w --json --command 'claude --model opus \"/implement CC-1\"'"
+          expect 2 'cd /w && orca  terminal  create --command "claude"'
+          expect 0 '~/.claude/skills/dispatch/launch.sh /w CC-1 --base main'
+          expect 0 'orca terminal create --worktree path:/Users/me/.claude/x --command zsh'
+          expect 0 'orca terminal list --json'
+          exit $fail
+
   # Add lint / typecheck / test jobs here once a stack exists. Keep them as separate
   # jobs so a red check names the thing that broke.
