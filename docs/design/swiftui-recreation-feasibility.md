@@ -4,6 +4,9 @@
 > and MD Vinyl each open with a recorded look, then Jacob picks a full replica or a study sketch.
 > The recommendation below was the input to that decision. Later the same day all three apps were
 > on the phone and an agent, not Jacob, makes the recordings (`driving-the-iphone.md`).
+>
+> **Revised 3 Oct 2026.** MD Vinyl is dropped (CC-35 canceled), so its sections below are history;
+> [untitled]'s app and Brink remain.
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
@@ -49,8 +52,8 @@ pixel references. The iTunes Lookup API that lists them is documented at
 ([Apple Support 102653](https://support.apple.com/en-us/102653)). A recording goes through the
 bookmark skill's two views: a 2 fps overview sheet, then a native-rate burst on each transition,
 which gives durations to a frame and shows overshoot, blur and ordering, but not true easing
-curves or how a gesture feels (`analysing-bookmarks-for-design.md`, "What works: two views per
-video" and "Cannot judge"). The Brink bookmark videos are 60 fps and MD Vinyl's is 59.99 fps
+curves or how a gesture feels (the `analysing-design-bookmarks` skill, "A local recording" and
+"What you can and cannot judge"). The Brink bookmark videos are 60 fps and MD Vinyl's is 59.99 fps
 (measured, `media.json`). Only Jacob's iPhone can make these recordings.
 
 **The bookmark videos are short.** Brink: 11.3 s and 6.7 s; MD Vinyl: 8.3 s, starting mid-tour;
@@ -62,7 +65,7 @@ screens, "End-to-end flows such as onboarding" and UI patterns, from "real shipp
 ([Mobbin](https://mobbin.com/)). Brink's maker links his Mobbin page from his portfolio (measured,
 the `gowthamoleti.com` bundle links `mobbin.com/screens/9fcbb76c-...`), and the MD Vinyl bookmark
 was posted by @mobbin itself. The Mobbin MCP server configured here needs Jacob's sign-in before it
-returns anything (`analysing-bookmarks-for-design.md`).
+returns anything (measured 30 Sep 2026 while writing the bookmark method, now the `analysing-design-bookmarks` skill).
 
 **This Mac can build and preview the replicas.** Xcode 27.0 (27A266a) with iOS 27.0 and tvOS 27.0
 simulator runtimes is installed (measured, `xcodebuild -version`, `xcrun simctl list runtimes`).
@@ -190,9 +193,9 @@ letterboxed (see above) and the app needs an account, so recordings are essentia
 ## How established teams do this
 
 **They study rather than clone.** Mobbin, Refero and similar libraries keep screens, flows and
-recorded clips of shipped products (above, and `analysing-bookmarks-for-design.md`, "How design
-libraries capture motion"). Rauno Freiberg's "Invisible details of interaction design" describes
-the other half: "maniacally replaying hundreds of slow motion screen recordings", then building
+recorded clips of shipped products (above, and the research behind the `analysing-design-bookmarks`
+skill, in git history at `f244daf9:docs/design/analysing-bookmarks-for-design.md`). Rauno
+Freiberg's "Invisible details of interaction design" describes the other half: "maniacally replaying hundreds of slow motion screen recordings", then building
 the interaction to feel it: "After building a few touch interactions myself using SwiftUI, I
 realised that might not always be the case"
 ([rauno.me](https://rauno.me/craft/interaction-design)). That is a study sketch: one interaction,
@@ -234,7 +237,7 @@ better a source than the app.
 ## Effort
 
 The one calibration point: the web replica had 1 of 50 screens built in its first day, with capture
-tooling included (`what-to-do-next.md`, "Risks"). Matching by eye against recordings is slower per
+tooling included (the replica's report, 10:50 UTC 30 Sep 2026; a comment on CC-34 keeps it). Matching by eye against recordings is slower per
 screen than matching against a DOM, so the figures below are the author's estimates in agent
 sessions (one implementer run), not measurements.
 

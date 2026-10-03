@@ -15,7 +15,7 @@ jacobdrees-canoncore/CanonCore; every other repository's CI compares its copy of
 Look up any version, API signature, limit or price before stating it (`context7` for a library,
 `WebSearch` otherwise); the lookup wins over memory. The point is current industry practice: what
 the ecosystem does today, not what it did when the model was trained. Before a spec or its tickets
-publish, check what competitors do and run `/verify` on every claim a decision rests on.
+publish, check what competitors do and run the `check` skill on every claim a decision rests on.
 
 ## Principles
 
@@ -32,7 +32,24 @@ publish, check what competitors do and run `/verify` on every claim a decision r
 - Report status with evidence. "Tests pass" requires the command and its output. If a check was skipped, or failed, say so plainly rather than describing the work as complete.
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - Keep this file a pointer file, under 200 lines. Repeated gotchas become checks (lint, hooks, CI), not prose here.
-- End every spec's tickets with an audit ticket, blocked by all the others, that runs `auditing-a-spec`. It checks what was built against the spec's own stories and every spec blocked by it, files every gap as a follow-up, and repeats until an audit files nothing; the Owner walks the last one.
+- End every spec's tickets with an audit ticket, blocked by all the others, that runs `auditing-a-spec`. It checks what was built against the spec's own stories and every spec blocked by it, files every blocking gap as a follow-up, and the Owner decides after round 2; the Owner walks the last clean round.
+
+## CanonCore's own skills
+
+Written for CanonCore's repositories and kept in `jacobdrees/claude-skills` (`~/.claude/skills`). How they fit
+from a decision to a merged slice: CanonCore's [`docs/agents/workflow.md`](https://github.com/jacobdrees-canoncore/CanonCore/blob/main/docs/agents/workflow.md),
+checked out at `~/orca/projects/CanonCore/docs/agents/workflow.md`.
+
+- `check`: a claim, a ticket, a PR, a doc or a whole spec against the sources that own it; on every spec
+  straight after `/to-tickets`, and whenever a version, limit or price is about to bear weight.
+- `tracing-a-decision`: once, when a grill changes an ADR or a `CONTEXT.md` term, before anything is
+  committed; lists every sentence the decision makes false and checks what it rests on.
+- `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
+- `tracker-sweep`: when asked, to repair tickets that drifted from the tracker doc's filing standard.
+- `auditing-a-spec`: the audit ticket every spec ends with. Its last, clean round carries the Owner's
+  walk, the accessibility pass and the README additions.
+- `design-panel`: the Owner invokes it, to put one UI question past nine design lenses.
+- `setup-orca-linear-project`: the Owner invokes it, to stand up a project or add a repository.
 <!-- standard:end -->
 
 ## Rebuilding
@@ -49,28 +66,12 @@ None yet: the first project adds the pnpm + Turborepo monorepo (ADR 0016).
 
 ## Gotchas
 
-- `main` refuses deletion and force-push (admin bypass on); there are no required checks, so a
-merge gate is convention. Do not assume a check blocked anything.
+- `main` refuses deletion and force-push (admin bypass on), and its ruleset requires CI's checks. Main
+merges with `gh pr merge --auto` after review, so GitHub merges only once the checks pass.
 - `.claude/settings.json` denies some calls on purpose (`git worktree`, `gh issue`): use
-`orca worktree create` and `orca linear`. Secrets live in `~/.config/canoncore/` and in the
+`orca worktree create` and `orca linear`. Its hook refuses a raw `orca terminal create ... claude`:
+agents start through dispatch's `launch.sh`. Secrets live in `~/.config/canoncore/` and in the
 gitignored `.env`, never in a commit, PR body or log.
-
-## CanonCore's own skills
-
-Written for CanonCore's repositories and kept in `jacobdrees/claude-skills` (`~/.claude/skills`). How they fit
-from a decision to a merged slice: [`docs/agents/workflow.md`](docs/agents/workflow.md).
-
-- `tracing-a-decision`: once, at a grill's end, before its ADRs, spec changes or `CONTEXT.md` terms
-  are committed; lists every sentence they make false and verifies what they rest on.
-- `verify`: when a version, limit, price or a just-made ticket, PR or doc is about to bear weight.
-- `checking-a-spec`: straight after `/to-tickets`; nothing of the spec is dispatched until it runs clean.
-- `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
-- `tracker-sweep`: when asked, to repair tickets that drifted from the tracker doc's filing standard.
-- `auditing-a-spec`: the audit ticket every spec ends with. It carries the Owner's walk, the
-  accessibility pass and the README additions on its last, clean round. Being built; until it lands,
-  `closing-a-spec` closes a spec.
-- `design-panel`: the Owner invokes it, to put one UI question past nine design lenses.
-- `setup-orca-linear-project`: the Owner invokes it, to stand up a project or add a repository.
 
 ## Agent skills
 

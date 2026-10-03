@@ -13,6 +13,7 @@ Prefer `--json` for every agent-driven call.
 ## Contents
 
 - [Preconditions](#preconditions)
+- [Linear CLI traps](#linear-cli-traps)
 - [Reading](#reading)
 - [Writing](#writing)
 - [The task graph](#the-task-graph)
@@ -35,10 +36,26 @@ error. Resolve the team with `team states` instead. If THAT cannot resolve `CC`,
 workspace is not authorised on this host. Say so and stop. There is no CLI command that fixes it;
 it is done in the Orca app under Settings > Linear.
 
-**Pass `--workspace ad2669ec-93a5-4ce1-97fa-c7d9247a1452` to every `list-issues`.** Without it, `list-issues --team`
-reads the DEFAULT workspace and answers `ok: true` with zero rows for a team that lives elsewhere,
-which reads exactly like an empty board: measured 2026-09-22, 0 rows without it and 23 with it.
-`ad2669ec-93a5-4ce1-97fa-c7d9247a1452` is the UUID `team states` returns; the URL key is refused.
+## Linear CLI traps
+
+The one home for them: skills and briefs point here rather than restating them.
+
+- **Pass `--workspace ad2669ec-93a5-4ce1-97fa-c7d9247a1452` to every `list-issues`.** Without it,
+  `list-issues --team` reads the DEFAULT workspace and answers `ok: true` with zero rows for a team
+  that lives elsewhere, which reads exactly like an empty board: measured 2026-09-22, 0 rows without
+  it and 23 with it. The UUID is the one `team states` returns; the URL key is refused.
+- **Read the JSON at `result.issue`.** `create` and `issue` answer `{ok, result: {issue: {...}}}`, and
+  `result.identifier` is `None`, which looks like a failed write and once produced a duplicate
+  ticket: read back or search before re-running a `create`. Comments and relations are siblings of
+  it (`result.comments`, `result.relations`); an inbound `blocks` means "this ticket is blocked by".
+  A state, label or project is `.name`, an assignee `assignee.displayName`.
+- **`--current` resolves the caller's Orca terminal first, then the working directory.** With
+  `ORCA_TERMINAL_HANDLE` set, the terminal's worktree wins wherever the command runs (measured
+  2026-10-03 from `/tmp`); without one, a bound worktree resolves by directory and the main checkout
+  answers `linear_no_linked_issue`. `orca worktree current` resolves by directory only.
+- **A body caps at 65,000 characters.** A longer one is refused with `linear_body_too_large`
+  (measured 2026-09-30). Additions to a full body go in a comment with a one-line pointer in the
+  body. A write can report `ok: false` and still land: read the issue back before retrying.
 
 ## Reading
 
@@ -110,15 +127,61 @@ Link a PR to an issue by putting the identifier in the branch name (Orca names t
 A branch carrying the identifier links as if closing, and Linear does not document whether a
 `Part of` in the body overrides it, so a ticket that must stay open keeps its id out of the branch.
 
-**Audit tickets are the exception.** Which audit is a spec's last is known only when it files
-nothing, so every audit's worktree `--name` leaves the identifier out and its PR says
-`Part of CC-12`, which links it without closing it on merge (linear.app/docs/github, non-closing
-magic words). Every audit ticket carries the label `audit` (Writing, above):
-dispatch recognises an audit by it alone, and gives one without it the ordinary brief and a branch
-that closes it. An audit that filed follow-ups is set Done by hand when it merges;
-the one that filed nothing stays open until the Owner has walked it, and the Owner sets it Done.
+**Two kinds of ticket are set Done by hand, and no others.**
+
+- **An audit round that filed follow-ups**, when it merges. Which audit is a spec's last is known
+  only when it files no blocking gap, so every audit's worktree `--name` leaves the identifier out
+  and its PR says `Part of CC-12`, which links it without closing it on merge
+  (linear.app/docs/github, non-closing magic words). Every audit ticket carries the label `audit`
+  (Writing, above): dispatch recognises an audit by it alone, and gives one without it the ordinary
+  brief and a branch that closes it. The round that files no blocking gap stays open until the Owner
+  has walked it, and the Owner sets it Done.
+- **A ticket a merge leaves open**: its PR merged and no link closed it, which its history shows
+  (below).
+
+Nothing else is reset by hand after a merge.
 
 `orca linear status set` is still correct for states no PR event covers, such as Canceled.
+
+### Read a ticket's history before resetting its state
+
+On 2 and 3 Oct 2026, merged tickets (CC-92, CC-108, CC-119, CC-142 and others) were reported as
+moving back to In Review after Done, and as being reset by hand. **Not reproduced (CC-166), and
+Linear's history shows neither the move back nor a reset.** `orca linear issue <id> --full --json`
+lists every state change with its actor in `activity`. A real bounce is a change out of Done with
+GitHub as the actor. If the history has none, Linear never made the move, so the history is the
+first thing to save when a ticket looks wrong.
+
+- **The reported tickets.** Each history ends with GitHub's `In Review -> Done` within 2 s of the
+  PR's `mergedAt`, and nothing after it.
+- **The whole board**, measured 2026-10-03: none of the 106 Done tickets in team `CC` has a change
+  out of Done.
+- **The repro** ran in folder-component, which is private with no branch protection. Each PR was
+  squash-merged with `gh pr merge --squash --delete-branch --match-head-commit`, as dispatch does.
+  State was read within a minute of each step, then again minutes after the merge. Run A's PR
+  title also carried CC-166, which is how CC-166 got its own Done (below). The linking method in each row is the one
+  the test ticket had.
+
+| Run | Step, UTC 2026-10-03 | Linear state change, all by GitHub |
+| --- | --- | --- |
+| A: CC-167, in the branch only (`jacobdrees/cc-167-probe-a`, #6) | draft 13:30:33 | 13:30:42 `Todo -> In Progress` |
+| | ready 13:31:02 | 13:31:03 `In Progress -> In Review` |
+| | `mergedAt` 13:32:20 | 13:32:22 `In Review -> Done`; still Done at +3.7 min |
+| B: CC-169, `Fixes CC-169` in the body only (#8) | draft 13:38:05 | 13:38:13 `Todo -> In Progress` |
+| | ready 13:38:34 | 13:38:35 `In Progress -> In Review` |
+| | `mergedAt` 13:39:45 | 13:39:47 `In Review -> Done`; still Done at +2.6 min |
+
+**Two moves that are real**, each seen once:
+
+- **A ticket that already has a merged PR goes to Done as soon as another PR links it**, even a
+  draft. CC-167 was set back to Todo at 13:36:12, and a draft with `Fixes CC-167` (#7) opened at
+  13:36:18. GitHub moved it `Todo -> Done` at 13:36:26, and closing #7 unmerged did not undo it.
+  Give follow-up work its own ticket rather than reopening a merged one. An audit ticket kept open
+  with `Part of` also has a merged PR. Whether a later PR linking it closes it the same way was not
+  tested.
+- **An id in a PR's title links the PR as if closing.** The probes' titles named CC-166, and #6's
+  merge moved CC-166 `In Review -> Done` while its own PR was still a draft. Dropping the id from the
+  title, and a bare mention from the body, removed the link. Keep other tickets' ids out of a PR's title.
 
 ## Worktree binding
 

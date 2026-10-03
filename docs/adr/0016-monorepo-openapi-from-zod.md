@@ -10,4 +10,4 @@ The server is Node 26 (LTS from 28 Oct 2026, supported to 30 Apr 2029; corrected
 ## Consequences
 
 - `--affected` needs full git history; a shallow clone falls back to running everything.
-- A merge requires CI to have passed on the exact commit that lands.
+- A merge requires CI to have passed on the exact commit that lands. Enforced, not convention, from 3 Oct 2026: `main`'s ruleset requires CI's checks, and Main merges with `gh pr merge --auto` (CC-163).
