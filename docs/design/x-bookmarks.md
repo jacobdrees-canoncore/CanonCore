@@ -45,7 +45,7 @@ Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: G
 - ~~Go through the 38 apps in the B2TF directory (b2tf.app) for more inspiration.~~ Dropped 30 Sep, after the verification (`plan-2026-09-30.md`).
 - Go through all of fayazara's repositories one by one.
 - Read competitors' DESIGN.md files (getdesign.md lists over 550).
-- Look into https://x.com/dhruvmakes/status/2034645922492375185; bookmarking it lets the next sync collect it.
+- ~~Look into https://x.com/dhruvmakes/status/2034645922492375185.~~ Done 3 Oct (CC-66): it links to an X Article showing that bookmark 72's cards are Paper's `Warp` shader (`@paper-design/shaders-react`, Apache-2.0 per GitHub on 3 Oct 2026) on a canvas, with colours and layout set by prompting Claude. Its card is in the archive's `analysis/2034645922492375185/`. The verdict on CC-38: a variant only as the placeholder backdrop on Item and Collection screens that have no backdrop image, coloured from the poster's palette, with a still frame for reduced motion; anywhere else it is a decorative gradient under Arc's rule.
 - ~~Retry backgrounds.supply, which failed with a Cloudflare SSL error on 30 Sep.~~ Dropped 30 Sep, after the verification (`plan-2026-09-30.md`).
 
 ## Every bookmark
@@ -124,7 +124,7 @@ Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: G
 - 67. @keilethh, Landing cards with voxel-art illustrations: mountains and a seated statue: voxel imagery
 - 68. @The_Sycomore, AI-generated brand kits: a 3x3 board as a brand's whole system: for the brand research: a method and a format for a brand kit
 - 69. @LexnLin, AI-generated brand board, and the prompt that made it: brand research: the prompt as a method
-- 72. @dhruvmakes, Square cards with slowly flowing mesh gradients behind big type: follow-up: look into https://x.com/dhruvmakes/status/2034645922492375185 (bookmark it so the next sync collects it)
+- 72. @dhruvmakes, Square cards with slowly flowing mesh gradients behind big type: Paper's Warp shader, per the author's Article (CC-66); a web prototype variant only as the no-backdrop placeholder
 - 73. @Aurelien_Gz, A 3D card-stack gallery: flip the front image away, hover to scrub the stack: flick through a Collection like a crate
 - 76. @AdamKPx, Tilt-to-move poster card with an artwork-tinted backdrop: tilting poster Item card
 - 78. @Aurelien_Gz, Holographic trading card on iPhone whose foil follows the phone's tilt
