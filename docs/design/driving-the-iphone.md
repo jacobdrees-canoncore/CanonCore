@@ -29,7 +29,8 @@ read the same day showed it disconnected). What is left for Jacob is small: sign
 once with his team, and keep the phone unlocked on the desk during a session.
 
 **All three apps are on the phone.** When this note was measured, only [untitled]
-(`com.untitledinbrackets.untitled-ios`, 1.21.0; 1.22.0 since 30 Sep 2026) was installed of 160 apps listed (`devicectl
+(`com.untitledinbrackets.untitled-ios`, 1.21.0; 1.22.0 released 30 Sep 2026, read 3 Oct 2026)
+was installed of 160 apps listed (`devicectl
 device info apps --include-all-apps`); Jacob installed Brink and MD Vinyl later on 30 Sep
 (`plan-2026-09-30.md`).
 
@@ -286,7 +287,7 @@ Sakura Reader). The three read (measured, `apps.apple.com/gb/app/id<id>`):
 
 **One side door: [untitled] has a separate Mac app.** "[untitled] for Desktop"
 (`com.untitledinbrackets.untitled-macos`, id 6744922982, 1.6.0, 24 Sep 2026, macOS 14.6+, free)
-is on the Mac App Store (measured, iTunes Search `entity=macSoftware`; v1.7.0 since 30 Sep 2026).
+is on the Mac App Store (measured, iTunes Search `entity=macSoftware`; v1.7.0 released 30 Sep 2026, read 3 Oct 2026).
 Whether it is native or Mac Catalyst is not sourced. It is a different design from the iPhone app,
 a desktop layout with a sidebar (App Store screenshots), so it does not replace recording the
 phone. Since 3 Oct 2026 it is in the untitled app replica's scope (CC-36), recorded and driven on

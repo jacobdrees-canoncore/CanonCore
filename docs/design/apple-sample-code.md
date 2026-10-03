@@ -317,8 +317,9 @@ for study only.
 
 ## Recommendation
 
-Amended 3 Oct 2026: the 30 Sep verdict was to recreate Apple's TV app from TVCatalog and Destination
-Video. That recreation was dropped, and the two feed the Apple prototype (CC-39) directly.
+(Amended 3 Oct 2026: the 30 Sep verdict was to recreate Apple's TV app from TVCatalog and
+Destination Video. That recreation was dropped, and the two feed the Apple prototype, CC-39,
+directly.)
 
 | Option | Verdict | Why |
 | --- | --- | --- |
