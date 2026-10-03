@@ -5,6 +5,12 @@ Apple sample project a media app like CanonCore can legitimately copy from (tvOS
 macOS and multiplatform), pick the best base for the recreation, and check the licence and that
 the samples build here. A recreation is a design reference, never CanonCore itself.
 
+> **Revised 3 Oct 2026.** The tvOS recreation (CC-34) was dropped: the tvOS 27 simulator has no TV
+> app (measured 3 Oct 2026), so it would have needed device recordings. These samples now feed the
+> Apple prototype (CC-39) directly: TVCatalog, Destination Video, Focus Cookbook and the full-screen
+> layout sample. The Top Shelf sample stays in project 10, as sorted below. Where this note planned
+> for the recreation, it now reads for the Apple prototype's Apple TV screens.
+
 "(measured, 30 Sep 2026)" means read or run on this Mac on this date. Page facts come from each
 sample's JSON at `developer.apple.com/tutorials/data/documentation/<path>.json` and dates from the
 download's `Last-Modified` header. Everything else is linked, or listed under "Claims not sourced".
@@ -20,7 +26,7 @@ features (measured, 30 Sep 2026, every page's `metadata.platforms`). The two are
 **Both build and run on the tvOS 27 simulator with no changes.** The screenshots are described
 below (measured, 30 Sep 2026).
 
-**They cover different things, and the recreation needs both.** TVCatalog is a component
+**They cover different things, and the Apple prototype's Apple TV screens need both.** TVCatalog is a component
 catalogue of the TV app's lockups, shelves, fold and product page, with buttons that do nothing.
 Destination Video is a working app: a sidebar with folder sections, SwiftData, detail pages and
 `AVPlayerViewController` with an Up Next tab. Neither is a copy of Apple's TV app.
@@ -31,9 +37,10 @@ SharePlay gallery ship Apple's older sample licence (SPDX `AML`). Fedora calls t
 but the FSF does not list it. Apple's videos and artwork in the samples are a separate question
 (see Licence).
 
-**Recommendation:** recreate Apple's TV app. Use TVCatalog as the component base and Destination
-Video as the app skeleton, and match both against recordings of the real TV app on tvOS 27.
-Infuse and Plex are not studied: the Owner decided on 30 Sep 2026, after the verification, that the TV app alone is the reference (`plan-2026-09-30.md`). Reasons for the rest are in the last section.
+**Recommendation:** build the Apple prototype's Apple TV screens (CC-39) on TVCatalog as the
+component base and Destination Video as the app skeleton. (Amended 3 Oct 2026: the 30 Sep
+recommendation was to recreate Apple's TV app from them and match it against recordings of the real
+TV app on tvOS 27; that recreation, CC-34, was dropped.) Infuse and Plex are not studied: the Owner decided on 30 Sep 2026, after the verification, that the TV app alone is the reference (`plan-2026-09-30.md`). Reasons for the rest are in the last section.
 
 ## The tvOS samples
 
@@ -237,10 +244,10 @@ it. The Owner decided on 30 Sep to accept it like MIT, and ADR 0019 records that
 **Do not ship Apple's media.** The MIT grant covers "this software and associated documentation
 files". One sample's licence separately says its WWDC videos "are Copyright Apple Inc. All rights
 reserved". The samples' images and videos (TVCatalog's 30 bundled image sets, Destination
-Video's `.mov` files) should stay in the throwaway recreation and never go into the repo. The
-recreation uses its own artwork anyway. Apple's name and marks may not "endorse or promote"
-anything built from the AML samples. So the recreation is never called "Apple TV app", and it
-lives in its own private repository, like the other replicas (ADR 0022).
+Video's `.mov` files) should stay in the throwaway Apple prototype and never go into the repo. The
+prototype uses the data snapshot's artwork anyway. Apple's name and marks may not "endorse or promote"
+anything built from the AML samples. So the prototype is never called "Apple TV app", and it
+lives in its own private repository, like the replicas (ADR 0022).
 
 ## Building them here
 
@@ -301,24 +308,29 @@ for study only.
   the FSF has not listed it. ADR 0019 relies on Fedora's ruling.
 - That the samples' images and videos are outside the MIT grant: the licence does not say either
   way; only one sample carries an explicit note, for WWDC videos.
-- That Apple TV screens can be recorded for the recreation: unverified. The tvOS recreation's
-  first ticket tests `devicectl`, with QuickTime or a capture card as the fallback
-  (`plan-2026-09-30.md`). The iPhone path is in `driving-the-iphone.md`.
+- That Apple TV screens can be recorded: no longer needed. The tvOS recreation, dropped 3 Oct 2026,
+  had a first ticket to test `devicectl`, and the Apple prototype builds from the
+  samples rather than from recordings (`plan-2026-09-30.md`). The iPhone path is in
+  `driving-the-iphone.md`.
 - Infuse's and Plex's tvOS apps were not opened or recorded; what is said about them is judgement.
 - Browsing and Modifying Photo Albums' date was not fetched.
 
 ## Recommendation
 
+(Amended 3 Oct 2026: the 30 Sep verdict was to recreate Apple's TV app from TVCatalog and
+Destination Video. That recreation was dropped, and the two feed the Apple prototype, CC-39,
+directly.)
+
 | Option | Verdict | Why |
 | --- | --- | --- |
-| **Apple's TV app, built from TVCatalog plus Destination Video** | **Recreate** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the recordings of the real TV app show, and what CanonCore must decide anyway. |
+| **TVCatalog plus Destination Video, in the Apple prototype** | **Build on** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the Apple prototype decides. |
 | Infuse or Plex | Not studied | Dropped by the Owner on 30 Sep 2026, after the verification: the TV app alone is the reference (`plan-2026-09-30.md`). |
 | Swiftfin or Stingray as the base | Secondary reference | Stingray (MIT) is copyable and native, but it is one developer's reading of the TV app. Swiftfin is MPL-2.0, targets tvOS 26.1, and carries its own design history. Read them for answers to real client problems (server sessions, resume, track pickers), not for design. |
 
-**Order.** Build TVCatalog's Stack and Description pages on CanonCore sample data. Graft in
-Destination Video's sidebar (AML, copied with Apple's notice since ADR 0019 accepts it) with Collections as folders.
-Then match the result to recordings of the tvOS 27 TV app. Keep the recreation in its own repository
-under `~/canoncore/` with a private remote (ADR 0022), like `~/canoncore/untitled-replica`.
+**Order.** CC-39's spec owns the order. The samples suggest one: build TVCatalog's Stack and
+Description pages on the data snapshot, then graft in Destination Video's sidebar (AML, copied with
+Apple's notice since ADR 0019 accepts it) with Collections as folders. The prototype lives in its own
+repository, `~/canoncore/design-prototype`, with a private remote (ADR 0022).
 
 ## Every sample, sorted
 
@@ -344,7 +356,7 @@ tvOS. iPad is a client with its own adaptive layout, so iPadOS samples count.
 
 | Verdict | Meaning | Count |
 | --- | --- | --- |
-| Keep | The base of the tvOS recreation | 3 |
+| Keep | A base of the Apple prototype's Apple TV screens (CC-39) | 3 |
 | Combine | Folded into a named design effort | 13 |
 | Later | A product building block, with its project | 40 |
 | Drop | Not relevant | 596 |
@@ -362,8 +374,8 @@ tvOS. iPad is a client with its own adaptive layout, so iPadOS samples count.
 
 | Design effort | Sample | Licence | What it gives |
 | --- | --- | --- | --- |
-| tvOS recreation | [Focus Cookbook](https://developer.apple.com/documentation/swiftui/focus-cookbook-sample) | MIT | `FocusState`, `defaultFocus`, `focusable(interactions:)` and `onMoveCommand`: the focus APIs neither base uses. |
-| tvOS recreation | [Creating immersive experiences using a full-screen layout](https://developer.apple.com/documentation/tvuikit/creating-immersive-experiences-using-a-full-screen-layout) | MIT | `TVCollectionViewFullScreenLayout`, the full-bleed paging behind a hero carousel. It is UIKit, so rebuild the pattern in SwiftUI. |
+| Apple prototype, Apple TV | [Focus Cookbook](https://developer.apple.com/documentation/swiftui/focus-cookbook-sample) | MIT | `FocusState`, `defaultFocus`, `focusable(interactions:)` and `onMoveCommand`: the focus APIs neither base uses. |
+| Apple prototype, Apple TV | [Creating immersive experiences using a full-screen layout](https://developer.apple.com/documentation/tvuikit/creating-immersive-experiences-using-a-full-screen-layout) | MIT | `TVCollectionViewFullScreenLayout`, the full-bleed paging behind a hero carousel. It is UIKit, so rebuild the pattern in SwiftUI. |
 | folder component | [Landmarks: Building an app with Liquid Glass](https://developer.apple.com/documentation/swiftui/landmarks-building-an-app-with-liquid-glass) | AML | `glassEffect`, `GlassEffectContainer` and `glassEffectID`: the frosted-glass half of the folder. |
 | folder component | [Wishlist: Planning travel in a SwiftUI app](https://developer.apple.com/documentation/swiftui/wishlist-planning-travel-in-a-swiftui-app) | AML | Trips as collections that open with `navigationTransition(.zoom)`. The nearest sample to a folder opening into a gallery. |
 | folder component | [Creating custom container views](https://developer.apple.com/documentation/swiftui/creating-custom-container-views) | MIT | Subview access for a custom folder or stack container. |
@@ -496,9 +508,9 @@ For the folder component, Creating custom container views and Composing custom l
 The glass and zoom halves come from AML samples, which ADR 0019 accepts like MIT since 30 Sep, so
 they are copied with Apple's notice kept.
 
-### What this means for the tvOS recreation
+### What this means for the Apple prototype's Apple TV screens
 
-**Nothing in the sweep changes the plan.** Exactly 49 samples name tvOS, the same as above, and
+**Nothing in the sweep changes which samples they start from.** Exactly 49 samples name tvOS, the same as above, and
 TVCatalog and Destination Video are still the only SwiftUI media apps among them. Of the other
 603 samples, none adds a tvOS screen. Two findings affect the Mac and iPad halves instead:
 
