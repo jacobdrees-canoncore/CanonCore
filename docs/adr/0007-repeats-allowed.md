@@ -1,6 +1,6 @@
 # An Item may appear more than once in an Ordering
 
-The same Item may be placed more than once in one Ordering, as a Repeat. This covers recaps, bookends, and a story revisited later in a timeline, such as Meanwhile in the TARDIS at #3 and #15 of the Eleventh Doctor timeline. A Repeat is shown as "Repeat of #3" so it never reads as an error or as two Providers disagreeing. It counts once in "Also in", with all its Positions, and is played each time with shared watch state.
+The same Item may be placed more than once in one Ordering, as a Repeat. This covers recaps, bookends, and a story revisited later in a timeline, such as The Eleventh Hour at #1 and #5 of Amy Pond's timeline. A Repeat is shown as "Repeat of #1" so it never reads as an error or as two Providers disagreeing. It counts once in "Also in", with all its Positions, and is played each time with shared watch state.
 
 ## Considered Options
 
