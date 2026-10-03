@@ -5,6 +5,10 @@
 > The recommendation below was the input to that decision. Later the same day all three apps were
 > on the phone and an agent, not Jacob, makes the recordings (`driving-the-iphone.md`).
 >
+> **Revised 3 Oct 2026.** The [untitled] replica (CC-36) also covers its separate Mac app,
+> "[untitled] for Desktop" (Mac App Store id 6744922982, v1.7.0), recorded on the Mac.
+> The tvOS recreation (CC-34) was dropped 3 Oct 2026.
+>
 > **Revised 3 Oct 2026.** MD Vinyl is dropped (CC-35 canceled), so its sections below are history;
 > [untitled]'s app and Brink remain.
 
@@ -139,8 +143,8 @@ ahead, and then only with Gowtham Oleti's say-so.
 **[untitled] has a written prohibition and a verbal permission.** Its terms forbid to "make
 derivative works of, ... reverse engineer any part of the Service", and Jacob reports the owner's
 permission as verbal (`~/canoncore/untitled-replica/docs/untitled-stream-capture.md`, lines
-129 to 141). That note is about the website; whether the permission covers the iOS app is not
-recorded.
+129 to 141). That note is about the website; whether the permission covers the iOS app or the
+Mac app is not recorded.
 
 ## What each hard element takes in SwiftUI
 
@@ -187,8 +191,10 @@ a player with a waveform scrubber and loop region, speed and pitch sliders with 
 mixer, a recorder and the share sheet (the card; screenshots, measured, viewed). All are standard
 SwiftUI plus one custom waveform. The web replica has already measured its palette and type
 (#191919, #252525, the single accent #FDE14F: the card), so the iOS replica starts with tokens in
-hand and shows how one product adapts across web and iPhone. Its App Store stills are small and
-letterboxed (see above) and the app needs an account, so recordings are essential.
+hand and shows how one product adapts across web, iPhone and Mac. Its App Store stills are small and
+letterboxed (see above) and the app needs an account, so recordings are essential. Its separate Mac
+app, "[untitled] for Desktop" (id 6744922982, v1.7.0), is a desktop design with a sidebar, in the
+replica's scope since 3 Oct 2026 (CC-36) and recorded on the Mac rather than the phone.
 
 ## How established teams do this
 
@@ -237,7 +243,7 @@ better a source than the app.
 ## Effort
 
 The one calibration point: the web replica had 1 of 50 screens built in its first day, with capture
-tooling included (the replica's report, 10:50 UTC 30 Sep 2026; a comment on CC-34 keeps it). Matching by eye against recordings is slower per
+tooling included (the replica's report, 10:50 UTC 30 Sep 2026; a comment on CC-34, canceled 3 Oct 2026, keeps it). Matching by eye against recordings is slower per
 screen than matching against a DOM, so the figures below are the author's estimates in agent
 sessions (one implementer run), not measurements.
 
@@ -251,7 +257,8 @@ TipKit (`TipGroup` ordered, a custom `TipViewStyle`) and once as a plain overlay
 matches, then the spinning record with a draggable tonearm: 2 to 3 sessions.
 
 **[untitled].** Faithful key screens (library grid, project page, player with waveform and loop,
-edit with speed, pitch and stems, mini-player): 5 to 8 sessions, since the tokens exist.
+edit with speed, pitch and stems, mini-player): 5 to 8 sessions, since the tokens exist. The Mac
+app, added to the replica's scope on 3 Oct 2026, is not estimated.
 
 **What an agent can do alone:** fetch the full-size screenshots, build layouts in Xcode previews
 on the installed iOS 27 simulator, write the blur shader and colour extraction, and time its own

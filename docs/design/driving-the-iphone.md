@@ -29,7 +29,8 @@ read the same day showed it disconnected). What is left for Jacob is small: sign
 once with his team, and keep the phone unlocked on the desk during a session.
 
 **All three apps are on the phone.** When this note was measured, only [untitled]
-(`com.untitledinbrackets.untitled-ios`, 1.21.0) was installed of 160 apps listed (`devicectl
+(`com.untitledinbrackets.untitled-ios`, 1.21.0; 1.22.0 released 30 Sep 2026, read 3 Oct 2026)
+was installed of 160 apps listed (`devicectl
 device info apps --include-all-apps`); Jacob installed Brink and MD Vinyl later on 30 Sep
 (`plan-2026-09-30.md`).
 
@@ -284,13 +285,13 @@ Sakura Reader). The three read (measured, `apps.apple.com/gb/app/id<id>`):
 | MD Vinyl | `tech.miidii.MDVinyl` | phone, vision, pad | No |
 | [untitled] | `com.untitledinbrackets.untitled-ios` | phone | No |
 
-**One side door: [untitled] has a native Mac app.** "[untitled] for Desktop"
+**One side door: [untitled] has a separate Mac app.** "[untitled] for Desktop"
 (`com.untitledinbrackets.untitled-macos`, id 6744922982, 1.6.0, 24 Sep 2026, macOS 14.6+, free)
-is on the Mac App Store (measured, iTunes Search `entity=macSoftware`). It appears to be a
-different design from the iPhone app (App Store screenshots), so it does not replace recording the
-phone; whether computer-use reads its accessibility tree is untested, but if it does, it is a
-cheap companion study for
-the cross-platform question in the recreations note.
+is on the Mac App Store (measured, iTunes Search `entity=macSoftware`; v1.7.0 released 30 Sep 2026, read 3 Oct 2026).
+Whether it is native or Mac Catalyst is not sourced. It is a different design from the iPhone app,
+a desktop layout with a sidebar (App Store screenshots), so it does not replace recording the
+phone. Since 3 Oct 2026 it is in the untitled app replica's scope (CC-36), recorded and driven on
+the Mac; whether computer-use reads its accessibility tree is untested.
 
 ## What each route gives
 
@@ -319,7 +320,8 @@ the cross-platform question in the recreations note.
 3. **iPhone Mirroring with computer-use,** only for navigation if WDA will not sign.
 4. **Device Hub and Accessibility Inspector** for Jacob's own spot checks by eye.
 5. Not usable: `idevicescreenshot`, the simulator for App Store apps, the Mac App Store copies,
-   Switch or Voice Control.
+   Switch or Voice Control. (The iPhone app is not offered on the Mac; the separate Mac app is its
+   own design, recorded on the Mac for CC-36's Mac part.)
 
 **First thing to measure:** one 5 s `devicectl` recording of a Brink swipe, then `ffprobe` for
 `r_frame_rate`, `avg_frame_rate` and per-frame timestamps. If it holds 60 or 120 fps with even
