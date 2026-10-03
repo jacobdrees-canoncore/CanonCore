@@ -3,8 +3,9 @@
 Decision record, 30 Sep 2026. Jacob went through his X bookmarks one at a time in a grill, with each post, its linked sites and its App Store pages open in Safari. Every bookmark was first analysed with the `analysing-design-bookmarks` skill, which holds the method. The cards, sheets, bursts and captures live outside the repo in `~/orca/projects/CanonCore/xmcp/analysis/`, one folder per post, because they are derived from other people's posts.
 
 > **Revised 3 Oct 2026.** The America.gov (bookmark 2) and MD Vinyl (bookmark 80) recreations are
-> dropped, their specs CC-40 and CC-35 canceled. untitled.stream and Brink remain, with the tvOS
-> recreation beside them.
+> dropped, their specs CC-40 and CC-35 canceled. untitled.stream and Brink remain. The tvOS
+> recreation (CC-34) was dropped the same day, and untitled's app replica covers its iPhone app and
+> its separate Mac app (CC-36).
 
 **Scope.** 101 bookmarks were archived on 30 Sep 2026. Ten personal ones were left out, and six text-only posts that are not design material were set aside, leaving the 85 below. The numbers are the grill's order, newest first.
 
@@ -21,7 +22,7 @@ An app with no website is recreated as a **SwiftUI replica** of its key screens,
 
 ## Decisions
 
-- **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep.
+- **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep. (Revised 3 Oct 2026: America.gov and MD Vinyl are dropped, and untitled's app replica covers its iPhone app and its separate Mac app.)
 - **The frosted-folder portfolio gives CanonCore one signature component, the folder (ADR 0020); untitled.stream is the foundation.** The folders' contents peek out and open into springy galleries (github.com/fayazara/portfolio-site-template). It is not recreated: its own code is used, with the author's permission, and ships once a licence is in its repo (ADR 0019). (Revised 30 Sep: this bullet first called the portfolio the foundation.)
 - **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore. (Revised 2 Oct, ADR 0023: `@shadcn/lint` is dropped; DESIGN.md stays as a mirror of Arc's tokens.)
 - **Evaluate as web-client dependencies:** Arc and ObsidianUI. (Revised 2 Oct, ADR 0023: the web client uses Arc as it ships; ObsidianUI is dropped.)
@@ -56,7 +57,7 @@ Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: G
 - 15. @gow88_, Cover-tinted episode carousel with motion blur, and a floating mini-player: Brink, SwiftUI replica of key screens
 - 29. @kazarov_d, Wafer console: painted backdrop behind sign-in and a translucent model catalogue: dropped 30 Sep (was a maybe recreation of app.wafer.ai)
 - 48. @fayazara, Portfolio of frosted "folders" that open into springy galleries: use its existing code exactly, or at least base CanonCore off it; not recreated (permission reported by Jacob to copy the folders and opening animation)
-- 70. @byhewar, [untitled]: a dark, quiet home for work-in-progress music: web replica under way in butterfish; also do its SwiftUI app replica (App Store id 6445854828)
+- 70. @byhewar, [untitled]: a dark, quiet home for work-in-progress music: web replica under way in butterfish; also do its SwiftUI app replica (App Store id 6445854828; since 3 Oct 2026 also its separate Mac app, Mac App Store id 6744922982)
 - 80. @mobbin, MD Vinyl's first-run tour: one tooltip that walks along the tab bar: MD Vinyl, SwiftUI replica (App Store id 1606306441) (dropped 3 Oct 2026)
 
 ### UI system (18)
