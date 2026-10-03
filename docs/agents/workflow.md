@@ -22,7 +22,11 @@ For a change that fits one ticket, needs no new decision and touches no ADR or `
 1. **One ticket**, filed with its acceptance criteria.
 2. **`check`** on it.
 3. **`/implement`** in its own Orca worktree.
-4. **Main's review** against its acceptance criteria, then the merge.
+4. **Main's light review**, then the merge: green CI, the agent's own code-review recorded in the PR,
+   and a quick read of the diff against the acceptance criteria. A ticket that changes a record other
+   repos copy (the standard block, agent docs, an ADR, `CONTEXT.md`, a skill's rules) gets the full
+   review instead, however small: reading the diff, re-checking its central claim, and walking any
+   reader-facing page.
 
 ## Full
 
@@ -41,9 +45,9 @@ For anything else.
 5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
    after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
-   Orca worktree, and Main reviews and merges. A worker needing the Owner invokes `/grill-with-docs`
-   in its own worktree; with the Owner away it writes `OWNER-QUESTION.md` and stops. A defect found
-   at merge goes back through `/implement`, never as a free-text fix.
+   Orca worktree, and Main gives it the full review and merges. A worker needing the Owner invokes
+   `/grill-with-docs` in its own worktree; with the Owner away it writes `OWNER-QUESTION.md` and
+   stops. A defect found at merge goes back through `/implement`, never as a free-text fix.
 7. **Audit.** The audit ticket runs `auditing-a-spec`: it files every blocking gap as a follow-up
    with a re-audit, and after round 2 the Owner decides: fund a blocking-only round, accept what is
    left, or move it to the owning spec's backlog. The last clean round (no blocking gap) carries the
