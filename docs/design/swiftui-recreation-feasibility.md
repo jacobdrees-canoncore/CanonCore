@@ -14,8 +14,8 @@
 >
 > **Revised 6 Oct 2026.** The makers permitted extraction. Extractor
 > (`~/orca/projects/Extractor/builds/`) holds extractions of [untitled] iOS 1.22.0, [untitled] macOS
-> 1.7.0 and Brink iOS 1.2.43: fonts, images, UI strings, screen and navigation type names, and
-> decompiled code. Files taken from the apps are committed to each replica's private repository.
+> 1.7.0 and Brink iOS 1.2.43: fonts ([untitled] only; Brink ships none), images, UI strings, screen
+> and navigation type names, and decompiled code. Files taken from the apps are committed to each replica's private repository.
 > Mobbin is signed in, and reference screenshots of [untitled] (32 flows, 119 screens, 8 App Store)
 > and Brink (90 flows, 285 screens, 13 App Store) are in `~/canoncore/reference-screens/`. The
 > [untitled] replica is one shared SwiftUI multiplatform app with a native Mac destination. The real
@@ -145,8 +145,10 @@ turntable, icons and illustrations, uses its own sample artwork, and uses SF Pro
 rather than the app's fonts. The UK's own position on screen designs was not read at source (see
 the last section), so the rule here is the stricter one: nothing drawn by them goes in.
 (Superseded 6 Oct 2026 for [untitled] and Brink, whose makers permitted extraction: their replica
-repositories hold the apps' fonts, icons, Rive files, shaders and media, and stay private. Only the
-three 2016 Untitled Sans OTFs, Light, Regular and Medium, carry Klim's Test Font Licence. Nothing of
+repositories hold the apps' fonts ([untitled]'s; Brink ships none), icons, Rive files, shaders and
+media, and stay private. The 2016 Untitled Sans files carry Klim's Test Font Licence: the app's three
+OTFs (Light, Regular, Medium) and the web replica's five committed woff2 files. The app's 2026
+variable font carries Klim's ordinary licence wording, and IBM Plex Mono is SIL OFL 1.1. Nothing of
 theirs reaches CanonCore, ADR 0020.)
 
 **App Review never sees a replica.** Guideline 4.1 forbids to "copy the latest popular app ... or
