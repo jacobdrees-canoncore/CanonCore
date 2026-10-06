@@ -146,7 +146,8 @@ automatic strategy is `appium:xcodeOrgId` plus `appium:xcodeSigningId: "Apple De
 ([Basic automatic configuration](https://github.com/appium/appium-xcuitest-driver/blob/master/docs/getting-started/provisioning-profile/auto-config.md));
 tap Trust for the developer certificate on the phone the first time WDA installs, if asked. Appium
 needs installing on the Mac (`npm i -g appium`, `appium driver install xcuitest`); that is the
-agent's job, with his go-ahead.
+agent's job. (Revised 6 Oct 2026: installing free tools is pre-approved, `docs/agents/dispatching.md`;
+Appium 3.8.0 with the xcuitest 12.15.0 and mac2 4.3.6 drivers is installed.)
 
 ### 3. Xcode 27 Device Hub: a live view of the phone, but a GUI
 
@@ -288,7 +289,9 @@ Sakura Reader). The three read (measured, `apps.apple.com/gb/app/id<id>`):
 **One side door: [untitled] has a separate Mac app.** "[untitled] for Desktop"
 (`com.untitledinbrackets.untitled-macos`, id 6744922982, 1.6.0, 24 Sep 2026, macOS 14.6+, free)
 is on the Mac App Store (measured, iTunes Search `entity=macSoftware`; v1.7.0 released 30 Sep 2026, read 3 Oct 2026).
-Whether it is native or Mac Catalyst is not sourced. It is a different design from the iPhone app,
+It is native AppKit plus SwiftUI, not Mac Catalyst (read 6 Oct 2026: `vtool` reports platform
+MACOS, it links AppKit and nothing from iOSSupport); its bundle names it "[untitled]", and "for
+Desktop" is only its App Store listing name. It is a different design from the iPhone app,
 a desktop layout with a sidebar (App Store screenshots), so it does not replace recording the
 phone. Since 3 Oct 2026 it is in the untitled app replica's scope (CC-36), recorded and driven on
 the Mac; whether computer-use reads its accessibility tree is untested.
@@ -338,8 +341,9 @@ spacing, route 1 answers the timing question and everything else is only navigat
 - [ ] Settings -> Display & Brightness -> Auto-Lock: Never for a session, and Focus on to stop
       notifications appearing in recordings; keep the phone unlocked on the desk and on charge.
 - [x] Give the agent his Team ID (developer.apple.com -> Membership) (done 30 Sep).
-- [ ] Approve installing Appium and the XCUITest driver on this Mac; the agent signs and builds
-      WDA.
+- [x] Approve installing Appium and the XCUITest driver on this Mac; the agent signs and builds
+      WDA (6 Oct 2026: free tools are pre-approved; Appium 3.8.0, xcuitest 12.15.0 and mac2 4.3.6
+      are installed).
 - [ ] When WDA first installs, approve anything the phone asks (trusting the developer app).
 - [ ] Optional: a USB-C cable, for the QuickTime fallback and a steadier link than Wi-Fi.
 - [ ] Optional: open iPhone Mirroring once and approve it, as the navigation fallback.

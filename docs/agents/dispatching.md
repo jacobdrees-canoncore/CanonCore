@@ -11,10 +11,18 @@ on Main's review:
 - **One Chrome lane.** One untitled-replica agent at a time drives Chrome. The replica's captures
   and comparisons are the memory load and are timing-sensitive, so a second would slow and destabilise
   both.
-- **Browserless agents beside it.** Work that opens no browser (the skills repository,
-  prototype-snapshot, CanonCore's records, tracker-only tickets) may run alongside while `room.sh`
-  allows it and no other open branch or pull request in that repository touches the files the ticket
-  names.
+- **One recording lane.** One agent at a time records on this Mac: motion or screen captures, of
+  the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57, CC-60,
+  CC-190) included. The iPhone is one resource inside it, so its sessions are also ordered by
+  blocked-by edges: the Brink look (CC-33), then the untitled app replica's iPhone recording tickets
+  (CC-36). The order on 6 Oct 2026 is the SwiftUI folder (CC-54), the folder's web gallery (CC-50),
+  the Brink look (CC-33), then untitled's Mac app and then its iPhone app (CC-36), with the later
+  folder tickets taking their turn. Dispatch hands the lane on as it hands on the Chrome lane (the
+  Owner, 6 Oct 2026).
+- **Browserless agents beside it.** Work that opens no browser and records nothing (the skills
+  repository, prototype-snapshot, CanonCore's records, tracker-only tickets) may run alongside while
+  `room.sh` allows it and no other open branch or pull request in that repository touches the files
+  the ticket names.
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
   only lengthens the queue (the Owner, 3 Oct 2026).
 
@@ -31,6 +39,12 @@ Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
 CanonCore has no test suite yet. When the first project adds one, measure its database connections
 per run and add that limit here.
+
+## Standing decisions
+
+- **Free tools are pre-approved.** An agent installs a free tool its ticket needs (Appium and its
+  drivers, ipatool and the like) without asking. Spending money still needs the Owner's yes (the
+  Owner, 6 Oct 2026).
 
 ## Where a merged slice lands
 

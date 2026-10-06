@@ -18,11 +18,11 @@ Every bookmark sits in exactly one of these, decided before the round began:
 - **Inspiration**: a design idea for the prototype, kept as its card and nothing more.
 - **Skip**: dropped.
 
-An app with no website is recreated as a **SwiftUI replica** of its key screens, built from its App Store screenshots, screen recordings and any TestFlight build, since that is the stack of CanonCore's own apps.
+An app with no website is recreated as a **SwiftUI replica** of its key screens, built from its App Store screenshots, screen recordings and any TestFlight build (amended 6 Oct 2026: and from the reference screenshots in `~/canoncore/reference-screens/` and Extractor's builds), since that is the stack of CanonCore's own apps.
 
 ## Decisions
 
-- **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product. Wafer's console was dropped on 30 Sep. (Revised 3 Oct 2026: America.gov and MD Vinyl are dropped, and untitled's app replica covers its iPhone app and its separate Mac app.)
+- **Recreate four products:** untitled.stream (the web replica is under way; a SwiftUI replica of its app follows), America.gov (web), and Brink and MD Vinyl (SwiftUI). None of the four publishes its source (checked on GitHub, 30 Sep 2026), so each is rebuilt from the live product, and from Extractor's extraction where one exists (amended 6 Oct 2026). Wafer's console was dropped on 30 Sep. (Revised 3 Oct 2026: America.gov and MD Vinyl are dropped, and untitled's app replica covers its iPhone app and its separate Mac app.)
 - **The frosted-folder portfolio gives CanonCore one signature component, the folder (ADR 0020); untitled.stream is the foundation.** The folders' contents peek out and open into springy galleries (github.com/fayazara/portfolio-site-template). It is not recreated: its own code is used, with the author's permission, and ships once a licence is in its repo (ADR 0019). (Revised 30 Sep: this bullet first called the portfolio the foundation.)
 - **Adopt:** shadcn/lint, and Google Stitch's DESIGN.md format alongside it for the agents that build CanonCore. (Revised 2 Oct, ADR 0023: `@shadcn/lint` is dropped; DESIGN.md stays as a mirror of Arc's tokens.)
 - **Evaluate as web-client dependencies:** Arc and ObsidianUI. (Revised 2 Oct, ADR 0023: the web client uses Arc as it ships; ObsidianUI is dropped.)
