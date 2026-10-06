@@ -39,7 +39,7 @@ What Jacob kept returning to, for whoever designs the prototype:
 - **Dither and ASCII**: dithered gradients, halftone screens and character-grid images.
 - **Serif mixed with sans**: an editorial or bookish serif for titles over a plain sans UI.
 
-Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: Geist and Inter only, weights 400 and 500, and no decorative gradients or glows. The prototype decides which gradients count as decorative; a serif on the web means revisiting the type rule.
+Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: Geist and Inter only, weights 400 and 500, and no decorative gradients or glows. The prototype decides which gradients count as decorative; a serif on the web means revisiting the type rule. One exception to the type rule: the web prototype's untitled look may use untitled's fonts inside the private prototype only (the Owner, 6 Oct 2026). CanonCore itself stays on Geist and Inter.
 
 ## Follow-ups
 
