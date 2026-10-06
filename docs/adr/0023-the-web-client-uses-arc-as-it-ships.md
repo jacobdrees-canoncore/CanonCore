@@ -16,7 +16,7 @@ CanonCore's web client and the web prototype (CC-38) use Arc (uiarc.dev: its fre
 - **Arc's agent rules apply** to the web client and the web prototype: Geist and Inter only, weights 400 and 500 (the prototype's untitled look excepted, below), and no decorative gradients or glows. They are recorded as revisitable. Which gradients count as decorative is decided case by case in the web prototype (the cover-to-black tint of CC-33, the frosted folder front and its Liquid Glass web twin of CC-37 and CC-52, CC-66's mesh-gradient cards, the replica's blur fades), and its verdict records which stay.
 - **DESIGN.md stays** as a mirror of Arc's tokens, for agents and the Apple app. `@shadcn/lint` is dropped: it reads a Tailwind `@theme`, and Arc's tokens are plain CSS variables.
 - **The look waits on a Look switch.** Where untitled's look and Arc's look disagree, which leads is tried as a Look switch in the web prototype (CC-38): it is carried in the URL beside the variant switcher, and in Storybook's toolbar. ADR 0020's "untitled leads" waits on that verdict. The prototype uses Arc free and Pro.
-- **untitled's fonts stay in the prototype.** The web prototype's untitled look may use untitled's fonts (Untitled Sans and IBM Plex Mono) inside the private prototype only (the Owner, 6 Oct 2026). CanonCore itself stays on Geist and Inter.
+- **untitled's fonts stay in the prototype.** The web prototype's untitled look always uses untitled's fonts (Untitled Sans and IBM Plex Mono) inside the private prototype only (the Owner, 6 Oct 2026). CanonCore itself stays on Geist and Inter.
 
 ## Scope
 
