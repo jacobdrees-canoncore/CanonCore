@@ -11,6 +11,18 @@
 >
 > **Revised 3 Oct 2026.** MD Vinyl is dropped (CC-35 canceled), so its sections below are history;
 > [untitled]'s app and Brink remain.
+>
+> **Revised 6 Oct 2026.** The makers permitted extraction. Extractor
+> (`~/orca/projects/Extractor/builds/`) holds extractions of [untitled] iOS 1.22.0, [untitled] macOS
+> 1.7.0 and Brink iOS 1.2.43: fonts, images, UI strings, screen and navigation type names, and
+> decompiled code. Files taken from the apps are committed to each replica's private repository.
+> Mobbin is signed in, and reference screenshots of [untitled] (32 flows, 119 screens, 8 App Store)
+> and Brink (90 flows, 285 screens, 13 App Store) are in `~/canoncore/reference-screens/`. The
+> [untitled] replica is one shared SwiftUI multiplatform app with a native Mac destination. The real
+> Mac app is native AppKit plus SwiftUI, not Catalyst, and its bundle names it "[untitled]" ("for
+> Desktop" is only its App Store listing name); [untitled] is built from UIKit view controllers plus
+> SwiftUI, with swift-navigation Destination enums, not TCA. The sections below that say assets
+> cannot be copied, or that the permission is unrecorded, are history for [untitled] and Brink.
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
@@ -28,12 +40,16 @@ the mini-player above it, glass buttons, paged carousels, scroll-driven effects,
 and ordered tooltips all have system APIs (next section). Three things remain custom: a live
 directional motion blur (a Metal shader), colour taken from artwork (Core Image, a few lines), and
 anything drawn to look physical (records, turntables, waveforms), which has to be drawn from
-scratch because the originals' assets cannot be copied.
+scratch because the originals' assets cannot be copied. (Revised 6 Oct 2026: for [untitled] and
+Brink the makers permitted extraction, so their assets are taken from the app.)
 
 **The real cost is the inputs, not the code.** An iOS app has no DOM. Nothing can read a
 shipped app's view tree, fonts, colours or spring values; they come from recordings measured
 frame by frame, and from the few stills the App Store serves. Every one of those stills is a
-marketing composite, not a screen.
+marketing composite, not a screen. (Revised 6 Oct 2026: for [untitled] and Brink, Extractor yields
+fonts, images, UI strings, and screen and navigation type names from the app bundle, with decompiled
+code, and Mobbin's reference screenshots are saved; view trees, colours and spring values still come
+from recordings.)
 
 **Recommendation:** replicate [untitled]'s key screens; do study sketches of Brink's Home and of
 MD Vinyl's tour and record; build nothing else of either. The table at the end gives the reasons.
@@ -68,8 +84,10 @@ interaction each, which is why they suit a study sketch better than a full repli
 screens, "End-to-end flows such as onboarding" and UI patterns, from "real shipped products"
 ([Mobbin](https://mobbin.com/)). Brink's maker links his Mobbin page from his portfolio (measured,
 the `gowthamoleti.com` bundle links `mobbin.com/screens/9fcbb76c-...`), and the MD Vinyl bookmark
-was posted by @mobbin itself. The Mobbin MCP server configured here needs Jacob's sign-in before it
-returns anything (measured 30 Sep 2026 while writing the bookmark method, now the `analysing-design-bookmarks` skill).
+was posted by @mobbin itself. The Mobbin MCP server configured here needed Jacob's sign-in before it
+returned anything (measured 30 Sep 2026 while writing the bookmark method, now the `analysing-design-bookmarks` skill).
+(Revised 6 Oct 2026: signed in; [untitled]'s 32 flows and 119 screens and Brink's 90 flows and 285
+screens are saved in `~/canoncore/reference-screens/`.)
 
 **This Mac can build and preview the replicas.** Xcode 27.0 (27A266a) with iOS 27.0 and tvOS 27.0
 simulator runtimes is installed (measured, `xcodebuild -version`, `xcrun simctl list runtimes`).
@@ -103,7 +121,9 @@ Licensed Application", except where that restriction "is prohibited by applicabl
 Brink's App Store description names this licence as its terms (measured). MD Vinyl's App Store
 page offers no custom licence (measured), and Apple's page says the Standard EULA applies unless a
 custom one is provided, so the same terms govern it. Extracting either app's image assets or fonts
-from the app bundle is on the wrong side of that line.
+from the app bundle is on the wrong side of that line. (Superseded 6 Oct 2026: the makers permitted
+extraction. Extractor holds [untitled] iOS 1.22.0, [untitled] macOS 1.7.0 and Brink iOS 1.2.43, and
+the files taken from them are committed to each replica's private repository.)
 
 ## What the law allows
 
@@ -124,6 +144,10 @@ So a replica may reproduce structure, spacing, timing and behaviour, but draws i
 turntable, icons and illustrations, uses its own sample artwork, and uses SF Pro or a licensed face
 rather than the app's fonts. The UK's own position on screen designs was not read at source (see
 the last section), so the rule here is the stricter one: nothing drawn by them goes in.
+(Superseded 6 Oct 2026 for [untitled] and Brink, whose makers permitted extraction: their replica
+repositories hold the apps' fonts, icons, Rive files, shaders and media, and stay private. Only the
+three 2016 Untitled Sans OTFs, Light, Regular and Medium, carry Klim's Test Font Licence. Nothing of
+theirs reaches CanonCore, ADR 0020.)
 
 **App Review never sees a replica.** Guideline 4.1 forbids to "copy the latest popular app ... or
 make some minor changes to another app's name or UI and pass it off as your own"
@@ -144,7 +168,7 @@ ahead, and then only with Gowtham Oleti's say-so.
 derivative works of, ... reverse engineer any part of the Service", and Jacob reports the owner's
 permission as verbal (`~/canoncore/untitled-replica/docs/untitled-stream-capture.md`, lines
 129 to 141). That note is about the website; whether the permission covers the iOS app or the
-Mac app is not recorded.
+Mac app is not recorded. (Revised 6 Oct 2026: the makers permitted extraction from the apps.)
 
 ## What each hard element takes in SwiftUI
 
@@ -194,7 +218,10 @@ SwiftUI plus one custom waveform. The web replica has already measured its palet
 hand and shows how one product adapts across web, iPhone and Mac. Its App Store stills are small and
 letterboxed (see above) and the app needs an account, so recordings are essential. Its separate Mac
 app, "[untitled] for Desktop" (id 6744922982, v1.7.0), is a desktop design with a sidebar, in the
-replica's scope since 3 Oct 2026 (CC-36) and recorded on the Mac rather than the phone.
+replica's scope since 3 Oct 2026 (CC-36) and recorded on the Mac rather than the phone. (Revised
+6 Oct 2026: it is native AppKit plus SwiftUI, not Catalyst, and its bundle names it "[untitled]";
+"for Desktop" is only its App Store listing name. The replica is one shared SwiftUI multiplatform
+app with a native Mac destination.)
 
 ## How established teams do this
 
@@ -263,15 +290,15 @@ app, added to the replica's scope on 3 Oct 2026, is not estimated.
 **What an agent can do alone:** fetch the full-size screenshots, build layouts in Xcode previews
 on the installed iOS 27 simulator, write the blur shader and colour extraction, and time its own
 build against the bookmark bursts. **What needs Jacob:** approving WebDriverAgent on the phone
-once, keeping it unlocked and on charge for sessions (`driving-the-iphone.md`), signing in to
-Mobbin, confirming that [untitled]'s permission covers the app, and judging feel under the finger,
-which no recording shows.
+once, keeping it unlocked and on charge for sessions (`driving-the-iphone.md`), and judging feel
+under the finger, which no recording shows. (Revised 6 Oct 2026: Mobbin is signed in, and the
+makers permitted extraction, which settles whether [untitled]'s permission covers the app.)
 
 ## Recommendation
 
 | App | Recommendation | What it rests on |
 | --- | --- | --- |
-| [untitled] | **Replicate key screens**: library grid, project page, player with waveform and loop, speed and pitch edit, mini-player | Closest to CanonCore's own screens (library, album-like page, player); pairs with the web replica and reuses its tokens; nearly all standard SwiftUI; the owner's permission is reported. Needs recordings, since the stills are marketing frames, and Jacob's check that the permission covers the app. |
+| [untitled] | **Replicate key screens**: library grid, project page, player with waveform and loop, speed and pitch edit, mini-player | Closest to CanonCore's own screens (library, album-like page, player); pairs with the web replica and reuses its tokens; nearly all standard SwiftUI; the owner's permission is reported. Needs recordings, since the stills are marketing frames. (Revised 6 Oct 2026: the makers permitted extraction.) |
 | Brink | **Study sketch** of Home: the paged cover-tinted carousel with directional motion blur, the bottom-accessory mini-player, and the zoom into an episode; optionally the podcast page's per-show theme | The chrome appears to be Apple's own Liquid Glass, so copying it teaches nothing beyond the WWDC25 session; the novel parts are one row and one tint. The rest is AI and map features. Use the App Store build, not TestFlight (confidentiality). |
 | MD Vinyl | **Study sketch** of two interactions: the three-step tab-bar tour, and the spinning record with its tonearm | Everything else is drawn artwork that may not be copied, so a faithful replica is an illustration job; the tour tests whether TipKit fits CanonCore's first run, and the record serves the physical-media theme. Needs a fresh install recorded by Jacob. |
 
@@ -286,8 +313,9 @@ which no recording shows.
 - The frame rate of an iPhone screen recording: not found in Apple's support page; measure it
   with `ffprobe` on the agent's first `devicectl` recording (`plan-2026-09-30.md`, Driving the
   iPhone).
-- That Mobbin holds MD Vinyl's and [untitled]'s flows: inferred from @mobbin posting the MD Vinyl
-  tour; unverified until Jacob signs in. Brink's Mobbin page is linked by its maker.
+- That Mobbin holds MD Vinyl's flows: inferred from @mobbin posting the MD Vinyl tour. (Revised 6
+  Oct 2026: signed in; [untitled]'s and Brink's flows and screens are saved in
+  `~/canoncore/reference-screens/`.)
 - That MD Vinyl's tour runs on first launch: `for-jacob.md` says so, but that is the analysing
   agent's inference; no MD Vinyl source was read.
 - The effort figures are estimates, as the Effort section says.
