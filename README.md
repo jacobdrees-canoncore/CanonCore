@@ -12,7 +12,7 @@ decisions behind the rebuild are the founding records in [docs/adr/](docs/adr/).
 ## Design decisions
 
 The founding decisions are in [docs/adr/](docs/adr/), one short record each. Names follow
-the glossary, [CONTEXT.md](CONTEXT.md).
+the glossary, [GLOSSARY.md](GLOSSARY.md).
 
 ## Working conventions
 
