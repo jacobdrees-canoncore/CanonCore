@@ -56,6 +56,9 @@ per run and add that limit here.
 - **Free tools are pre-approved.** An agent installs a free tool its ticket needs (Appium and its
   drivers, ipatool and the like) without asking. Spending money still needs the Owner's yes (the
   Owner, 6 Oct 2026).
+- **Green patch bumps are pre-approved.** Main merges a patch-level dependency bump (`x.y.z` to
+  `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
+  on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
 
 ## Where a merged slice lands
 
