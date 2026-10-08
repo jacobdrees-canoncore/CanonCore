@@ -5,22 +5,31 @@ frontier or creates a worktree.
 
 ## The ceiling
 
+**One spec at a time** (the Owner, 8 Oct 2026). The Design references specs are built in order: the
+folder component (CC-37), the web prototype (CC-38), Brink's look (CC-33), the untitled app replica
+(CC-36), then the Apple prototype (CC-39). Each finishes, its audit at its clean round, before the
+next one's first ticket starts, and the board enforces it: each audit ticket blocks the next spec's
+first ticket (CC-140 blocks CC-193, CC-206 blocks CC-207, CC-217 blocks CC-218, CC-242 blocks CC-39).
+Inside the current spec, every unblocked ticket runs in parallel within the ceiling below. Main plans
+the next spec alongside the current build (its fixes, check rounds and `/to-tickets`), starting with
+the Apple prototype.
+
 There is no fixed number of agents. The ceiling is whatever actually contends on the Owner's Mac, and
 on Main's review:
 
-- **One Chrome lane.** One untitled-replica agent at a time drives Chrome. The replica's captures
-  and comparisons are the memory load and are timing-sensitive, so a second would slow and destabilise
-  both.
+- **One Chrome lane.** One agent at a time drives Chrome, whichever repository it works in.
+  Captures, walks and comparisons are the memory load and are timing-sensitive, so a second would slow
+  and destabilise both.
 - **One recording lane.** One agent at a time records on this Mac: motion or screen captures, of
-  the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57, CC-60,
-  CC-190) included. The iPhone is one resource inside it, so its sessions are also ordered by
-  blocked-by edges: the Brink look (CC-33), then the untitled app replica's iPhone recording tickets
-  (CC-36). The order on 6 Oct 2026 is the SwiftUI folder (CC-54), the folder's web gallery (CC-50),
-  the Brink look (CC-33), then untitled's Mac app and then its iPhone app (CC-36), with the later
-  folder tickets taking their turn. Dispatch hands the lane on as it hands on the Chrome lane (the
-  Owner, 6 Oct 2026).
-- **Browserless agents beside it.** Work that opens no browser and records nothing (the skills
-  repository, prototype-snapshot, CanonCore's records, tracker-only tickets) may run alongside while
+  the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57 and
+  CC-60) included; the iPad trace on hardware, CC-190, was canceled 8 Oct 2026 (the Owner has no
+  iPad, and the Mac trace stands in). Since the spec order above, the lane holds only the current
+  spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
+  edges; inside the replica the Mac's recordings come before the iPhone's. Dispatch hands the lane on
+  as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
+- **Browserless agents beside it.** Work that opens no browser and records nothing (the current
+  spec's other tickets, the skills repository, prototype-snapshot, CanonCore's records, tracker-only
+  tickets) may run alongside while
   `room.sh` allows it and no other open branch or pull request in that repository touches the files
   the ticket names.
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
@@ -34,6 +43,8 @@ where a Claude tab already stands, and this repository's hook refuses the raw fo
 
 After every merge, look across every lane and the free spikes for anything that now fits, not only
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
+In Design references that means the current spec's tickets only; a later spec's ticket, browserless
+or not, waits for its spec's turn (8 Oct 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
