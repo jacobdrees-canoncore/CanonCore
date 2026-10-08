@@ -17,14 +17,14 @@ Work takes one of two weights.
 
 ## Light
 
-For a change that fits one ticket, needs no new decision and touches no ADR or `CONTEXT.md` term.
+For a change that fits one ticket, needs no new decision and touches no ADR or `GLOSSARY.md` term.
 
 1. **One ticket**, filed with its acceptance criteria.
 2. **`check`** on it.
 3. **`/implement`** in its own Orca worktree.
 4. **Main's light review**, then the merge: green CI, the agent's own code-review recorded in the PR,
    and a quick read of the diff against the acceptance criteria. A ticket that changes a record other
-   repos copy (the standard block, agent docs, an ADR, `CONTEXT.md`, a skill's rules) gets the full
+   repos copy (the standard block, agent docs, an ADR, `GLOSSARY.md`, a skill's rules) gets the full
    review instead, however small: reading the diff, re-checking its central claim, and walking any
    reader-facing page.
 
@@ -32,10 +32,10 @@ For a change that fits one ticket, needs no new decision and touches no ADR or `
 
 For anything else.
 
-1. **Grill.** `/grill-with-docs` sharpens the idea by interview, drafting `CONTEXT.md` terms and
+1. **Grill.** `/grill-with-docs` sharpens the idea by interview, drafting `GLOSSARY.md` terms and
    ADRs as they resolve. Each option starts from what the competitors do. Done when the frontier is
    empty and the Owner confirms the shared understanding.
-2. **Trace**, when the grill changes an ADR or a `CONTEXT.md` term. `tracing-a-decision` lists every
+2. **Trace**, when the grill changes an ADR or a `GLOSSARY.md` term. `tracing-a-decision` lists every
    sentence the decisions make false, across this repository, every open spec and ticket and every
    sibling, before any of them is committed. Nothing lands until the Owner says go.
 3. **Spec.** `/to-spec`.

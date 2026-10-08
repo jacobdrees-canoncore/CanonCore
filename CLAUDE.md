@@ -3,7 +3,7 @@
 A self-hosted media server built schema-first: the Library is CanonCore's own schema,
 built from Providers the user installs, and media files are only matched to it. One server, a web
 client and one SwiftUI app for iPhone, iPad, Mac and Apple TV. Being rebuilt: the founding records are
-in `docs/adr/`, names follow `CONTEXT.md`, and the work is ten Linear projects in team CC, in order,
+in `docs/adr/`, names follow `GLOSSARY.md`, and the work is ten Linear projects in team CC, in order,
 each with an early spec that opens with its own next step, plus the Design references project.
 
 <!-- standard:start -->
@@ -42,7 +42,7 @@ checked out at `~/orca/projects/CanonCore/docs/agents/workflow.md`.
 
 - `check`: a claim, a ticket, a PR, a doc or a whole spec against the sources that own it; on every spec
   straight after `/to-tickets`, and whenever a version, limit or price is about to bear weight.
-- `tracing-a-decision`: once, when a grill changes an ADR or a `CONTEXT.md` term, before anything is
+- `tracing-a-decision`: once, when a grill changes an ADR or a `GLOSSARY.md` term, before anything is
   committed; lists every sentence the decision makes false and checks what it rests on.
 - `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
 - `tracker-sweep`: when asked, to repair tickets that drifted from the tracker doc's filing standard.
@@ -87,7 +87,7 @@ Four labels plus the Canceled state; the Triage inbox is off. See `docs/agents/t
 
 ### Domain docs
 
-Single-context: one `CONTEXT.md` and one `docs/adr/` at the root. See `docs/agents/domain.md`.
+Single-context: one `GLOSSARY.md` and one `docs/adr/` at the root. See `docs/agents/domain.md`.
 
 ### Arc
 
