@@ -11,7 +11,8 @@ A folder is a presentation, not a domain concept (ADR 0020): any grouping may be
 `GLOSSARY.md` still avoids "folder" as a name for a Collection, Franchise, Show or Ordering.
 
 Every value below is the build's at the private repository's main branch, commit `f3096e7` (CC-58's
-merge, 9 Oct 2026), and was checked against it when this record was written.
+merge, 9 Oct 2026), and was checked against it when this record was written; the Apple TV section's
+are CC-60's, at commit `73d3dcd`.
 
 ## What the folder is
 
@@ -328,7 +329,52 @@ For the web prototype's verdicts (ADR 0023), not settled here:
 
 ## Apple TV
 
-_Written from CC-60's merged PR; this PR stays a draft until it merges._
+**The folder does not survive tvOS's system focus lift. Apple TV's focus signal is the folder's
+own fan, with no system lift** (the Owner, 9 Oct 2026, from CC-60's verdict).
+
+CC-60 put the SwiftUI folder on Apple TV in the Apple TV 4K (3rd generation) simulator, tvOS 27.0,
+driven by the simulator's remote. Apple TV has no pointer and no touch on the screen, so focus
+stands in for hover: the focused folder fans, select opens the gallery, left and right step it, and
+Back sends the cards home and hands focus back to the folder. That part works with or without the
+lift.
+
+With the system's lift (`hoverEffect(.lift)`), the same frame against the same build without it:
+
+| | With the lift | Without it |
+| -- | -- | -- |
+| the front | drawn flat: its tilt back is gone | tilts back, as on the Mac |
+| the fanned cards | cut off straight along the folder's top edge | rise clear of the folder |
+| the back's tab | gone: the folder is a rounded platter | the silhouette |
+| the frost, on every folder | shows nothing through it | shows the cards through it |
+
+The lift draws the whole view as one flat platter clipped to its bounds, so everything that makes
+the folder a folder is lost or cut. Traced in the simulator with the lift, both focus clips failed
+against the original: the fanned middle card ended at scale 1.146 against 1.000, and x and y were
+off by about 4% of the folder's width against a 1% limit. The simulator records at about 60 frames
+a second, so timing was not judged; where the cards end up was.
+
+**This departs from Apple's default on purpose.** The HIG's focus page says "Rely on
+system-provided focus effects" and "Consider creating custom focus effects only if it's absolutely
+necessary" (developer.apple.com/design/human-interface-guidelines/focus-and-selection, read 9 Oct
+2026). It is necessary here because the lift breaks the component. Keyboard focus already fans the
+folder on the Mac, so the fan is the folder's focus signal on every platform. What it gives up is
+the scale and shadow every other tvOS control shows when focused; if that is wanted later, the
+folder can draw its own outside its clip, on its own spring.
+
+**On Apple TV, as built:**
+
+- the page draws at twice the original's size, so each folder is 552 points wide, and the front's
+  and the gallery's text at twice its size;
+- the look is frosted, light or dark following the system's appearance, with no picker;
+- the gallery's centred card holds focus, and its value names which card is centred; while the
+  gallery is open, the demo leaves nothing else on the page focusable;
+- the gallery has no close button, since Back is the platform's close and focus cannot reach a
+  button once the centred card holds it;
+- with reduced motion, nothing lifts or moves, as on every platform.
+
+The private demo still carries the lift, because CC-60 measured it. CanonCore's own folder is built
+from this record, without it. The first judgement of the folder with a real Siri Remote is the Apple
+prototype's (CC-39, ADR 0020).
 
 ## What descends from fayazara's code, and its licence
 
