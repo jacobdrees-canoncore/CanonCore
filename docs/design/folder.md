@@ -374,9 +374,10 @@ folder can draw its own outside its clip, on its own spring.
   button once the centred card holds it;
 - with reduced motion, nothing moves, as on every platform.
 
-The private demo still carries the lift, because CC-60 measured it. CanonCore's own folder is built
-from this record, without it. The first judgement of the folder with a real Siri Remote is the Apple
-prototype's (CC-39, ADR 0020).
+The private package and demo dropped the lift on 9 Oct 2026, on the Owner's decision in the folder
+audit's grill (CC-248); CC-60's measurement of it is kept as its committed recordings. CanonCore's
+own folder is built from this record, without it. The first judgement of the folder with a real Siri
+Remote is the Apple prototype's (CC-39, ADR 0020).
 
 ## What descends from fayazara's code, and its licence
 
