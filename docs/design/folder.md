@@ -349,8 +349,9 @@ With the system's lift (`hoverEffect(.lift)`), the same frame against the same b
 
 The lift draws the whole view as one flat platter clipped to its bounds, so everything that makes
 the folder a folder is lost or cut. Traced in the simulator with the lift, both focus clips failed
-against the original (the recordings of fayazara's live page that every build is traced against): the fanned middle card ended at scale 1.146 against 1.000, and x and y were
-off by about 4% of the folder's width against a 1% limit. The simulator records at about 60 frames
+against the original (the recordings of fayazara's live page that every build is traced
+against): the fanned middle card ended at scale 1.146 against 1.000, and x and y were off by about
+4% of the folder's width against a 1% limit. The simulator records at about 60 frames
 a second, so timing was not judged; where the cards end up was.
 
 **This departs from Apple's default on purpose.** The HIG's focus page says "Rely on
