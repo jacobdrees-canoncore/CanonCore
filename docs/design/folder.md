@@ -52,10 +52,11 @@ expected route (ADR 0020 as first written) and were measured instead of assumed.
   travel, but SwiftUI's springs carry velocity into the next animation, and Motion's duration-based
   springs do not: the original's fan, reversed 63 ms in, stops dead and comes back from rest. With
   SwiftUI's springs, the reversed fan's outer cards swung past the turn and failed the trace (5.45%
-  of the folder's width against a 1% limit). SwiftUI has no way to start a spring from rest.
+  of the folder's width against a 1% limit). Apple's documentation gives SwiftUI's springs as
+  preserving velocity across overlapping animations, and names no option to start one from rest.
 
 So the rule is "write Motion's numbers; they mean what they mean in Motion". The Apple folder ports
-Motion's spring (motion-dom 12.43.0's `findSpring`, MIT) as a SwiftUI `CustomAnimation`:
+Motion's spring (`findSpring` in motion-dom 12.43.0, MIT by its npm package, read 9 Oct 2026) as a SwiftUI `CustomAnimation`:
 
 - **The curve.** Damping ratio is 1 − bounce, clamped to 0.05 to 1. The stiffness is solved, from
   Motion's first guess of 5 / duration and its eleven Newton steps, so the envelope has decayed to
@@ -127,12 +128,23 @@ contrast never rests on Arc's values.
 
 ### In DESIGN.md's front matter
 
-The block below lints clean as the front matter of a DESIGN.md (Google's format, `version: alpha`,
-checked with `@google/design.md` 0.4.0). DESIGN.md has no dark-mode key, so dark values carry a
+The block below lints as the front matter of a DESIGN.md (Google's format, `version: alpha`) with
+no error and one expected warning, `missing-primary`, since CanonCore's DESIGN.md takes its primary
+from Arc's mirror (`npx -p @google/design.md@0.4.0 designmd lint`, 9 Oct 2026). DESIGN.md has no dark-mode key, so dark values carry a
 `-dark` suffix. Its `rounded` scale takes only px, em and rem, and every radius of the folder is a
 fraction of the folder's or the card's width so it scales with them, so the radii sit in `spacing`
-as unitless fractions, which DESIGN.md allows for ratios. Fractions of the folder's width are
-written `of folder width` in the prose below; the card's are of its own width.
+as unitless fractions, which DESIGN.md allows for ratios. What each unitless value is a fraction
+of, or measured in:
+
+- of the folder's width: `radius-folder-front-x`, `folder-fan-closed-spread`,
+  `folder-fan-neighbour-yield`; of the folder's height: `folder-front-top`; of the front's own
+  height: `radius-folder-front-y`;
+- of the card's own width: `radius-folder-card`, `radius-folder-card-gallery`,
+  `folder-card-matte-padding`; of the card's own height: `folder-fan-rise`, `folder-fan-single-rise`;
+- of the viewport: `gallery-unit-width`, `gallery-unit-height`; of the gallery unit: `gallery-gap`;
+- degrees: `folder-front-tilt-fanned`, `folder-front-tilt-flung`, `gallery-tilt-max`;
+- multipliers: `folder-aspect` (width over height), the scales, the opacities and the saturations
+  (`folder-front-saturate` 1.8 is CSS `saturate(180%)`).
 
 <!-- tokens:start -->
 ```yaml
@@ -185,21 +197,21 @@ spacing:
   folder-arrow-size: 16px
   radius-folder-front-x: 0.075
   radius-folder-front-y: 0.116
-  radius-card-matte: 0.09
-  radius-card-matte-gallery: 0.035
-  card-matte-padding: 0.03
+  radius-folder-card: 0.09
+  radius-folder-card-gallery: 0.035
+  folder-card-matte-padding: 0.03
   blur-folder-front: 16px
-  saturate-folder-front: 1.8
+  folder-front-saturate: 1.8
   blur-gallery: 24px
-  saturate-gallery: 1.4
-  press-scale: 0.98
-  fan-closed-spread: 0.06
-  fan-neighbour-yield: 0.04
-  fan-rise: -0.24
-  fan-single-rise: -0.34
-  fan-single-scale: 1.05
-  front-tilt-fanned: -30
-  front-tilt-flung: -80
+  gallery-saturate: 1.4
+  folder-press-scale: 0.98
+  folder-fan-closed-spread: 0.06
+  folder-fan-neighbour-yield: 0.04
+  folder-fan-rise: -0.24
+  folder-fan-single-rise: -0.34
+  folder-fan-single-scale: 1.05
+  folder-front-tilt-fanned: -30
+  folder-front-tilt-flung: -80
   gallery-unit-width: 0.46
   gallery-unit-height: 0.52
   gallery-side-scale: 0.6
@@ -218,13 +230,13 @@ spacing:
 - **The folder** is 20 wide by 17 tall (`folder-aspect`). Its silhouette, on a 400 by 340 box: a
   tab 180 wide and 60 deep with 26-unit corners, joined to the body by a concave sweep of radius
   34, and a body with 30-unit corners. The front covers the folder from 24% of its height down
-  (`folder-front-top`), with corners of 7.5% of its width by 11.6% of its height, the body's
-  30 units.
+  (`folder-front-top`), with corners of 7.5% of the folder's width by 11.6% of the front's own
+  height, the body's 30 units.
 - **The cards** hang by position, cycling through five shapes, each a width in % of the folder's
   width, an aspect ratio and a drop from the top in % of the folder's height: 34% at 4:5 and 5%,
   44% at 4:3 and 9%, 37% at 1:1 and 4%, 42% at 3:2 and 10%, 32% at 3:4 and 6%. A card keeps its own
   aspect ratio and its shape's area. The middle card sits on top.
-- **The matte** is white, 3% of the card's width on every side (`card-matte-padding`). Its corner
+- **The matte** is white, 3% of the card's width on every side (`folder-card-matte-padding`). Its corner
   is 9% of the card's width in the folder and 3.5% in the gallery, where 9% would make a stadium;
   the inner corner is the outer less the matte, so the curves stay concentric, as Arc's rule asks.
 - **The fan.** Closed, the cards spread 6% of the folder's width per step from the middle and turn
@@ -249,8 +261,8 @@ Arc names shadows `--shadow-*`; these extend that role and do not replace Arc's 
 | `--shadow-folder-back` | `drop-shadow(0 1px 2px rgb(0 0 0 / 0.06)) drop-shadow(0 6px 12px rgb(0 0 0 / 0.06)) drop-shadow(0 18px 32px rgb(0 0 0 / 0.07))` | the same |
 | `--shadow-folder-front` | `0 -2px 6px -1px rgb(0 0 0 / 0.08)` | `0 -2px 8px -1px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.08)` |
 | `--shadow-folder-card` | `0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)` | the same |
-| `--folder-front-fill` | `linear-gradient(to bottom, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.72))` over `blur(16px) saturate(180%)` | `linear-gradient(to bottom, rgb(38 38 38 / 0.6), rgb(23 23 23 / 0.8))` over the same filter |
-| `--gallery-backdrop` | `--gallery-scrim` over `blur(24px) saturate(140%)` | `--gallery-scrim-dark` over the same |
+| `--folder-front-fill` | a gradient, top to bottom, from `folder-front-tint-top` to `folder-front-tint-bottom`, over `blur-folder-front` and `folder-front-saturate` | the same, from the `-dark` tints |
+| `--gallery-backdrop` | `gallery-scrim` over `blur-gallery` and `gallery-saturate` | `gallery-scrim-dark` over the same |
 
 The back's shadows follow the silhouette (`drop-shadow`, since `box-shadow` cannot follow the tab):
 a tight contact shadow, a mid layer for form and a wide ambient one. The back's rim is a 1-unit
@@ -262,8 +274,10 @@ stroke of `folder-back-rim` on the 400-unit box.
   the gallery's backdrop is the same material under the scrim.
 - The front has a 1pt rim, white at 0.6 in light and at 0.08 in dark; its shadow is black at the
   theme's opacity with radius 3 and a −2 offset.
-- SwiftUI's shadow radius is about half a CSS blur, so the back's shadows are radius 1, 6 and 16 at
+- The Apple build's shadow radii are half the web's blur: the back's are radius 1, 6 and 16 at
   offsets 1, 6 and 18, and the card's radius 1.5 and 1 at offset 1.
+- The back's rim is a 0.7pt stroke, and the front's arrow is SF Symbols' `arrow.up.right` at 13pt
+  bold, where the web draws a 16px icon.
 - The front's text is the system font at the same sizes and weights; on the web the build used
   fayazara's SF Compact stack, and CanonCore's web client uses Arc's Inter (ADR 0023).
 
@@ -290,13 +304,13 @@ folder's extend that role. Each is Motion's duration-based spring: duration is t
 | `stagger.folder-home` | 0.03 s a step from the middle card | cards flying home; the front shuts once the last has landed |
 | `--duration-folder-corner` | 450 ms | the matte's corner, 9% to 3.5% and back, as a flight starts |
 | `duration.standard` (Arc's, 0.24 s today) | 240 ms | the gallery's scrim fading in and out |
-| `--ease-folder` | `cubic-bezier(0.25, 0.1, 0.25, 1)` (CSS `ease`) | both of the above, as the original times them |
-| press | scale 0.98 over 160 ms | a press on the folder, on a fine pointer only |
+| `--ease-folder` | `cubic-bezier(0.25, 0.1, 0.25, 1)` (CSS `ease`) | both of the above, as the original and the Apple build time them |
+| press | scale 0.98 over 160 ms on `cubic-bezier(0.23, 1, 0.32, 1)` | a press on the folder, on a fine pointer only (web) |
 
 The original names no curve for the scrim's fade or the corner, so they run on CSS `ease`, which
 the Apple build uses. The web build ran them on fayazara's two page curves, `cubic-bezier(0.23, 1,
-0.32, 1)` for the fade and `cubic-bezier(0.77, 0, 0.175, 1)` for the corner; CanonCore takes the
-original's `ease` on both platforms.
+0.32, 1)` for the fade and `cubic-bezier(0.77, 0, 0.175, 1)` for the corner. Which CanonCore keeps
+is not decided here: the two builds differ, and nothing traced either curve.
 
 ## Where the folder and Arc's rules disagree
 
@@ -337,7 +351,8 @@ builds:
 - the card shapes and how they hang, and the card's matte, corners and shadow;
 - the gallery's layout (the unit, the side scale, the gap, the fade, the hashed tilt) and its scrim,
   title, count, close button and arrow hint;
-- the page curves and the font stack, which CanonCore does not take (above).
+- the page curves and the font stack, and the demo page's layout (a centred column holding a
+  two-column grid of folders).
 
 Not descending from it: the spring mapping on Apple (a port of Motion's MIT spring), the look
 variants' dark theme and Liquid Glass fronts, the contrast tuning and its tests, the motion study's
