@@ -326,6 +326,7 @@ For the web prototype's verdicts (ADR 0023), not settled here:
 - **The arrow.** The build draws Phosphor's `arrow-up-right` (bold, MIT) as fayazara does, and SF
   Symbols' `arrow.up.right` on Apple; Arc's icons are lucide's.
 - **The hint's 28px** sits off Arc's 4px spacing tokens, which have no `--space-7`.
+- **Focus on the web** (10 Oct 2026). Keyboard focus fans the folder, and Arc's keyboard ring now shows beside the fan: the folder drops its own `outline: none` (ADR 0023, amended). The ring follows the button's rectangle, not the tab's silhouette, and the fanned cards rise above it; how that reads is the prototype's call.
 
 ## Apple TV
 

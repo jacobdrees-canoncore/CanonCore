@@ -8,8 +8,8 @@ CanonCore's web client and the web prototype (CC-38) use Arc (uiarc.dev: its fre
 
 ## What follows from using Arc whole
 
-- **No focus rings.** There are no focus rings or outlines for any input method, as Arc's foundation sets (`:is(*:focus, *:focus-visible, *:focus-within) { outline: none !important; }`, with `--focus-ring: transparent`). Arc's rules say to show keyboard position with its hover and selected fills.
-- **Accessibility claims.** axe keeps running the WCAG 2.2 AA rules on every web merge; axe-core (4.13.0) has no rule for WCAG 2.4.7 Focus Visible, a Level AA criterion in WCAG 2.2, so it does not see the missing rings. CanonCore claims no WCAG 2.2 AA conformance, and the keyboard-only pass in a spec's audit does not report missing focus rings. Whether Arc's fills count as a visible focus indicator is left open.
+- **Arc's keyboard focus ring** (amended 10 Oct 2026; it said "No focus rings", quoting an older foundation that removed every outline). Arc's foundation now draws a ring on keyboard focus and none on pointer focus: "Pointer focus never draws a ring (product decision). Keyboard focus (:focus-visible) draws a subtle accent outline, so keyboard users can always see where they are (WCAG 2.4.7)", a 2px outline with a 2px offset in a softened accent (`foundation.css`, fetched from uiarc.dev/r/arc-foundation.json on 10 Oct 2026). CanonCore shows it as shipped. Arc draws no ring, by design, on text fields (their border and caret show focus), menu items, listbox options (their highlight fill does) and `[tabindex="-1"]` targets. Tuning the ring through Arc's own tokens (`--focus-outline`, `--focus-outline-width`, `--focus-outline-offset`), as Arc's accessibility guide directs, is using Arc as it ships; patching `foundation.css` is not. A component writes no outline of its own, so the folder shows Arc's ring beside its fan (the Owner, 10 Oct 2026).
+- **Accessibility claims.** axe keeps running the WCAG 2.2 AA rules on every web merge; axe-core has no rule for WCAG 2.4.7 Focus Visible (its rule descriptions, checked 10 Oct 2026), so the keyboard-only pass in a spec's audit is what checks the ring: a ring missing or invisible where Arc draws one is reported like any other finding, and the elements Arc leaves without one are not. CanonCore claims no WCAG 2.2 AA conformance (amended 10 Oct 2026; the pass did not report missing rings before).
 - **Arc's tokens win.** Where Arc's `:root` variables share a name with shadcn's (`--background`, `--foreground`, `--border`, `--accent`, `--accent-foreground`), Arc's values win.
 - **Dark mode** keys on `data-theme="dark"` on `<html>`, not shadcn's `.dark` class. Following the system setting is the app's job: Arc's foundation has no `prefers-color-scheme` rule.
 - **Radix is the one primitive library.** shadcn is initialised on Radix, not its default Base UI (`--base radix`; shadcn 4.21.1's default `base-nova` is Base UI). Arc uses Radix in 17 of its 123 free items (verified 2 Oct 2026; the registry grows, and read 19 of 128 later that day) and never Base UI.
@@ -36,7 +36,7 @@ Arc Pro files may ship in CanonCore's public repository. CanonCore stays AGPL-3.
 ## Considered Options
 
 - Tailwind 4, shadcn on Base UI, DESIGN.md exported to `@theme` and checked by `@shadcn/lint` (ADR 0021): superseded, because Arc defines its own tokens on `:root`, never mentions Base UI, and publishes no `@theme` mapping.
-- Arc restyled onto shadcn's tokens, or `foundation.css` patched to keep focus rings: rejected, because Arc's rules forbid restyling its internals, and a patched foundation drifts from every update Arc ships.
+- Arc restyled onto shadcn's tokens, or `foundation.css` patched: rejected, because Arc's rules forbid restyling its internals, and a patched foundation drifts from every update Arc ships.
 - ObsidianUI and uselayouts beside Arc: rejected, so the web client has one component source.
 
 ## Consequences

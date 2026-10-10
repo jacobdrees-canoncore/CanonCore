@@ -4,6 +4,8 @@
 `kuratlielia/arc-library` commit `3f9a1f45d22f0120f4a05153fbb9a44ef170b65a` (2026-10-01T08:35:42Z,
 "Sync from source a44341f"). Where a statement is mine rather than Arc's, it is marked **Observation**.
 
+**Revised 10 Oct 2026.** Arc no longer removes every focus outline. Its `foundation.css` (fetched from uiarc.dev/r/arc-foundation.json on 10 Oct 2026) draws a 2px softened-accent ring on keyboard focus (`:focus-visible`) and none on pointer focus, with no ring on text fields, menu items, listbox options and `[tabindex="-1"]` targets; its instructions now read "no focus rings on pointer focus (keyboard focus gets the shared :focus-visible ring)", and its accessibility guide says to tune the ring through `--focus-outline`, `--focus-outline-width` and `--focus-outline-offset`. Every quote below about "no focus rings" (the foundation rule, the `INSTRUCTIONS.md` and `accessibility.md` lines, and the open question on keeping outlines for non-Arc components) is the 1 Oct text. ADR 0023 is amended to the keyboard ring.
+
 ## What Arc says to do
 
 Arc says to install it through the shadcn CLI as an ordinary shadcn registry (`@uiarc`, plus the token-gated
