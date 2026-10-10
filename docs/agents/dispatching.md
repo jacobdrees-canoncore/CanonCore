@@ -27,7 +27,15 @@ on Main's review:
   spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
   edges; inside the replica the Mac's recordings come before the iPhone's. Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
-- **Browserless agents beside it.** Work that opens no browser and records nothing (the current
+- **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
+  `xcodebuild test`, a simulator boot or clone, a device install. On 10 Oct 2026 simulators run by
+  several sessions at once pushed the load to about 80 on 14 cores and left a cloned Apple TV
+  unable to launch the app, after `room.sh` had allowed each launch. A recording of a simulator or
+  a device holds this lane and the recording lane together. Dispatch hands it on as it hands on the
+  other two, and shuts down the simulators a walk or a ticket booted when it ends (the Owner,
+  10 Oct 2026).
+- **Browserless agents beside it.** Work that opens no browser, records nothing and runs no
+  simulator (the current
   spec's other tickets, the skills repository, prototype-snapshot, CanonCore's records, tracker-only
   tickets) may run alongside while
   `room.sh` allows it and no other open branch or pull request in that repository touches the files
