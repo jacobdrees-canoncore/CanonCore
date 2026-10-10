@@ -67,6 +67,10 @@ per run and add that limit here.
 - **Green patch bumps are pre-approved.** Main merges a patch-level dependency bump (`x.y.z` to
   `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
   on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
+- **Held back: the web prototype's build tickets.** Every ticket of CC-38 (Design prototype: web)
+  except its audit is never dispatched: the Owner works each one himself, steering a live Claude
+  session per ticket in its own worktree, and Main prepares the worktree when he asks. Its audit is
+  dispatched as usual (the Owner, 10 Oct 2026).
 
 ## Where a merged slice lands
 
