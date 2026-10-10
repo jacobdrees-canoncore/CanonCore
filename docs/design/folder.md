@@ -24,8 +24,9 @@ tops peek out above the front.
   cards fan out and rise. The card under the pointer is singled out: it straightens, rises further
   and grows to 1.05, and its neighbours lean away from it.
 - **Gallery.** A click, a tap or Return opens the gallery: the front flings back to 80 degrees and
-  fades, and the cards fly out of the folder to a row across the middle of the screen, over a
-  blurred scrim. The centred card is full size and straight; the others are smaller, tilted and
+  fades, and the cards fly out of the folder to a row across the middle of the screen, over an
+  opaque scrim that hides the page and the emptied folder (amended 10 Oct 2026, CC-252: it was the
+  original's 0.86 wash over a blur). The centred card is full size and straight; the others are smaller, tilted and
   fading. Arrows, swipes and a click on a side card step through them.
 - **Closing.** Escape, the close button or a click on the scrim flies the cards home, centre card
   first, into the still-open folder. Only once every card has landed does the front shut over them.
@@ -164,7 +165,7 @@ colors:
   folder-back-rim: "rgb(255 255 255 / 0.8)"
   folder-card-matte: "#ffffff"
   folder-card-blank: "#e5e5e5"
-  gallery-scrim: "rgb(250 250 250 / 0.86)"
+  gallery-scrim: "rgb(250 250 250)"
   gallery-close: "rgb(255 255 255 / 0.7)"
   gallery-close-ring: "rgb(0 0 0 / 0.05)"
   gallery-hint: "#a3a3a3"
@@ -179,7 +180,7 @@ colors:
   folder-back-rim-dark: "rgb(255 255 255 / 0.08)"
   folder-card-matte-dark: "#f5f5f5"
   folder-card-blank-dark: "#404040"
-  gallery-scrim-dark: "rgb(10 10 10 / 0.86)"
+  gallery-scrim-dark: "rgb(10 10 10)"
   gallery-close-dark: "rgb(255 255 255 / 0.1)"
   gallery-close-ring-dark: "rgb(255 255 255 / 0.08)"
   gallery-hint-dark: "#737373"
@@ -203,8 +204,6 @@ spacing:
   folder-card-matte-padding: 0.03
   blur-folder-front: 16px
   folder-front-saturate: 1.8
-  blur-gallery: 24px
-  gallery-saturate: 1.4
   folder-press-scale: 0.98
   folder-fan-closed-spread: 0.06
   folder-fan-neighbour-yield: 0.04
@@ -263,7 +262,7 @@ Arc names shadows `--shadow-*`; these extend that role and do not replace Arc's 
 | `--shadow-folder-front` | `0 -2px 6px -1px rgb(0 0 0 / 0.08)` | `0 -2px 8px -1px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.08)` |
 | `--shadow-folder-card` | `0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)` | the same |
 | `--folder-front-fill` | a gradient, top to bottom, from `folder-front-tint-top` to `folder-front-tint-bottom`, over `blur-folder-front` and `folder-front-saturate` | the same, from the `-dark` tints |
-| `--gallery-backdrop` | `gallery-scrim` over `blur-gallery` and `gallery-saturate` | `gallery-scrim-dark` over the same |
+| `--gallery-backdrop` | `gallery-scrim`, opaque, with no blur (CC-252) | `gallery-scrim-dark`, the same |
 
 The back's shadows follow the silhouette (`drop-shadow`, since `box-shadow` cannot follow the tab):
 a tight contact shadow, a mid layer for form and a wide ambient one. The back's rim is a 1-unit
@@ -272,7 +271,7 @@ stroke of `folder-back-rim` on the 400-unit box.
 **Where Apple differs:**
 
 - The front's blur is the system's `.ultraThinMaterial` under the same tint, not a 16px blur, and
-  the gallery's backdrop is the same material under the scrim.
+  the gallery's backdrop is the opaque scrim, as on the web (CC-252).
 - The front has a 1pt rim, white at 0.6 in light and at 0.08 in dark; its shadow is black at the
   theme's opacity with radius 3 and a −2 offset.
 - The Apple build's shadow radii are half the web's blur: the back's are radius 1, 6 and 16 at
