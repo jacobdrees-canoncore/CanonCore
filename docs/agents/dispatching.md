@@ -9,7 +9,8 @@ frontier or creates a worktree.
 folder component (CC-37), the web prototype (CC-38), Brink's look (CC-33), the untitled app replica
 (CC-36), then the Apple prototype (CC-39). Each finishes, its audit at its clean round, before the
 next one's first ticket starts, and the board enforces it: each audit ticket blocks the next spec's
-first ticket (CC-140 blocks CC-193, CC-206 blocks CC-207, CC-217 blocks CC-218, CC-242 blocks CC-39).
+first ticket (CC-281 blocks CC-207, CC-217 blocks CC-218, CC-242 blocks CC-39; the folder, CC-37, closed
+on 10 Oct 2026, and the web prototype's tickets were re-filed as CC-258 to CC-281).
 Inside the current spec, every unblocked ticket runs in parallel within the ceiling below. Main plans
 the next spec alongside the current build (its fixes, check rounds and `/to-tickets`), starting with
 the Apple prototype.
