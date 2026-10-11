@@ -15,6 +15,11 @@ Inside the current spec, every unblocked ticket runs in parallel within the ceil
 the next spec alongside the current build (its fixes, check rounds and `/to-tickets`), starting with
 the Apple prototype.
 
+**The Plex sweep runs alongside** (the Owner, 11 Oct 2026; ADR 0024). Its spec sits in Design
+references outside the order above, with no edge into or out of it, and its unblocked tickets run
+beside the current spec's within the same ceiling, taking the Chrome and recording lanes like any
+other ticket.
+
 There is no fixed number of agents. The ceiling is whatever actually contends on the Owner's Mac, and
 on Main's review:
 
@@ -25,7 +30,7 @@ on Main's review:
   the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57 and
   CC-60) included; the iPad trace on hardware, CC-190, was canceled 8 Oct 2026 (the Owner has no
   iPad, and the Mac trace stands in). Since the spec order above, the lane holds only the current
-  spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
+  spec's recordings and the Plex sweep's, so the phone passes from Brink's look to the untitled app replica by the spec
   edges; inside the replica the Mac's recordings come before the iPhone's. Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
 - **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
@@ -37,7 +42,7 @@ on Main's review:
   10 Oct 2026).
 - **Browserless agents beside it.** Work that opens no browser, records nothing and runs no
   simulator (the current
-  spec's other tickets, the skills repository, prototype-snapshot, CanonCore's records, tracker-only
+  spec's other tickets, the Plex sweep's, the skills repository, prototype-snapshot, CanonCore's records, tracker-only
   tickets) may run alongside while
   `room.sh` allows it and no other open branch or pull request in that repository touches the files
   the ticket names.
@@ -52,8 +57,8 @@ where a Claude tab already stands, and this repository's hook refuses the raw fo
 
 After every merge, look across every lane and the free spikes for anything that now fits, not only
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
-In Design references that means the current spec's tickets only; a later spec's ticket, browserless
-or not, waits for its spec's turn (8 Oct 2026).
+In Design references that means the current spec's tickets and the Plex sweep's only; a later spec's
+ticket, browserless or not, waits for its spec's turn (8 Oct 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
@@ -64,7 +69,9 @@ per run and add that limit here.
 
 - **Free tools are pre-approved.** An agent installs a free tool its ticket needs (Appium and its
   drivers, ipatool and the like) without asking. Spending money still needs the Owner's yes (the
-  Owner, 6 Oct 2026).
+  Owner, 6 Oct 2026). REA (`rea-agents`) is the exception: it runs through `npx` when a ticket
+  needs it and is never installed, in a repository or in an agent's configuration (the Owner,
+  11 Oct 2026; ADR 0024).
 - **Green patch bumps are pre-approved.** Main merges a patch-level dependency bump (`x.y.z` to
   `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
   on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
