@@ -10,7 +10,9 @@ folder component (CC-37), the web prototype (CC-38), Brink's look (CC-33), the u
 (CC-36), then the Apple prototype (CC-39). Each finishes, its audit at its clean round, before the
 next one's first ticket starts, and the board enforces it: each audit ticket blocks the next spec's
 first ticket (CC-281 blocks CC-207, CC-217 blocks CC-218, CC-242 blocks CC-39; the folder, CC-37, closed
-on 10 Oct 2026, and the web prototype's tickets were re-filed as CC-258 to CC-281).
+on 10 Oct 2026, and the web prototype's tickets were re-filed as CC-258 to CC-281; amended 11 Oct
+2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the prototype, and its building
+blocks are to be filed, with its screens after them and its audit CC-281 last).
 Inside the current spec, every unblocked ticket runs in parallel within the ceiling below. Main plans
 the next spec alongside the current build (its fixes, check rounds and `/to-tickets`), starting with
 the Apple prototype.
@@ -76,11 +78,14 @@ per run and add that limit here.
   `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
   on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
 - **Held back: the web prototype's build tickets.** Every ticket of CC-38 (Design prototype: web)
-  except its audit and its two infrastructure tickets is never dispatched: the Owner works each one
+  except its audit and its infrastructure tickets is never dispatched: the Owner works each one
   himself, steering a live Claude session per ticket in its own worktree, which Main opens with
-  `launch.sh --steered` when he asks. The infrastructure tickets, CC-258 (Stand up the design
-  prototype) and CC-259 (Variants, the switcher and the Cases page), and the audit are dispatched as
-  usual (the Owner, 10 Oct 2026; the infrastructure tickets released 11 Oct 2026).
+  `launch.sh --steered` when he asks. The building-block tickets, to be filed, are held back this
+  way, as are its screens when they are re-filed. The infrastructure tickets, CC-258 (Stand up the
+  design prototype), CC-259 (Variants, the switcher and the Cases page) and CC-296 (Storybook is
+  the prototype), and the audit are dispatched as usual (the Owner, 10 Oct 2026; the
+  infrastructure tickets released 11 Oct 2026, CC-296 added 11 Oct 2026, when the prototype became
+  Storybook only).
 
 ## Where a merged slice lands
 

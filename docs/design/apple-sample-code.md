@@ -331,7 +331,9 @@ directly.)
 **Order.** CC-39's spec owns the order. The samples suggest one: build TVCatalog's Stack and
 Description pages on the data snapshot, then graft in Destination Video's sidebar (AML, copied with
 Apple's notice since ADR 0019 accepts it) with Collections as folders. The prototype lives in its own
-repository, `~/canoncore/design-prototype`, with a private remote (ADR 0022).
+repository, `~/canoncore/design-prototype`, with a private remote (ADR 0022). (Amended 11 Oct
+2026: since the web prototype became Storybook only, the Apple prototype's home is open; CC-39's
+grill decides it.)
 
 ## Every sample, sorted
 
