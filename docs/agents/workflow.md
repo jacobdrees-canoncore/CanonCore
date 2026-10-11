@@ -11,6 +11,7 @@ way. These are the **sibling repositories** a trace reads, with their checkouts:
 | `jacobdrees-canoncore/untitled-replica` | `~/canoncore/untitled-replica` |
 | `jacobdrees-canoncore/prototype-snapshot` | `~/canoncore/prototype-snapshot` |
 | `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` |
+| `jacobdrees-canoncore/design-prototype` | `~/canoncore/design-prototype` |
 | `jacobdrees/claude-skills` | `~/.claude/skills` |
 
 Work takes one of two weights.

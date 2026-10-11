@@ -115,8 +115,10 @@ pointer. Apple's Human Interface Guidelines give touch and hold as "Open a conte
 say to avoid using a familiar gesture for an action unique to the app
 (developer.apple.com/design/human-interface-guidelines/gestures, read 9 Oct 2026).
 
-**Still open, by ADR 0023:** on the web, the pick sits inside the web prototype's Look switch
-(untitled's look or Arc's where they disagree, CC-38), and whether the frosted tint counts as a
+**Still open, by ADR 0023:** on the web, the pick sits inside the web prototype's side-by-side
+comparison of untitled-look and Arc-look stories (untitled's look or Arc's where they disagree,
+CC-38; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
+have), and whether the frosted tint counts as a
 decorative gradient under Arc's rules is decided there. On Apple, the Apple prototype (CC-39)
 settles whether Arc's rules apply. Each verdict is recorded beside the pick when it is made.
 
