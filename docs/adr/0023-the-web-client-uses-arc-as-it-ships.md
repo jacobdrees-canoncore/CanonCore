@@ -1,10 +1,10 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # The web client uses Arc as it ships
 
-CanonCore's web client and the web prototype (CC-38) use Arc (uiarc.dev: its free MIT part and Arc Pro) exactly as Arc ships it. Arc is installed through the shadcn CLI beside Tailwind CSS v4; its components are CSS modules on Arc's own tokens, animated with Motion; `foundation.css` is imported once at the root and never patched. This supersedes ADR 0021's styling stack. Its status is proposed only because nothing of Arc is installed yet; it becomes accepted when the web client's first ticket installs Arc. The decision itself is the Owner's, and it replaces ADR 0021 now: no agent builds on 0021's stack in the meantime. This is because Arc's components "use CSS modules and CSS variables, not Tailwind classes, so they install cleanly next to Tailwind or without it" (uiarc.dev/guides/shadcn-registry-ai-coding-tools), and its agent rules say to "compose and wrap Arc components; never fork or restyle their internals", so taking Arc whole keeps every component, token and rule in one place an agent can read. Decided by the Owner on 1 Oct 2026; the research is `docs/design/arc-integration.md`.
+CanonCore's web client and the web prototype (CC-38) use Arc (uiarc.dev: its free MIT part and Arc Pro) exactly as Arc ships it. Arc is installed through the shadcn CLI beside Tailwind CSS v4; its components are CSS modules on Arc's own tokens, animated with Motion; `foundation.css` is imported once at the root and never patched. This supersedes ADR 0021's styling stack. Its status is accepted (amended 11 Oct 2026, the Owner; it said the status was proposed only because nothing of Arc was installed yet, and would become accepted when the web client's first ticket installed Arc): Arc is installed and in use in the private web prototype, through the shadcn CLI since CC-258, with its free and Pro registries configured (the prototype's README lists what is installed), so the decision no longer waits on the web client. The decision itself is the Owner's, and it replaces ADR 0021 now: no agent builds on 0021's stack in the meantime. This is because Arc's components "use CSS modules and CSS variables, not Tailwind classes, so they install cleanly next to Tailwind or without it" (uiarc.dev/guides/shadcn-registry-ai-coding-tools), and its agent rules say to "compose and wrap Arc components; never fork or restyle their internals", so taking Arc whole keeps every component, token and rule in one place an agent can read. Decided by the Owner on 1 Oct 2026; the research is `docs/design/arc-integration.md`.
 
 ## What follows from using Arc whole
 
@@ -41,6 +41,6 @@ Arc Pro files may ship in CanonCore's public repository. CanonCore stays AGPL-3.
 
 ## Consequences
 
-- Nothing of Arc is installed by this record. The web client's first ticket installs it, creates the token files and adds the MCP server.
+- Nothing of Arc is installed in CanonCore's repository by this record (amended 11 Oct 2026: Arc is installed in the private web prototype, which is how the record came to be accepted). The web client's first ticket installs it, creates the token files and adds the MCP server.
 - Each contributor who touches an Arc Pro file needs their own seat, and their code is covered by the section 7 permission only with their agreement (ADR 0018).
 - The shadcn CLI's default must be overridden at init, since Radix is no longer its default base.
