@@ -127,7 +127,7 @@ Link a PR to an issue by putting the identifier in the branch name (Orca names t
 A branch carrying the identifier links as if closing, and Linear does not document whether a
 `Part of` in the body overrides it, so a ticket that must stay open keeps its id out of the branch.
 
-**Three kinds of ticket are set Done by hand, and no others.**
+**Four kinds of ticket are set Done by hand, and no others.**
 
 - **An audit round that filed follow-ups**, when it merges. Which audit is a spec's last is known
   only when it files no blocking gap, so every audit's worktree `--name` leaves the identifier out
@@ -141,6 +141,8 @@ A branch carrying the identifier links as if closing, and Linear does not docume
 - **A container whose last child is done**: a parent with sub-issues and no audit ticket. Linear's
   "auto-close parent issues" is off for team CC since 3 Oct 2026, because it closed specs whose
   audits had not run, so dispatch's `close-container.sh` closes one after each merge.
+- **A ticket the Owner works with no PR**, such as File phase 2's tickets (CC-323): no merge can
+  close it, so the Owner sets it Done once its acceptance criteria are met (11 Oct 2026).
 
 Nothing else is reset by hand after a merge.
 

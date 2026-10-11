@@ -92,9 +92,9 @@ Single-context: one `GLOSSARY.md` and one `docs/adr/` at the root. See `docs/age
 
 ### Arc
 
-The web client and the web prototype use Arc as it ships (ADR 0023, proposed: nothing installed
-yet). Agents use Arc's MCP server, its `arc` skill at project scope (`.claude/skills/arc/`, never
-`~/.claude/skills`) and its `INSTRUCTIONS.md`. The Arc Pro token lives in
+The web client and the web prototype use Arc as it ships (ADR 0023, accepted 11 Oct 2026: installed
+in the web prototype). Agents use Arc's MCP server, its `arc` skill at project scope
+(`.claude/skills/arc/`, never `~/.claude/skills`) and its `INSTRUCTIONS.md`. The Arc Pro token lives in
 `~/.config/canoncore/arc-pro.env`; web-client agents reach Pro through `~/.config/canoncore/arc-mcp.json`.
 
 ## Working substrate
