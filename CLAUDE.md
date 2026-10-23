@@ -44,7 +44,8 @@ checked out at `~/orca/projects/CanonCore/docs/agents/workflow.md`.
   straight after `/to-tickets`, and whenever a version, limit or price is about to bear weight.
 - `tracing-a-decision`: once, when a grill changes an ADR or a `GLOSSARY.md` term, before anything is
   committed; lists every sentence the decision makes false and checks what it rests on.
-- `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier to the Owner.
+- `dispatch`: Main's loop, to merge ready PRs, retire their worktrees and put the frontier, with the
+  wave's retro findings, to the Owner.
 - `tracker-sweep`: when asked, to repair tickets that drifted from the tracker doc's filing standard.
 - `auditing-a-spec`: the audit ticket every spec ends with. Its last, clean round carries the Owner's
   walk, the accessibility pass and the README additions.

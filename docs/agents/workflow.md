@@ -1,7 +1,8 @@
 # Workflow: decision to merged slice
 
 How the skills fit together, from a decision to a slice merged on `main`. It is Matt Pocock's flow
-(`/ask-matt` draws it) with three additions of ours: `check`, `tracing-a-decision` and the audit.
+(`/ask-matt` draws it) with four additions of ours: `check`, `tracing-a-decision`, the audit, and
+`/retro` run automatically at the end of each `/implement`.
 **Main** is the one session that plans, dispatches and merges. Every CanonCore repository works this
 way. These are the **sibling repositories** a trace reads, with their checkouts:
 
@@ -50,7 +51,10 @@ For anything else.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
    Orca worktree, and Main gives it the full review and merges. A worker needing the Owner invokes
    `/grill-with-docs` in its own worktree; with the Owner away it writes `OWNER-QUESTION.md` and
-   stops. A defect found at merge goes back through `/implement`, never as a free-text fix.
+   stops. A defect found at merge goes back through `/implement`, never as a free-text fix. Each
+   ticket ends with `/retro` on the worker's own session, its findings in the PR body. At the next
+   go Main puts the findings of every PR merged since the last go to the Owner as one list, and
+   files each one accepted in the repository that owns the fix (`dispatch`'s `asking.md`).
 7. **Audit.** The audit ticket runs `auditing-a-spec`: it files every blocking gap as a follow-up
    with a re-audit, and after round 2 the Owner decides: fund a blocking-only round, accept what is
    left, or move it to the owning spec's backlog. The last clean round (no blocking gap) carries the
