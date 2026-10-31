@@ -45,7 +45,7 @@ For anything else.
    **audit ticket** blocked by all the others. A later spec that builds on this one is blocked by
    that audit at its clean round, and by any follow-up of it that the later spec needs. In Design
    references every spec waits for the previous one's clean round whether or not it builds on it
-   (`dispatching.md`, "One spec at a time"), except the Plex sweep, which runs alongside (ADR 0024).
+   (`dispatching.md`, "One spec at a time").
 5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
    after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per

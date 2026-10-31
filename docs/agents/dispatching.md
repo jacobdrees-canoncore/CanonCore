@@ -5,22 +5,21 @@ frontier or creates a worktree.
 
 ## The ceiling
 
-**One spec at a time** (the Owner, 8 Oct 2026). The Design references specs are built in order: the
-folder component (CC-37), the web prototype (CC-38), Brink's look (CC-33), the untitled app replica
-(CC-36), then the Apple prototype (CC-39). Each finishes, its audit at its clean round, before the
-next one's first ticket starts, and the board enforces it: each audit ticket blocks the next spec's
-first ticket (CC-281 blocks CC-207, CC-217 blocks CC-218, CC-242 blocks CC-39; the folder, CC-37, closed
-on 10 Oct 2026, and the web prototype's tickets were re-filed as CC-258 to CC-281; amended 11 Oct
-2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the prototype, and its building
-blocks are filed as CC-298 to CC-321, with its screens after them and its audit CC-281 last).
+**One spec at a time** (the Owner, 8 Oct 2026; order amended 31 Oct 2026, the Owner). The Design
+references specs are built in order: the Plex sweep (CC-285), Brink's look (CC-33), the untitled app
+replica (CC-36), the web prototype (CC-38), then the Apple prototype (CC-39). Each finishes, its
+audit at its clean round, before the next one's first ticket starts, and the board enforces it: each
+audit ticket blocks the next spec's first tickets (CC-294 blocks CC-207, CC-217 blocks CC-218,
+CC-242 blocks the web prototype's first building blocks, CC-298, CC-299, CC-300, CC-314 and CC-321,
+and CC-281 blocks CC-39). The folder, CC-37, first in the order of 8 Oct 2026, closed on 10 Oct
+2026, and the web prototype's tickets were re-filed as CC-258 to CC-281; amended 11 Oct 2026:
+CC-260 to CC-280 are canceled, CC-296 makes Storybook the prototype, and its building blocks are
+filed as CC-298 to CC-321, with its screens after them and its audit CC-281 last. The Plex sweep ran
+beside the 8 Oct order from 11 Oct 2026 (ADR 0024) and is first in the order since 31 Oct 2026.
 Inside the current spec, every unblocked ticket runs in parallel within the ceiling below. Main plans
-the next spec alongside the current build (its fixes, check rounds and `/to-tickets`), starting with
-the Apple prototype.
-
-**The Plex sweep runs alongside** (the Owner, 11 Oct 2026; ADR 0024). Its spec sits in Design
-references outside the order above, with no edge into or out of it, and its unblocked tickets run
-beside the current spec's within the same ceiling, taking the Chrome and recording lanes like any
-other ticket.
+the next spec alongside the current build (its fixes, check rounds and `/to-tickets`). No spec is
+current on 31 Oct 2026: Design references waits for the dispatch spec (CC-324) and the Extractor
+work.
 
 There is no fixed number of agents. The ceiling is whatever actually contends on the Owner's Mac, and
 on Main's review:
@@ -32,7 +31,7 @@ on Main's review:
   the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57 and
   CC-60) included; the iPad trace on hardware, CC-190, was canceled 8 Oct 2026 (the Owner has no
   iPad, and the Mac trace stands in). Since the spec order above, the lane holds only the current
-  spec's recordings and the Plex sweep's, so the phone passes from Brink's look to the untitled app replica by the spec
+  spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
   edges; inside the replica the Mac's recordings come before the iPhone's. Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
 - **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
@@ -44,10 +43,12 @@ on Main's review:
   10 Oct 2026).
 - **Browserless agents beside it.** Work that opens no browser, records nothing and runs no
   simulator (the current
-  spec's other tickets, the Plex sweep's, the skills repository, prototype-snapshot, CanonCore's records, tracker-only
-  tickets) may run alongside while
+  spec's other tickets, the skills repository, prototype-snapshot once Orca registers it again,
+  CanonCore's records, tracker-only tickets) may run alongside while
   `room.sh` allows it and no other open branch or pull request in that repository touches the files
-  the ticket names.
+  the ticket names. Orca registers a design sibling repository only while its spec has its turn,
+  so the four (untitled-replica, prototype-snapshot, folder-component and design-prototype) are
+  unregistered until then (the Owner, 31 Oct 2026).
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
   only lengthens the queue (the Owner, 3 Oct 2026).
 
@@ -59,7 +60,7 @@ where a Claude tab already stands, and this repository's hook refuses the raw fo
 
 After every merge, look across every lane and the free spikes for anything that now fits, not only
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
-In Design references that means the current spec's tickets and the Plex sweep's only; a later spec's
+In Design references that means the current spec's tickets only; a later spec's
 ticket, browserless or not, waits for its spec's turn (8 Oct 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
