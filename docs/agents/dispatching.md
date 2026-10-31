@@ -96,8 +96,8 @@ CanonCore lands each ticket on `main` by its own pull request. Main merges it th
 `merge-if-green.sh` once the review is done and the required checks pass, with `--reviewed` naming
 the head it read, so only the reviewed commit merges. It does not queue an auto-merge, because
 GitHub checks an auto-merge's head pin when it is queued, not when it fires
-(`docs/research/automerge-head-pin.md`). The `Standing decisions` check fails a PR that changes `## Standing decisions` in this file
-unless Main labelled it `standing-decisions` at its current head; after a later push, Main reads
+(`docs/research/automerge-head-pin.md`). The `Standing decisions` check fails a PR that changes
+`## Standing decisions` in this file unless Main labelled it `standing-decisions` at its current head; after a later push, Main reads
 the push and adds the label again.
 
 The private sibling repositories have no required checks and merge the same way: `merge-if-green.sh`
