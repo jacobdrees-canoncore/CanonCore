@@ -92,13 +92,15 @@ per run and add that limit here.
 
 ## Where a merged slice lands
 
-CanonCore lands each ticket on `main` by its own pull request. Main merges it with
-`gh pr merge <n> --auto --squash` once the review is done, and GitHub merges when the required checks
-pass. The `Standing decisions` check fails a PR that changes `## Standing decisions` in this file
-unless Main labelled it `standing-decisions` at its current head; after a later push, Main reads
+CanonCore lands each ticket on `main` by its own pull request. Main merges it through dispatch's
+`merge-if-green.sh` once the review is done and the required checks pass, with `--reviewed` naming
+the head it read, so only the reviewed commit merges. It does not queue an auto-merge, because
+GitHub checks an auto-merge's head pin when it is queued, not when it fires
+(`docs/research/automerge-head-pin.md`). The `Standing decisions` check fails a PR that changes
+`## Standing decisions` in this file unless Main labelled it `standing-decisions` at its current head; after a later push, Main reads
 the push and adds the label again.
 
-The private sibling repositories have no required checks, so they merge through dispatch's
-`merge-if-green.sh`, which gates on the head commit's checks and on a change to the repository's own
+The private sibling repositories have no required checks and merge the same way: `merge-if-green.sh`
+gates on the head commit's checks and on a change to the repository's own
 `## Standing decisions`; `--merge` makes a merge commit where the repository needs one
 (prototype-snapshot, and untitled-replica's integrate-to-main PR). Each says how it lands in its own `docs/agents/`.

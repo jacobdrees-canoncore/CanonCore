@@ -2,8 +2,8 @@ name: Standing decisions
 
 # A standing decision is acted on without asking the Owner, so an agent's PR must not grant itself
 # one. This fails a PR that changes `## Standing decisions` in docs/agents/dispatching.md unless Main
-# labelled it `standing-decisions` at its current head. It is the guard merge-if-green.sh holds for
-# the private repositories, here because CanonCore merges with `gh pr merge --auto` (CC-163).
+# labelled it `standing-decisions` at its current head. merge-if-green.sh holds the same guard; this
+# check is the one `main`'s ruleset requires, so it also binds a merge made outside that script.
 #
 # `pull_request_target` runs this file as it stands on main, so a PR cannot edit or delete its own
 # guard. Nothing from the PR is executed: its commits are only read with `git show`, which is the
