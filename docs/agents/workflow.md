@@ -22,7 +22,10 @@ products that carry the same block:
 | `jacobrees-moneymind/room-finder` | `~/orca/room-finder` | `ROOM`, `moneymind-jdr` |
 
 Any change to the standard block files one refresh ticket per row of this table, on that row's
-board. A repository that starts carrying the block joins the table in the same change.
+board. Before filing them it checks every row's headroom: the lines its `CLAUDE.md` can still grow
+before CI's ceiling fails it (`199 - $(wc -l < CLAUDE.md)` on its `main`, since CI fails at 200).
+A row left with under 10 lines after the change trims its own lines outside the block in the same
+refresh ticket. A repository that starts carrying the block joins the table in the same change.
 
 Work takes one of two weights.
 
