@@ -4,9 +4,10 @@ How the skills fit together, from a decision to a slice merged on `main`. It is 
 (`/ask-matt` draws it) with four additions of ours: `check`, `tracing-a-decision`, the audit, and
 `/retro` run automatically at the end of each `/implement`.
 **Main** is the one session that plans, dispatches and merges. Every CanonCore repository works this
-way. These are the **sibling repositories** a trace reads, and the one list of every repository
-that carries the standard block (`<!-- standard:start -->`), with its checkout and its Linear board
-(team key, then workspace):
+way. This is the one list of every repository that carries the standard block
+(`<!-- standard:start -->`), with its checkout and its Linear board (team key, then workspace). The
+rows on the `CC` board are the **sibling repositories** a trace reads; the last three are separate
+products that carry the same block:
 
 | Repository | Checkout | Board |
 | --- | --- | --- |
