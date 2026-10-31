@@ -69,7 +69,8 @@ None yet: the first project adds the pnpm + Turborepo monorepo (ADR 0016).
 ## Gotchas
 
 - `main` refuses deletion and force-push (admin bypass on), and its ruleset requires CI's checks. Main
-merges with `gh pr merge --auto` after review, so GitHub merges only once the checks pass.
+merges through dispatch's `merge-if-green.sh` once the checks pass, pinned to the commit it reviewed:
+GitHub does not hold an auto-merge to that commit (`docs/research/automerge-head-pin.md`).
 - `.claude/settings.json` denies some calls on purpose (`git worktree`, `gh issue`): use
 `orca worktree create` and `orca linear`. Its hook refuses a raw `orca terminal create ... claude`:
 agents start through dispatch's `launch.sh`. Secrets live in `~/.config/canoncore/` and in the
