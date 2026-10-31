@@ -4,16 +4,25 @@ How the skills fit together, from a decision to a slice merged on `main`. It is 
 (`/ask-matt` draws it) with four additions of ours: `check`, `tracing-a-decision`, the audit, and
 `/retro` run automatically at the end of each `/implement`.
 **Main** is the one session that plans, dispatches and merges. Every CanonCore repository works this
-way. These are the **sibling repositories** a trace reads, with their checkouts:
+way. This is the one list of every repository that carries the standard block
+(`<!-- standard:start -->`), with its checkout and its Linear board (team key, then workspace). The
+rows on the `CC` board are the **sibling repositories** a trace reads; the last three are separate
+products that carry the same block:
 
-| Repository | Checkout |
-| --- | --- |
-| `jacobdrees-canoncore/CanonCore` | `~/orca/projects/CanonCore` |
-| `jacobdrees-canoncore/untitled-replica` | `~/canoncore/untitled-replica` |
-| `jacobdrees-canoncore/prototype-snapshot` | `~/canoncore/prototype-snapshot` |
-| `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` |
-| `jacobdrees-canoncore/design-prototype` | `~/canoncore/design-prototype` |
-| `jacobdrees/claude-skills` | `~/.claude/skills` |
+| Repository | Checkout | Board |
+| --- | --- | --- |
+| `jacobdrees-canoncore/CanonCore` | `~/orca/projects/CanonCore` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees-canoncore/untitled-replica` | `~/canoncore/untitled-replica` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees-canoncore/prototype-snapshot` | `~/canoncore/prototype-snapshot` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees-canoncore/design-prototype` | `~/canoncore/design-prototype` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees/claude-skills` | `~/.claude/skills` | `CC`, `jacobrees-canoncore` |
+| `jacobrees-applemusic/AppleMusic27` | `~/orca/projects/AppleMusic27` | `AM`, `applemusic27` |
+| `jacobrees-extractor/extractor` | `~/orca/projects/Extractor` | `EXT`, `extractor-app` |
+| `jacobrees-moneymind/room-finder` | `~/orca/room-finder` | `ROOM`, `moneymind-jdr` |
+
+Any change to the standard block files one refresh ticket per row of this table, on that row's
+board. A repository that starts carrying the block joins the table in the same change.
 
 Work takes one of two weights.
 
