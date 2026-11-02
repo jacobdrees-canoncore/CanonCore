@@ -4,10 +4,12 @@ Decision record, 9 Oct 2026, closing the folder component's spec (CC-37) for Can
 was studied from fayazara's portfolio template and rebuilt twice in a private repository, in React
 with Motion and in SwiftUI for iPhone, iPad and Mac (ADR 0022). This record is what leaves that
 repository: the spring mapping, the look the Owner picked on each platform, the Apple TV answer, the
-folder's tokens and what descends from fayazara's code. It is words and tokens only. Project 1
-builds CanonCore's own folder from it, test-first, and the design prototypes cite it for the folder.
+folder's tokens and what descends from fayazara's code. It is words and tokens only. Since 2 Nov 2026
+the folder is one take among others, not a signature component (ADR 0025, the Owner): if a
+prototype's verdict picks it, Project 1 builds CanonCore's own folder from this record, test-first,
+and the design prototypes cite it for the folder.
 
-A folder is a presentation, not a domain concept (ADR 0020): any grouping may be shown as one, and
+A folder is a presentation, not a domain concept (ADR 0025): any grouping may be shown as one, and
 `GLOSSARY.md` still avoids "folder" as a name for a Collection, Franchise, Show or Ordering.
 
 Every value below is the build's at the private repository's main branch, commit `f3096e7` (CC-58's
@@ -80,8 +82,9 @@ frame-rate rule, so the Mac's trace stands for both (the Owner, 9 Oct 2026): the
 same shared code on every Apple platform, and what is the iPhone's own (a tap opening the gallery,
 swipes stepping it, a portrait layout) is covered by UI tests.
 
-**For CanonCore:** the web client uses Motion's duration-based springs with these numbers, and the
-Apple app carries its own port of Motion's spring, built test-first against Motion's generator.
+**For CanonCore**, if the folder is picked: the web client uses Motion's duration-based springs with
+these numbers, and the Apple app carries its own port of Motion's spring, built test-first against
+Motion's generator.
 
 ## The looks the Owner picked
 
@@ -116,9 +119,9 @@ say to avoid using a familiar gesture for an action unique to the app
 (developer.apple.com/design/human-interface-guidelines/gestures, read 9 Oct 2026).
 
 **Still open, by ADR 0023:** on the web, the pick sits inside the web prototype's side-by-side
-comparison of untitled-look and Arc-look stories (untitled's look or Arc's where they disagree,
-CC-38; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
-have), and whether the frosted tint counts as a
+comparison of untitled-look, Apple Music-look and Arc-look stories, picked per block and per screen
+(CC-38; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
+have; amended 2 Nov 2026, ADR 0025, it named only untitled's look and Arc's), and whether the frosted tint counts as a
 decorative gradient under Arc's rules is decided there. On Apple, the Apple prototype (CC-39)
 settles whether Arc's rules apply. Each verdict is recorded beside the pick when it is made.
 
@@ -377,9 +380,9 @@ folder can draw its own outside its clip, on its own spring.
 - with reduced motion, nothing moves, as on every platform.
 
 The private package and demo dropped the lift on 9 Oct 2026, on the Owner's decision in the folder
-audit's grill (CC-248); CC-60's measurement of it is kept as its committed recordings. CanonCore's
-own folder is built from this record, without it. The first judgement of the folder with a real Siri
-Remote is the Apple prototype's (CC-39, ADR 0020).
+audit's grill (CC-248); CC-60's measurement of it is kept as its committed recordings. If the folder is
+picked, CanonCore's own folder is built from this record, without it. The first judgement of the
+folder with a real Siri Remote is the Apple prototype's (CC-39, ADR 0025).
 
 ## What descends from fayazara's code, and its licence
 

@@ -1,0 +1,40 @@
+name: Ticket links
+
+# Linear closes every ticket a merged PR's branch or title names, or its body names after a closing
+# word. This fails a PR that would close one it only mentions; "Part of CC-12" names a ticket without
+# closing it, so it passes. Ported from Extractor's check (EXT-49) on 2 Nov 2026. Its own workflow,
+# not a job in ci.yml, because a title or label edit re-runs it, and that should not re-run CI.
+# Unlike ci.yml's jobs it runs on a draft too: it takes seconds, and a draft's title is the one that
+# gets merged unless somebody changes it.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  ticket-links:
+    name: Ticket links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      # Read live, not from the event: a failed run stays on the head beside any later pass, and
+      # dispatch's gate refuses a head with a failure. A re-run replays its event's old payload, so
+      # only a live read lets `gh run rerun` of the failed run see the corrected text and pass.
+      # Through env, never interpolated into the script: a title is text anyone opening a PR writes.
+      - name: The PR closes only its own ticket
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.head_ref }}
+          # This repository's Linear team key: the script reads it rather than naming a team.
+          TEAM_KEY: CC
+        run: |
+          pr=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json title,body,labels)
+          TITLE=$(jq -r .title <<<"$pr") BODY=$(jq -r .body <<<"$pr") \
+            LABELS=$(jq -r '[.labels[].name] | join(",")' <<<"$pr") \
+            python3 .github/scripts/ticket_links.py

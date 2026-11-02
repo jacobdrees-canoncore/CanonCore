@@ -126,6 +126,9 @@ Link a PR to an issue by putting the identifier in the branch name (Orca names t
 `--name`, so a worktree named `cc-12` carries it) or by a magic word in the PR body: `Fixes CC-12`.
 A branch carrying the identifier links as if closing, and Linear does not document whether a
 `Part of` in the body overrides it, so a ticket that must stay open keeps its id out of the branch.
+CI's `Ticket links` check (`.github/workflows/ticket-links.yml`) fails a PR whose branch, title or
+closing words would close a ticket it only mentions, and lets `Part of CC-n` through; a PR meant to
+close everything it names carries the label `closes-what-it-names`.
 
 **Four kinds of ticket are set Done by hand, and no others.**
 
@@ -186,7 +189,8 @@ first thing to save when a ticket looks wrong.
   tested.
 - **An id in a PR's title links the PR as if closing.** The probes' titles named CC-166, and #6's
   merge moved CC-166 `In Review -> Done` while its own PR was still a draft. Dropping the id from the
-  title, and a bare mention from the body, removed the link. Keep other tickets' ids out of a PR's title.
+  title, and a bare mention from the body, removed the link. Keep other tickets' ids out of a PR's title:
+the `Ticket links` check (Status, above) fails a PR that names one there.
 
 ## Worktree binding
 

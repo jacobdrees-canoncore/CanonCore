@@ -23,6 +23,11 @@
 > Desktop" is only its App Store listing name); [untitled] is built from UIKit view controllers plus
 > SwiftUI, with swift-navigation Destination enums, not TCA. The sections below that say assets
 > cannot be copied, or that the permission is unrecorded, are history for [untitled] and Brink.
+>
+> **Revised 2 Nov 2026** (the Owner). The [untitled] replica is no longer full: its iPhone half covers
+> only the library, project and track pages, and the edit, speed, pitch, stems and recorder screens
+> are dropped on both halves. Its builds are now [untitled] iOS 1.26.1 and macOS 1.11.0, and
+> Brink's is 1.2.44; the versions below are those of 6 Oct 2026.
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD

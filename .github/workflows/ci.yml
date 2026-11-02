@@ -89,5 +89,13 @@ jobs:
           expect 0 'orca terminal list --json'
           exit $fail
 
+  ticket-links-guard:
+    name: Ticket links guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: The ticket-links script fails a PR that closes a ticket it only mentions
+        run: python3 -m unittest discover -s .github/scripts -v
+
   # Add lint / typecheck / test jobs here once a stack exists. Keep them as separate
   # jobs so a red check names the thing that broke.

@@ -40,7 +40,7 @@ but the FSF does not list it. Apple's videos and artwork in the samples are a se
 **Recommendation:** build the Apple prototype's Apple TV screens (CC-39) on TVCatalog as the
 component base and Destination Video as the app skeleton. (Amended 3 Oct 2026: the 30 Sep
 recommendation was to recreate Apple's TV app from them and match it against recordings of the real
-TV app on tvOS 27; that recreation, CC-34, was dropped.) Infuse and Plex are not studied: the Owner decided on 30 Sep 2026, after the verification, that the TV app alone is the reference (`plan-2026-09-30.md`). (Amended 11 Oct 2026: the TV app stays the reference, and the Plex sweep's findings on Plex's iOS and tvOS apps are input the Apple prototype's grill may draw on, ADR 0024.) Reasons for the rest are in the last section.
+TV app on tvOS 27; that recreation, CC-34, was dropped.) The Owner decided on 30 Sep 2026, after the verification, that the TV app alone was the reference and Infuse and Plex were not studied (`plan-2026-09-30.md`); amended 11 Oct 2026: the Plex sweep's findings on Plex's iOS and tvOS apps are input the Apple prototype's grill may draw on (ADR 0024); amended 2 Nov 2026, the Owner: the Apple prototype captures Apple's TV app and the Infuse, Channels and Plex tvOS apps on the Owner's Apple TV through Xcode 27's Device Hub (View Screen and screenshots). Reasons for the rest are in the last section.
 
 ## The tvOS samples
 
@@ -308,12 +308,12 @@ for study only.
   the FSF has not listed it. ADR 0019 relies on Fedora's ruling.
 - That the samples' images and videos are outside the MIT grant: the licence does not say either
   way; only one sample carries an explicit note, for WWDC videos.
-- That Apple TV screens can be recorded: no longer needed. The tvOS recreation, dropped 3 Oct 2026,
-  had a first ticket to test `devicectl`, and the Apple prototype builds from the
-  samples rather than from recordings (`plan-2026-09-30.md`). The iPhone path is in
-  `driving-the-iphone.md`.
-- Infuse's and Plex's tvOS apps were not opened or recorded; what is said about them is judgement.
-  (11 Oct 2026: the Plex sweep analyses Plex's tvOS build, ADR 0024.)
+- That Apple TV screens can be captured: since 2 Nov 2026 the Apple prototype captures them through
+  Xcode 27's Device Hub, paired with the Owner's Apple TV over Wi-Fi (the Owner); not yet run. The
+  iPhone path is in `driving-the-iphone.md`.
+- Infuse's and Plex's tvOS apps were not opened or recorded when this note was written; what is said
+  about them is judgement. (11 Oct 2026: the Plex sweep analyses Plex's tvOS build, ADR 0024. 2 Nov
+  2026: the Apple prototype captures Infuse, Channels and Plex on the Apple TV.)
 - Browsing and Modifying Photo Albums' date was not fetched.
 
 ## Recommendation
@@ -325,7 +325,7 @@ directly.)
 | Option | Verdict | Why |
 | --- | --- | --- |
 | **TVCatalog plus Destination Video, in the Apple prototype** | **Build on** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the Apple prototype decides. |
-| Infuse or Plex | Not studied | Dropped by the Owner on 30 Sep 2026, after the verification: the TV app alone is the reference (`plan-2026-09-30.md`). Since 11 Oct 2026 the Plex sweep's findings are input, not a reference (ADR 0024). |
+| Infuse, Channels or Plex | Captured, beside the TV app | Dropped by the Owner on 30 Sep 2026 (`plan-2026-09-30.md`); since 11 Oct 2026 the Plex sweep's findings are input (ADR 0024); since 2 Nov 2026 the Apple prototype captures all three on the Owner's Apple TV through Device Hub (the Owner). |
 | Swiftfin or Stingray as the base | Secondary reference | Stingray (MIT) is copyable and native, but it is one developer's reading of the TV app. Swiftfin is MPL-2.0, targets tvOS 26.1, and carries its own design history. Read them for answers to real client problems (server sessions, resume, track pickers), not for design. |
 
 **Order.** CC-39's spec owns the order. The samples suggest one: build TVCatalog's Stack and
