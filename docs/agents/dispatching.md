@@ -79,7 +79,9 @@ per run and add that limit here.
   drivers, ipatool and the like) without asking. Spending money still needs the Owner's yes (the
   Owner, 6 Oct 2026). REA (`rea-agents`) is the exception: it runs through `npx` when a ticket
   needs it and is never installed, in a repository or in an agent's configuration (the Owner,
-  11 Oct 2026; ADR 0024).
+  11 Oct 2026; ADR 0024). One exception: Extractor installs REA (npm `rea-agents`) as a pinned
+  dependency for its REA stages, which an EXT spec will add (the Owner, 2 Nov 2026); elsewhere the
+  rule stands.
 - **Green patch bumps are pre-approved.** Main merges a patch-level dependency bump (`x.y.z` to
   `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
   on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
