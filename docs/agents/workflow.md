@@ -61,12 +61,8 @@ For anything else.
 5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
    after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
-   Orca worktree, and Main gives it the full review and merges. A worker never asks the Owner in its
-   own tab: needing the Owner, it writes what it found and the exact question to `OWNER-QUESTION.md`
-   at its worktree root, messages Main `<ticket> question: <one line>` and ends its turn; Main asks
-   the Owner in its own tab and relays the answer (the Owner, 2 Nov 2026). A steered session, with
-   the Owner in its tab, is the exception. The rule lives in `dispatch`'s `launch.sh` brief and its
-   `asking.md`. A defect found at merge goes back through `/implement`, never as a free-text fix. Each
+   Orca worktree, and Main gives it the full review and merges. A worker needing the Owner asks through
+   Main, never in its own tab: `dispatch`'s `asking.md` owns the rule (the Owner, 2 Nov 2026). A defect found at merge goes back through `/implement`, never as a free-text fix. Each
    ticket ends with `/retro` on the worker's own session, its findings in the PR body. At the next
    go Main puts the findings of every PR merged since the last go to the Owner as one list, and
    files each one accepted in the repository that owns the fix (`dispatch`'s `asking.md`).
