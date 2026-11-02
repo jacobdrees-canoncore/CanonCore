@@ -247,7 +247,9 @@ reserved". The samples' images and videos (TVCatalog's 30 bundled image sets, De
 Video's `.mov` files) should stay in the throwaway Apple prototype and never go into the repo. The
 prototype uses the data snapshot's artwork anyway. Apple's name and marks may not "endorse or promote"
 anything built from the AML samples. So the prototype is never called "Apple TV app", and it
-lives in its own private repository, like the replicas (ADR 0022).
+lives in its own private repository, like the replicas (ADR 0022). (Revised 2 Nov 2026, the Owner:
+Apple's permission lets its code, logos and artwork ship in CanonCore itself, its samples' images
+and videos included, ADR 0025; the rule above held until then.)
 
 ## Building them here
 

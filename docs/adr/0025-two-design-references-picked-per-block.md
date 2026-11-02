@@ -12,7 +12,7 @@ AppleMusic27's code may be ported into the design prototype as takes, rewritten 
 
 ## Consequences
 
-- Ship rules: Apple's logos, artwork and code copied from Apple's own apps never ship in CanonCore, whatever the permission covers in the prototypes; Apple's sample code under MIT or AML stays as ADR 0019 accepts it. App Review guideline 5.2.5 is checked at the Apple prototype (CC-39). The brand at public release (CC-8) gives CanonCore its own colour and mark.
+- Ship rules (amended 2 Nov 2026, the Owner: "anything can be lifted, everything, everywhere"): under Apple's permission, Apple's code, logos and artwork may ship in CanonCore itself, not only in the prototypes, and the picks decide what does. Apple's sample code under MIT or AML stays as ADR 0019 accepts it. App Review guideline 5.2.5 is still checked at the Apple prototype (CC-39), because it is App Review's rule, not one Apple's permission lifts. CanonCore's own brand at public release (CC-8), its colour and mark, stays CC-8's decision.
 - Third-party code inside AppleMusic27 (GPL MeloX meshes, and the code its ADR 0003 lists as unlicensed) is free in the private prototypes and reaches CanonCore only through ADR 0019's licence rule.
 - CanonCore is adapted from untitled, never a copy of it. untitled's terms forbid derivative works and the Owner's permission is verbal, so anything drawn by untitled (artwork, icons) and its licensed fonts (Klim's Untitled Sans) stay out. On the web the type is Arc's, Geist and Inter at weights 400 and 500, until the web prototype's type verdict (ADR 0023).
 - AppleMusic27 lives outside `~/canoncore/`, an exception ADR 0022 records.
