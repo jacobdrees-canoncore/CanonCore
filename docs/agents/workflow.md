@@ -16,6 +16,7 @@ products that carry the same block:
 | `jacobdrees-canoncore/prototype-snapshot` | `~/canoncore/prototype-snapshot` | `CC`, `jacobrees-canoncore` |
 | `jacobdrees-canoncore/folder-component` | `~/canoncore/folder-component` | `CC`, `jacobrees-canoncore` |
 | `jacobdrees-canoncore/design-prototype` | `~/canoncore/design-prototype` | `CC`, `jacobrees-canoncore` |
+| `jacobdrees-canoncore/brink-replica` | `~/canoncore/brink-replica` | `CC`, `jacobrees-canoncore` |
 | `jacobdrees/claude-skills` | `~/.claude/skills` | `CC`, `jacobrees-canoncore` |
 | `jacobrees-applemusic/AppleMusic27` | `~/orca/projects/AppleMusic27` | `AM`, `applemusic27` |
 | `jacobrees-extractor/extractor` | `~/orca/projects/Extractor` | `EXT`, `extractor-app` |
