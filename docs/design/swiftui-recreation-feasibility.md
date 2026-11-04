@@ -27,7 +27,7 @@
 > **Revised 2 Nov 2026** (the Owner). The [untitled] replica is no longer full: its iPhone half covers
 > only the library, project and track pages, and the edit, speed, pitch, stems and recorder screens
 > are dropped on both halves. Its builds are now [untitled] iOS 1.26.1 and macOS 1.11.0, and
-> Brink's is 1.2.44 (1.2.45 since 4 Nov 2026); the versions below are those of 6 Oct 2026.
+> Brink's is 1.2.44; the versions below are those of 6 Oct 2026.
 >
 > **Revised 4 Nov 2026** (the Owner). Brink's look reads Brink iOS 1.2.45's decompiled code and Metal
 > shader: springs, durations, blur and colours come from the code where it shows them plainly, each
@@ -59,9 +59,7 @@ frame by frame, and from the few stills the App Store serves. Every one of those
 marketing composite, not a screen. (Revised 6 Oct 2026: for [untitled] and Brink, Extractor yields
 fonts, images, UI strings, and screen and navigation type names from the app bundle, with decompiled
 code, and Mobbin's reference screenshots are saved; view trees, colours and spring values still come
-from recordings. Revised 4 Nov 2026: for Brink, springs, durations, blur and colours come from the
-decompiled code and Metal shader where they show plainly; recordings prove every value and measure
-the rest.)
+from recordings.)
 
 **Recommendation:** replicate [untitled]'s key screens; do study sketches of Brink's Home and of
 MD Vinyl's tour and record; build nothing else of either. The table at the end gives the reasons.
@@ -86,9 +84,7 @@ bookmark skill's two views: a 2 fps overview sheet, then a native-rate burst on 
 which gives durations to a frame and shows overshoot, blur and ordering, but not true easing
 curves or how a gesture feels (the `analysing-design-bookmarks` skill, "A local recording" and
 "What you can and cannot judge"). The Brink bookmark videos are 60 fps and MD Vinyl's is 59.99 fps
-(measured, `media.json`). Only Jacob's iPhone can make these recordings. (Revised 4 Nov 2026: for
-Brink the decompiled code and Metal shader come first wherever they show a value plainly, and the
-recordings prove those values and measure what the code does not show.)
+(measured, `media.json`). Only Jacob's iPhone can make these recordings.
 
 **The bookmark videos are short.** Brink: 11.3 s and 6.7 s; MD Vinyl: 8.3 s, starting mid-tour;
 [untitled]: four stills, no video (measured, `media.json` and the cards). They cover one
