@@ -28,6 +28,11 @@
 > only the library, project and track pages, and the edit, speed, pitch, stems and recorder screens
 > are dropped on both halves. Its builds are now [untitled] iOS 1.26.1 and macOS 1.11.0, and
 > Brink's is 1.2.44; the versions below are those of 6 Oct 2026.
+>
+> **Revised 4 Nov 2026** (the Owner). Brink's look reads Brink iOS 1.2.45's decompiled code and Metal
+> shader: springs, durations, blur and colours come from the code where it shows them plainly, each
+> value marked from code or measured, and the recordings prove every value and measure the rest.
+> The sentences below that say these values come only from recordings are history for Brink.
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
