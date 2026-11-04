@@ -13,8 +13,9 @@ starts, and the board enforces it: Brink's audit CC-217 blocks the replica's fir
 (its Mac driver, CC-225) and its iPhone tickets; CC-242 blocks the web prototype's first building
 blocks, CC-298, CC-299, CC-300, CC-314 and CC-321; and CC-281 blocks CC-39 and CC-2. The one
 exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224)
-run alongside Brink's look. Brink's look starts once EXT-54's runs are in and the asking rule
-(`workflow.md`, step 6) has landed. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
+run alongside Brink's look. Brink's look starts once Extractor's decompile of Brink 1.2.45 shows
+functions above 0 (EXT-54; the Owner, 4 Nov 2026, narrowing "once EXT-54's runs are in") and the
+asking rule (`workflow.md`, step 6) has landed. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
 the order of 8 Oct 2026, closed on 10 Oct 2026, and the web prototype's tickets were re-filed as
 CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the
