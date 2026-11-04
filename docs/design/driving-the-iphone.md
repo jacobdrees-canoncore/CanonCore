@@ -338,8 +338,11 @@ spacing, route 1 answers the timing question and everything else is only navigat
 - [ ] Sign in to [untitled] (already installed).
 - [x] Settings -> Developer -> Enable UI Automation: on (done 30 Sep).
 - [ ] Settings -> Accessibility -> Zoom: off.
-- [ ] Settings -> Display & Brightness -> Auto-Lock: Never for a session, and Focus on to stop
-      notifications appearing in recordings; keep the phone unlocked on the desk and on charge.
+- [ ] Keep the phone unlocked on the desk and on charge for a session. (Amended 4 Nov 2026, the
+      Owner: Auto-Lock at Never and Focus on, which stop the lock and notifications interrupting a
+      recording, are set and restored by the agent for each session, `plan-2026-09-30.md`,
+      "Driving the iPhone"; Jacob sets them only where the first phone ticket finds the agent
+      cannot.)
 - [x] Give the agent his Team ID (developer.apple.com -> Membership) (done 30 Sep).
 - [x] Approve installing Appium and the XCUITest driver on this Mac; the agent signs and builds
       WDA (6 Oct 2026: free tools are pre-approved; Appium 3.8.0, xcuitest 12.15.0 and mac2 4.3.6
