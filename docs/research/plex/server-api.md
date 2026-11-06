@@ -1,4 +1,4 @@
-Observed 11 Oct 2026 on Plex Media Server 1.43.4.10903-e5521bd8c (API version 1.2.3, bundled Plex Web 4.160.0), macOS 27.0.1, REA 6.4.0 (`npx -y rea-agents@latest`), with curl 8.7.1, mitmproxy 12.2.3, Python 3.14 and ffmpeg 8.1.2. (6 Nov 2026: REA now runs only through Extractor's pinned install, never `npx`; ADR 0024.)
+Observed 11 Oct 2026 on Plex Media Server 1.43.4.10903-e5521bd8c (API version 1.2.3, bundled Plex Web 4.160.0), macOS 27.0.1, REA 6.4.0 (`npx -y rea-agents@latest`), with curl 8.7.1, mitmproxy 12.2.3, Python 3.14 and ffmpeg 8.1.2. (6 Nov 2026: REA no longer runs through `npx`; it is to run only through Extractor's pinned install, which Extractor's REA spec adds; ADR 0024.)
 
 # Plex Media Server's API, from outside
 
