@@ -19,7 +19,9 @@ before Extractor's full pass of 1.2.46, decompile included, is in. "Re-read Brin
 on 1.2.46", a ticket of CC-33, marks each value changed since 1.2.45 and blocks CC-213, CC-214 and
 CC-215 (the Owner, 6 Nov 2026, superseding "once Extractor's decompile of Brink 1.2.45 shows
 functions above 0", EXT-54, of 4 Nov 2026). CC-209's route proof on 1.2.46 is not a measured
-recording. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
+recording. The Apple prototype (CC-39) also waits for the clean round of Extractor's REA spec's
+audit, EXT-67, since it uses that spec's `hermes` Stage output for Plex; Linear cannot draw that
+edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
 the order of 8 Oct 2026, closed on 10 Oct 2026, and the web prototype's tickets were re-filed as
 CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the
