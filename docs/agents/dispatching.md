@@ -13,9 +13,13 @@ starts, and the board enforces it: Brink's audit CC-217 blocks the replica's fir
 (its Mac driver, CC-225) and its iPhone tickets; CC-242 blocks the web prototype's first building
 blocks, CC-298, CC-299, CC-300, CC-314 and CC-321; and CC-281 blocks CC-39 and CC-2. The one
 exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224)
-run alongside Brink's look. Brink's look starts once Extractor's decompile of Brink 1.2.45 shows
-functions above 0 (EXT-54; the Owner, 4 Nov 2026, narrowing "once EXT-54's runs are in") and the
-asking rule (`workflow.md`, step 6) has landed. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
+run alongside Brink's look. Brink's look records and builds from Brink iOS 1.2.46 and starts once
+the asking rule (`workflow.md`, step 6) has landed. No measured recording of the look is made
+before Extractor's full pass of 1.2.46, decompile included, is in. "Re-read Brink's values from code
+on 1.2.46", a ticket of CC-33, marks each value changed since 1.2.45 and blocks CC-213, CC-214 and
+CC-215 (the Owner, 6 Nov 2026, superseding "once Extractor's decompile of Brink 1.2.45 shows
+functions above 0", EXT-54, of 4 Nov 2026). CC-209's route proof on 1.2.46 is not a measured
+recording. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
 the order of 8 Oct 2026, closed on 10 Oct 2026, and the web prototype's tickets were re-filed as
 CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the
@@ -78,14 +82,19 @@ per run and add that limit here.
 
 - **Free tools are pre-approved.** An agent installs a free tool its ticket needs (Appium and its
   drivers, ipatool and the like) without asking. Spending money still needs the Owner's yes (the
-  Owner, 6 Oct 2026). REA (`rea-agents`) is the exception: it runs through `npx` when a ticket
-  needs it and is never installed, in a repository or in an agent's configuration (the Owner,
-  11 Oct 2026; ADR 0024). One exception: Extractor installs REA (npm `rea-agents`) as a pinned
-  dependency for its REA stages, which an EXT spec will add (the Owner, 2 Nov 2026); elsewhere the
-  rule stands.
+  Owner, 6 Oct 2026). REA (`rea-agents`) is the exception: it is installed only in Extractor, as
+  `rea-agents` 6.8.0 at an exact pin with a committed lockfile and `npm ci --omit=optional`, on
+  Node 24.22.2 enforced by `.nvmrc` and `devEngines`, and is called through that Node by path,
+  never through `npx` (the Owner, 6 Nov 2026, superseding "it runs through `npx` when a ticket needs
+  it", 11 Oct 2026, and the pinned install of 2 Nov 2026; ADR 0024). Extractor's REA spec uses it
+  for a `javascript` Stage; its `hermes` Stage does not use REA, and REA snapshots are not a Stage.
+  No agent's configuration registers REA's MCP until the REA spec's last ticket restores it at user
+  scope on Extractor's pinned REA, with `GHIDRA_INSTALL_DIR` set.
 - **Green patch bumps are pre-approved.** Main merges a patch-level dependency bump (`x.y.z` to
   `x.y.z+1`) in any of CanonCore's repositories once Main has read its diff and its checks are green
-  on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026).
+  on the head commit. A minor or major bump still goes to the Owner (the Owner, 8 Oct 2026). REA,
+  Ghidra and the JDK in Extractor are not covered: they are upgraded together by one EXT ticket
+  per bump, proven on one Build, with no Dependabot (the Owner, 6 Nov 2026).
 - **Held back: the web prototype's build tickets.** Every ticket of CC-38 (Design prototype: web)
   except its audit and its infrastructure tickets is never dispatched: the Owner works each one
   himself, steering a live Claude session per ticket in its own worktree, which Main opens with
