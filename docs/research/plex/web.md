@@ -1,4 +1,4 @@
-Observed 11 Oct 2026 on Plex Web **4.160.0** (the copy bundled with Plex Media Server 1.43.4.10903-e5521bd8c, `WebClient.bundle`, build `webdesktopbundle@75ddd7b`) and Plex Web **4.162.1** (the hosted copy at app.plex.tv, release `desktop-desktop@4.162.1-87b128e`), macOS 27.0.1, REA 6.4.0 (`npx -y rea-agents@latest`), with Orca 1.4.193's browser (Chromium 150) driven through `orca` and its agent-browser 0.27.0 passthrough, curl 8.7.1, ripgrep 15.2.0 and Python 3.14.7.
+Observed 11 Oct 2026 on Plex Web **4.160.0** (the copy bundled with Plex Media Server 1.43.4.10903-e5521bd8c, `WebClient.bundle`, build `webdesktopbundle@75ddd7b`) and Plex Web **4.162.1** (the hosted copy at app.plex.tv, release `desktop-desktop@4.162.1-87b128e`), macOS 27.0.1, REA 6.4.0 (`npx -y rea-agents@latest`), with Orca 1.4.193's browser (Chromium 150) driven through `orca` and its agent-browser 0.27.0 passthrough, curl 8.7.1, ripgrep 15.2.0 and Python 3.14.7. (6 Nov 2026: REA no longer runs through `npx`; it is to run only through Extractor's pinned install, which Extractor's REA spec adds; ADR 0024.)
 
 # Plex Web
 

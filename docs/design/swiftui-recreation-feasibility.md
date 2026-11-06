@@ -33,6 +33,11 @@
 > shader: springs, durations, blur and colours come from the code where it shows them plainly, each
 > value marked from code or measured, and the recordings prove every value and measure the rest.
 > The sentences below that say these values come only from recordings are history for Brink.
+>
+> **Revised 6 Nov 2026** (the Owner). Brink's look records and builds from Brink iOS 1.2.46 (on the
+> App Store since 4 Nov 2026), not 1.2.45, and reads 1.2.46's code once Extractor's full pass of it,
+> decompile included, is in. The values read from 1.2.45's code are re-read against 1.2.46, and each
+> changed one is marked.
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
