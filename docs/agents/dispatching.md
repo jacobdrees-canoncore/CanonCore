@@ -13,9 +13,11 @@ starts, and the board enforces it: Brink's audit CC-217 blocks the replica's fir
 (its Mac driver, CC-225) and its iPhone tickets; CC-242 blocks the web prototype's first building
 blocks, CC-298, CC-299, CC-300, CC-314 and CC-321; and CC-281 blocks CC-39 and CC-2. The one
 exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224)
-run alongside Brink's look. Brink's look records and builds from Brink iOS 1.2.46 and starts once
+run alongside Brink's look. Brink's look records and builds from Brink iOS 1.2.47 (the Owner, 15 Nov
+2026, after 1.2.47 reached his iPhone; 1.2.46 from 6 Nov) and starts once
 the asking rule (`workflow.md`, step 6) has landed. No measured recording of the look is made
-before Extractor's full pass of 1.2.46, decompile included, is in. "Re-read Brink's values from code
+before Extractor's full pass of its current build, decompile included, is in, and the values read from
+code are re-read on each new build ("Re-read Brink's values from code on 1.2.47", CC-388). "Re-read Brink's values from code
 on 1.2.46", a ticket of CC-33, marks each value changed since 1.2.45 and blocks CC-213, CC-214 and
 CC-215 (the Owner, 6 Nov 2026, superseding "once Extractor's decompile of Brink 1.2.45 shows
 functions above 0", EXT-54, of 4 Nov 2026). CC-209's route proof on 1.2.46 is not a measured
