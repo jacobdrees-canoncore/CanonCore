@@ -54,8 +54,8 @@ on Main's review:
   spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
   edges; inside the replica the Mac's recordings come before the iPhone's. The Apple prototype's
   capture of the Owner's Apple TV joins this lane too (the Owner, 2 Nov 2026), holding the simulator
-  lane with it; its route is proved by its first session, not named in advance (15 Nov 2026), and any
-  tvOS update, which forces a re-pair, comes before a capture session. Dispatch hands the lane on
+  lane with it; its first session proves the recording from Device Hub's live view on the Mac (15 Nov
+  2026; the design plan, Driving the iPhone, owns the capture's rules). Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
 - **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
   `xcodebuild test`, a simulator boot or clone, a device install. On 10 Oct 2026 simulators run by
