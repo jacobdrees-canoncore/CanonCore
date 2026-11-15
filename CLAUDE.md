@@ -59,8 +59,8 @@ checked out at `~/orca/projects/CanonCore/docs/agents/workflow.md`.
 - CI runs axe on every web merge. With the manual pass in each spec's last audit (keyboard only, a screen
   reader, 200% zoom) they are "automated checks plus a manual review", never called WCAG compliance.
   CanonCore claims no WCAG 2.2 AA conformance. On the web the keyboard pass reports a ring missing
-  or invisible where Arc draws one: Arc ships a keyboard ring and none on pointer (ADR 0023; Apple
-  waits on CC-39).
+  or invisible where Arc draws one: Arc ships a keyboard ring and none on pointer (ADR 0023). On
+  Apple, focus is the system's everywhere, the folder's fan the one exception (ADR 0023, Scope).
 
 ## Commands
 

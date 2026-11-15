@@ -40,7 +40,7 @@ but the FSF does not list it. Apple's videos and artwork in the samples are a se
 **Recommendation:** build the Apple prototype's Apple TV screens (CC-39) on TVCatalog as the
 component base and Destination Video as the app skeleton. (Amended 3 Oct 2026: the 30 Sep
 recommendation was to recreate Apple's TV app from them and match it against recordings of the real
-TV app on tvOS 27; that recreation, CC-34, was dropped.) The Owner decided on 30 Sep 2026, after the verification, that the TV app alone was the reference and Infuse and Plex were not studied (`plan-2026-09-30.md`); amended 11 Oct 2026: the Plex sweep's findings on Plex's iOS and tvOS apps are input the Apple prototype's grill may draw on (ADR 0024); amended 2 Nov 2026, the Owner: the Apple prototype captures Apple's TV app and the Infuse, Channels and Plex tvOS apps on the Owner's Apple TV through Xcode 27's Device Hub (View Screen and screenshots). Reasons for the rest are in the last section.
+TV app on tvOS 27; that recreation, CC-34, was dropped.) The Owner decided on 30 Sep 2026, after the verification, that the TV app alone was the reference and Infuse and Plex were not studied (`plan-2026-09-30.md`); amended 11 Oct 2026: the Plex sweep's findings on Plex's iOS and tvOS apps are input the Apple prototype's grill may draw on (ADR 0024); amended 2 Nov 2026, the Owner: the Apple prototype captures Apple's TV app and the Infuse, Channels and Plex tvOS apps on the Owner's Apple TV through Xcode 27's Device Hub (View Screen and screenshots); amended 15 Nov 2026, the Owner: each Apple TV screen starts from the web prototype's picked look, translated to tvOS, and TVCatalog and Destination Video are the base of Apple's own platform look, the standing contender; the captured apps are study rows, not looks, and the capture's route is proved by its first session (`plan-2026-09-30.md`). Reasons for the rest are in the last section.
 
 ## The tvOS samples
 
@@ -312,10 +312,19 @@ for study only.
   way; only one sample carries an explicit note, for WWDC videos.
 - That Apple TV screens can be captured: since 2 Nov 2026 the Apple prototype captures them through
   Xcode 27's Device Hub, paired with the Owner's Apple TV over Wi-Fi (the Owner); not yet run. The
-  iPhone path is in `driving-the-iphone.md`.
+  iPhone path is in `driving-the-iphone.md`. (15 Nov 2026: the TV is paired on tvOS 27.2 and is
+  updated to 27.2.1 and paired again before the first capture session. Device Hub screenshots a
+  physical device, but Apple documents its recording for simulators only, and `devicectl` lists no
+  screen recording for the TV, so its motion is recorded from Device Hub's live view on the Mac. The
+  first session proves a screenshot and a five-second recording with `ffprobe` and tries
+  Accessibility Inspector; until a tree is shown to be readable, values come from code or
+  screenshots. Still not run.)
 - Infuse's and Plex's tvOS apps were not opened or recorded when this note was written; what is said
   about them is judgement. (11 Oct 2026: the Plex sweep analyses Plex's tvOS build, ADR 0024. 2 Nov
-  2026: the Apple prototype captures Infuse, Channels and Plex on the Apple TV.)
+  2026: the Apple prototype captures Infuse, Channels and Plex on the Apple TV. 15 Nov 2026: held
+  and decompiled in Extractor are Plex tvOS 2026.22.0, Infuse 8.5.9, with 8.5.10 current and fetched
+  before the prototype reads it, and Channels 7.1.2; Apple's TV app is not held. The Apple prototype
+  reads their code first.)
 - Browsing and Modifying Photo Albums' date was not fetched.
 
 ## Recommendation
@@ -326,8 +335,8 @@ directly.)
 
 | Option | Verdict | Why |
 | --- | --- | --- |
-| **TVCatalog plus Destination Video, in the Apple prototype** | **Build on** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the Apple prototype decides. |
-| Infuse, Channels or Plex | Captured, beside the TV app | Dropped by the Owner on 30 Sep 2026 (`plan-2026-09-30.md`); since 11 Oct 2026 the Plex sweep's findings are input (ADR 0024); since 2 Nov 2026 the Apple prototype captures all three on the Owner's Apple TV through Device Hub (the Owner). |
+| **TVCatalog plus Destination Video, in the Apple prototype** | **Build on** | Apple's own code gives the focus behaviour, lockups, shelves, fold and product page, and MIT lets TVCatalog's code be copied. Destination Video adds the one-target structure, a sidebar with collection sections and system playback with Up Next, which is CanonCore's shape: browse, collections, AVPlayer. Both build here in seconds. What they lack (real navigation, progress rows, a season and episode page, Liquid Glass on tvOS 27, springy folder openings) is what the Apple prototype decides. They feed Apple's platform look, the standing contender on each screen, which itself starts from the web's pick (15 Nov 2026). |
+| Infuse, Channels or Plex | Captured, beside the TV app | Dropped by the Owner on 30 Sep 2026 (`plan-2026-09-30.md`); since 11 Oct 2026 the Plex sweep's findings are input (ADR 0024); since 2 Nov 2026 the Apple prototype captures all three on the Owner's Apple TV through Device Hub (the Owner); since 15 Nov 2026 they are study rows, not looks, their values read first from the decompiles held (Plex's through the `hermes` Stage), each marked from code or measured, and captured by the route the first session proves (the Owner). |
 | Swiftfin or Stingray as the base | Secondary reference | Stingray (MIT) is copyable and native, but it is one developer's reading of the TV app. Swiftfin is MPL-2.0, targets tvOS 26.1, and carries its own design history. Read them for answers to real client problems (server sessions, resume, track pickers), not for design. |
 
 **Order.** CC-39's spec owns the order. The samples suggest one: build TVCatalog's Stack and
@@ -335,7 +344,8 @@ Description pages on the data snapshot, then graft in Destination Video's sideba
 Apple's notice since ADR 0019 accepts it) with Collections as folders. The prototype lives in its own
 repository, `~/canoncore/design-prototype`, with a private remote (ADR 0022). (Amended 11 Oct
 2026: since the web prototype became Storybook only, the Apple prototype's home is open; CC-39's
-grill decides it.)
+grill decides it. Decided 15 Nov 2026, the Owner: its own private repository, `apple-prototype`, an
+Xcode project set up by `setup-orca-linear-project`.)
 
 ## Every sample, sorted
 

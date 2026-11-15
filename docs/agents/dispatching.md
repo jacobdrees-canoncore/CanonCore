@@ -27,7 +27,7 @@ Owner, 15 Nov 2026). No measured recording of either is made before Extractor's 
 build, decompile included, is in, and the values read from code are re-read on each new build, as
 Brink's are. The Apple prototype (CC-39) also waits for the clean round of Extractor's REA spec's
 audit, EXT-67, since it uses that spec's `hermes` Stage output for Plex; Linear cannot draw that
-edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
+edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The gate stays (the Owner, 15 Nov 2026), with a risk noted: hermes-decomp reads Hermes bytecode up to version 99, and Plex 2026.22.0's version is unread. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
 the order of 8 Oct 2026, closed on 10 Oct 2026, and the web prototype's tickets were re-filed as
 CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the
@@ -49,10 +49,13 @@ on Main's review:
 - **One recording lane.** One agent at a time records on this Mac: motion or screen captures, of
   the phone or of the Mac. Every recording joins this lane, the later folder tickets (CC-57 and
   CC-60) included; the iPad trace on hardware, CC-190, was canceled 8 Oct 2026 (the Owner has no
-  iPad, and the Mac trace stands in). Since the spec order above, the lane holds only the current
+  iPad, and the Mac trace stands in; the Apple prototype judges the iPad on the iPad Pro 13-inch (M5)
+  simulator, iOS 27.0, in the simulator lane, 15 Nov 2026). Since the spec order above, the lane holds only the current
   spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
   edges; inside the replica the Mac's recordings come before the iPhone's. The Apple prototype's
-  Device Hub capture of the Owner's Apple TV joins this lane too (the Owner, 2 Nov 2026). Dispatch hands the lane on
+  capture of the Owner's Apple TV joins this lane too (the Owner, 2 Nov 2026), holding the simulator
+  lane with it; its route is proved by its first session, not named in advance (15 Nov 2026), and any
+  tvOS update, which forces a re-pair, comes before a capture session. Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
 - **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
   `xcodebuild test`, a simulator boot or clone, a device install. On 10 Oct 2026 simulators run by
@@ -70,7 +73,9 @@ on Main's review:
   so the four (untitled-replica, prototype-snapshot, folder-component and design-prototype) are
   unregistered until then (the Owner, 31 Oct 2026). The app replica's own repository,
   untitled-app-replica (CC-218, 15 Nov 2026), registers for its setup tickets during Brink's look
-  (2 Nov 2026).
+  (2 Nov 2026). The Apple prototype's own repository, apple-prototype, is made by its setup ticket at
+  its spec's turn, after the web prototype's audit reaches its clean round, and registers then (the
+  Owner, 15 Nov 2026).
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
   only lengthens the queue (the Owner, 3 Oct 2026).
 
@@ -85,7 +90,8 @@ the next ticket in the merged one's lane, and start what does: the Owner asked f
 In Design references that means the current spec's tickets only; a later spec's
 ticket, browserless or not, waits for its spec's turn (8 Oct 2026), except the untitled app
 replica's setup tickets and CC-391, its values from code, which run alongside Brink's look (2 Nov
-2026; CC-391 added 15 Nov 2026).
+2026; CC-391 added 15 Nov 2026). The Apple prototype's setup and infrastructure tickets are no such
+exception: they wait for its turn (the Owner, 15 Nov 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
@@ -120,6 +126,12 @@ per run and add that limit here.
   take the start-of-spec versions), and the audit are dispatched as usual (the Owner, 10 Oct 2026;
   the infrastructure tickets released 11 Oct 2026, CC-296 added 11 Oct 2026, when the prototype
   became Storybook only; CC-322 and CC-323 added 11 Oct 2026; CC-401 added 15 Nov 2026).
+- **Held back: the Apple prototype's screen tickets.** Every screen ticket of CC-39 (Design
+  prototype: Apple) is held back the same way: the Owner steers each screen himself, in a live Claude
+  session in its own worktree, which Main opens with `launch.sh --steered` when he asks, and chooses
+  its looks. Its setup and infrastructure tickets (the apple-prototype repository, which
+  `setup-orca-linear-project` makes, and the tickets that build no screen) and its audit are
+  dispatched as usual at its turn, and ask the Owner through Main (the Owner, 15 Nov 2026).
 
 ## Where a merged slice lands
 

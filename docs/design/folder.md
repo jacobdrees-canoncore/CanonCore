@@ -124,7 +124,9 @@ Owner chose for each block, picked per block and per screen (CC-38; amended 15 N
 look added, ADR 0025; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
 have; amended 2 Nov 2026, ADR 0025, it named only untitled's look and Arc's), and whether the frosted tint counts as a
 decorative gradient under Arc's rules is decided there. On Apple, the Apple prototype (CC-39)
-settles whether Arc's rules apply. Each verdict is recorded beside the pick when it is made.
+settles whether Arc's rules apply. (Partly settled 15 Nov 2026, the Owner: Arc's focus ring does not
+apply on Apple, where focus is the system's and the fan the one exception, ADR 0023; whether the
+frosted tint and the rest pass is each Apple screen's pick, which starts from the web's pick.) Each verdict is recorded beside the pick when it is made.
 
 ## The tokens
 
@@ -387,7 +389,8 @@ folder can draw its own outside its clip, on its own spring.
 The private package and demo dropped the lift on 9 Oct 2026, on the Owner's decision in the folder
 audit's grill (CC-248); CC-60's measurement of it is kept as its committed recordings. If the folder is
 picked, CanonCore's own folder is built from this record, without it. The first judgement of the
-folder with a real Siri Remote is the Apple prototype's (CC-39, ADR 0025).
+folder with a real Siri Remote is the Apple prototype's (CC-39, ADR 0025), on the Owner's own Apple TV;
+the fan is the one recorded exception to Apple's system focus (ADR 0023, Scope, 15 Nov 2026).
 
 ## What descends from fayazara's code, and its licence
 
