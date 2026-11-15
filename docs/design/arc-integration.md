@@ -6,6 +6,8 @@
 
 **Revised 10 Oct 2026.** Arc no longer removes every focus outline. Its `foundation.css` (fetched from uiarc.dev/r/arc-foundation.json on 10 Oct 2026) draws a 2px softened-accent ring on keyboard focus (`:focus-visible`) and none on pointer focus, with no ring on text fields, menu items, listbox options and `[tabindex="-1"]` targets; its instructions now read "no focus rings on pointer focus (keyboard focus gets the shared :focus-visible ring)", and its accessibility guide says to tune the ring through `--focus-outline`, `--focus-outline-width` and `--focus-outline-offset`. Every quote below about "no focus rings" (the foundation rule, the `INSTRUCTIONS.md` and `accessibility.md` lines, and the open question on keeping outlines for non-Arc components) is the 1 Oct text. ADR 0023 is amended to the keyboard ring.
 
+**Noted 15 Nov 2026.** This record is dated. Arc's defaults have since moved (today's `--radius-control` is .875rem, 1.125rem only under `data-arc-density="comfortable"`), its licence page reads "Last updated October 25, 2026" (no "Draft" string found by a text search), and its list prices are $149 a year or $249 lifetime. The web prototype refreshes Arc before its first block and holds it (ADR 0023); ADR 0023 carries the prices the Owner paid.
+
 ## What Arc says to do
 
 Arc says to install it through the shadcn CLI as an ordinary shadcn registry (`@uiarc`, plus the token-gated
