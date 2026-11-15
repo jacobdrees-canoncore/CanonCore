@@ -20,7 +20,7 @@ CanonCore's web client and the web prototype (CC-38) use Arc (uiarc.dev: its fre
 
 ## Scope
 
-Arc's rules bind CanonCore's web client and the web prototype, except where this ADR frees the prototype's type and decides its gradients case by case. The Apple app's answer comes from the Apple prototype (CC-39), which tries both. The replicas (`untitled-replica`, `untitled-app-replica`, `brink-replica` and AppleMusic27), the folder component and agents' throwaway reports are not bound. ObsidianUI and uselayouts are dropped entirely: not installed, evaluated or studied.
+Arc's rules bind CanonCore's web client and the web prototype, except where this ADR frees the prototype's type and decides its gradients case by case. The Apple app's answer comes from the Apple prototype (CC-39), which tries both. The replicas (`untitled-replica`, `untitled-app-replica`, `brink-replica` and AppleMusic27), the folder component and agents' throwaway reports are not bound (amended 15 Nov 2026, the Owner, `GLOSSARY.md`: it named only "untitled's replica" of the replicas). ObsidianUI and uselayouts are dropped entirely: not installed, evaluated or studied.
 
 ## Arc Pro in a public repository
 
