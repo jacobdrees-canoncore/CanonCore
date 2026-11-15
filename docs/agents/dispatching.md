@@ -27,7 +27,7 @@ Owner, 15 Nov 2026). No measured recording of either is made before Extractor's 
 build, decompile included, is in, and the values read from code are re-read on each new build, as
 Brink's are. The Apple prototype (CC-39) also waits for the clean round of Extractor's REA spec's
 audit, EXT-67, since it uses that spec's `hermes` Stage output for Plex; Linear cannot draw that
-edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The gate stays (the Owner, 15 Nov 2026), with a risk noted: hermes-decomp reads Hermes bytecode up to version 99, and Plex 2026.22.0's version is unread. The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
+edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The gate stays (the Owner, 15 Nov 2026), with a risk noted: hermes-decomp reads Hermes bytecode up to version 99, and Plex iOS 2026.22.0's bundle is still version 96 (EXT-63's run, 15 Nov 2026). The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
 the order of 8 Oct 2026, closed on 10 Oct 2026, and the web prototype's tickets were re-filed as
 CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 makes Storybook the
