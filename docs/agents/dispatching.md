@@ -64,8 +64,9 @@ on Main's review:
   `room.sh` allows it and no other open branch or pull request in that repository touches the files
   the ticket names. Orca registers a design sibling repository only while its spec has its turn,
   so the four (untitled-replica, prototype-snapshot, folder-component and design-prototype) are
-  unregistered until then (the Owner, 31 Oct 2026); untitled-replica registers for its setup
-  tickets during Brink's look (2 Nov 2026).
+  unregistered until then (the Owner, 31 Oct 2026). The app replica's own repository,
+  untitled-app-replica (CC-218, 15 Nov 2026), registers for its setup tickets during Brink's look
+  (2 Nov 2026).
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
   only lengthens the queue (the Owner, 3 Oct 2026).
 
