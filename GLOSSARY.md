@@ -287,3 +287,11 @@ _Avoid_: device limit, seat
 **Upload allowance**:
 An optional amount of streaming per period that an Admin enters for their host, shown against measured usage.
 _Avoid_: bandwidth cap (as the term), quota
+
+### Design work
+
+These name how CanonCore's design is studied, not anything in the product.
+
+**Replica**:
+A private repository that rebuilds one third-party app or website to study its look for a design reference: the web replica (`untitled-replica`, untitled.stream's website), the app replica (`untitled-app-replica`, untitled's iPhone and Mac apps), `brink-replica`, and AppleMusic27, the Owner's replica of Apple Music. The word also names the app rebuilt inside it. A replica commits the study's words, values and tooling, and the files its rebuild loads: fonts, images, icons, shaders and the like (the Owner, 6 Oct 2026). Recordings, stills, accessibility trees and decompiled dumps stay outside git, in `<name>-data` beside the checkout and in Extractor's store. Nothing passes from a replica into CanonCore except what the prototypes' picks decide (ADR 0022).
+_Avoid_: recreation, the replica (where the web replica and the app replica could be confused)
