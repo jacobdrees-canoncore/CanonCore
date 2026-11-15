@@ -29,7 +29,7 @@ An app with no website is recreated as a **SwiftUI replica** of its key screens,
 - **Study, and use where they fit:** Bencho.dev (a favourite), React Bits Micro, Interaction Kit, uselayouts (MIT), dqnamo's Kitchen, Cuelume, dither-kit, the progressive-blur component, and fayazara's macOS app skills for the Mac app. (Revised 2 Oct, ADR 0023: uselayouts is dropped; on the web, anything used here meets Arc's rules.)
 - **Assets and tools:** Grainient, perhaps paid; texture packs; Grainrad; a Midjourney style code; Appthetics as one way to make a mascot.
 - **CanonCore needs a brand, including a mascot.** Mascot and branding research is its own piece of work, later; bookmarks 21, 23, 68, 69 and 75 feed it.
-- **A possible philosophy for the iOS app:** use Apple's system components as they ship and let content carry the brand (bookmark 24).
+- **A possible philosophy for the iOS app:** use Apple's system components as they ship and let content carry the brand (bookmark 24). (15 Nov 2026: Apple's own platform look is now the standing contender on every Apple prototype screen, ADR 0023.)
 
 ## Themes
 
