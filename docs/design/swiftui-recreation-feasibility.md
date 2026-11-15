@@ -38,6 +38,18 @@
 > App Store since 4 Nov 2026), not 1.2.45, and reads 1.2.46's code once Extractor's full pass of it,
 > decompile included, is in. The values read from 1.2.45's code are re-read against 1.2.46, and each
 > changed one is marked.
+>
+> **Revised 15 Nov 2026** (the Owner). Brink's look records and builds from Brink iOS 1.2.47 (on the
+> App Store since 14 Nov 2026), not 1.2.46, with no measured recording before Extractor's full pass
+> of it, decompile included; the values read from code are re-read on 1.2.47 by CC-388. The
+> [untitled] replica records and builds from [untitled] iOS 1.28.0 and macOS 1.13.0 (both on the App
+> Store since 12 Nov 2026), each given Extractor's full pass, decompile included, before any measured
+> recording, and later updates are followed as Brink's are. Its springs, durations, blur and colours
+> come from both builds' code where it shows them plainly, each value marked from code (with its
+> symbol) or measured, and the recordings prove every value and measure the rest. The sentences
+> below that say these values come only from recordings, or that recordings are the primary source,
+> are history for [untitled] too. Under the device rules of the same day, an agent may sign in to
+> the app itself (`plan-2026-09-30.md`, "Driving the iPhone").
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD
@@ -164,7 +176,7 @@ repositories hold the apps' fonts ([untitled]'s; Brink ships none), icons, Rive 
 media, and stay private. The 2016 Untitled Sans files carry Klim's Test Font Licence: the app's three
 OTFs (Light, Regular, Medium) and the web replica's five committed woff2 files. The app's 2026
 variable font carries Klim's ordinary licence wording, and IBM Plex Mono is SIL OFL 1.1. Nothing of
-theirs reaches CanonCore, ADR 0020.)
+theirs reaches CanonCore, ADR 0022.)
 
 **App Review never sees a replica.** Guideline 4.1 forbids to "copy the latest popular app ... or
 make some minor changes to another app's name or UI and pass it off as your own"

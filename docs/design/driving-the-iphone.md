@@ -335,7 +335,9 @@ spacing, route 1 answers the timing question and everything else is only navigat
 - [x] Pair the iPhone with this Mac and trust it (done: `paired`, measured).
 - [x] Developer Mode on (done: `enabled`, measured).
 - [x] Install Brink and MD Vinyl from the App Store (done 30 Sep).
-- [ ] Sign in to [untitled] (already installed).
+- [x] Sign in to [untitled] (already installed): no longer Jacob's (amended 15 Nov 2026, the Owner);
+      the agent signs in itself, asking for any sign-in code through Main, `plan-2026-09-30.md`,
+      "Driving the iPhone".
 - [x] Settings -> Developer -> Enable UI Automation: on (done 30 Sep).
 - [ ] Settings -> Accessibility -> Zoom: off.
 - [ ] Keep the phone unlocked on the desk and on charge for a session. (Amended 4 Nov 2026, the
