@@ -12,7 +12,8 @@ every device (CC-2). Each finishes, its audit at its clean round, before the nex
 starts, and the board enforces it: Brink's audit CC-217 blocks the replica's first recording ticket
 (its Mac driver, CC-225) and its iPhone tickets; CC-242 blocks the web prototype's first building
 blocks, CC-298, CC-299, CC-300, CC-314 and CC-321; and CC-281 blocks CC-39 and CC-2. The one
-exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224)
+exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224) and its
+values from untitled's code (CC-391, which records nothing; the Owner, 15 Nov 2026)
 run alongside Brink's look. Brink's look records and builds from Brink iOS 1.2.47 (the Owner, 15 Nov
 2026, after 1.2.47 reached his iPhone; 1.2.46 from 6 Nov) and starts once
 the asking rule (`workflow.md`, step 6) has landed. No measured recording of the look is made
@@ -78,7 +79,8 @@ After every merge, look across every lane and the free spikes for anything that 
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
 In Design references that means the current spec's tickets only; a later spec's
 ticket, browserless or not, waits for its spec's turn (8 Oct 2026), except the untitled app
-replica's setup tickets, which run alongside Brink's look (2 Nov 2026).
+replica's setup tickets and CC-391, its values from code, which run alongside Brink's look (2 Nov
+2026; CC-391 added 15 Nov 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
 
