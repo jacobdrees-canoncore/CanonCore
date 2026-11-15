@@ -119,8 +119,7 @@ per run and add that limit here.
   prototype), CC-322 (Snapshot: the prototype reads the photo release) and CC-401 (Refresh Arc and
   take the start-of-spec versions), and the audit are dispatched as usual (the Owner, 10 Oct 2026;
   the infrastructure tickets released 11 Oct 2026, CC-296 added 11 Oct 2026, when the prototype
-  became Storybook only; CC-322 and CC-323 added 11 Oct 2026; CC-401 added 15 Nov 2026). The Owner
-  also chooses which looks each block tries (15 Nov 2026).
+  became Storybook only; CC-322 and CC-323 added 11 Oct 2026; CC-401 added 15 Nov 2026).
 
 ## Where a merged slice lands
 
