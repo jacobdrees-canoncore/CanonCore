@@ -34,7 +34,11 @@ CC-258 to CC-281; amended 11 Oct 2026: CC-260 to CC-280 are canceled, CC-296 mak
 prototype, and its building blocks are filed as CC-298 to CC-321, with its screens after them and
 its audit CC-281 last. Inside the current spec, every unblocked ticket runs in parallel within the
 ceiling below. Main plans the next spec alongside the current build (its fixes, check rounds and
-`/to-tickets`).
+`/to-tickets`). Amended 15 Nov 2026, the Owner: the prototypes (Brink's look, the untitled app
+replica, the web prototype, the Apple prototype) are built one after another, but every prototype's
+preparation (its re-pass: grill, trace, re-spec, re-ticket, check, and research) runs together, now,
+not one spec ahead. The product projects (CC-2 onward) stay sequential and start after the
+prototypes.
 
 There is no fixed number of agents. The ceiling is whatever actually contends on the Owner's Mac, and
 on Main's review:
