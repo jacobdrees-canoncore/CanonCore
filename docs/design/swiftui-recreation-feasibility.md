@@ -5,7 +5,7 @@
 > The recommendation below was the input to that decision. Later the same day all three apps were
 > on the phone and an agent, not Jacob, makes the recordings (`driving-the-iphone.md`).
 >
-> **Revised 3 Oct 2026.** The [untitled] replica (CC-36) also covers its separate Mac app,
+> **Revised 3 Oct 2026.** The [untitled] app replica (CC-36) also covers its separate Mac app,
 > "[untitled] for Desktop" (Mac App Store id 6744922982, v1.7.0), recorded on the Mac.
 > The tvOS recreation (CC-34) was dropped 3 Oct 2026.
 >
@@ -18,13 +18,13 @@
 > and navigation type names, and decompiled code. Files taken from the apps are committed to each replica's private repository.
 > Mobbin is signed in, and reference screenshots of [untitled] (32 flows, 119 screens, 8 App Store)
 > and Brink (90 flows, 285 screens, 13 App Store) are in `~/canoncore/reference-screens/`. The
-> [untitled] replica is one shared SwiftUI multiplatform app with a native Mac destination. The real
+> [untitled] app replica is one shared SwiftUI multiplatform app with a native Mac destination. The real
 > Mac app is native AppKit plus SwiftUI, not Catalyst, and its bundle names it "[untitled]" ("for
 > Desktop" is only its App Store listing name); [untitled] is built from UIKit view controllers plus
 > SwiftUI, with swift-navigation Destination enums, not TCA. The sections below that say assets
 > cannot be copied, or that the permission is unrecorded, are history for [untitled] and Brink.
 >
-> **Revised 2 Nov 2026** (the Owner). The [untitled] replica is no longer full: its iPhone half covers
+> **Revised 2 Nov 2026** (the Owner). The [untitled] app replica is no longer full: its iPhone half covers
 > only the library, project and track pages, and the edit, speed, pitch, stems and recorder screens
 > are dropped on both halves. Its builds are now [untitled] iOS 1.26.1 and macOS 1.11.0, and
 > Brink's is 1.2.44; the versions below are those of 6 Oct 2026.
@@ -42,7 +42,7 @@
 > **Revised 15 Nov 2026** (the Owner). Brink's look records and builds from Brink iOS 1.2.47 (on the
 > App Store since 14 Nov 2026), not 1.2.46, with no measured recording before Extractor's full pass
 > of it, decompile included; the values read from code are re-read on 1.2.47 by CC-388. The
-> [untitled] replica records and builds from [untitled] iOS 1.28.0 and macOS 1.13.0 (both on the App
+> [untitled] app replica records and builds from [untitled] iOS 1.28.0 and macOS 1.13.0 (both on the App
 > Store since 12 Nov 2026), each given Extractor's full pass, decompile included, before any measured
 > recording, and later updates are followed as Brink's are. Its springs, durations, blur and colours
 > come from both builds' code where it shows them plainly, each value marked from code (with its

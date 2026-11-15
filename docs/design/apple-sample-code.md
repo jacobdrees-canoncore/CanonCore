@@ -3,7 +3,7 @@
 Research note, 30 Sep 2026. Question from Jacob: before the full tvOS recreation, list every
 Apple sample project a media app like CanonCore can legitimately copy from (tvOS first, then iOS,
 macOS and multiplatform), pick the best base for the recreation, and check the licence and that
-the samples build here. A recreation is a design reference, never CanonCore itself.
+the samples build here. A replica (`GLOSSARY.md`) serves a design reference and is never CanonCore itself.
 
 > **Revised 3 Oct 2026.** The tvOS recreation (CC-34) was dropped: the tvOS 27 simulator has no TV
 > app (measured 3 Oct 2026), so it would have needed device recordings. These samples now feed the
