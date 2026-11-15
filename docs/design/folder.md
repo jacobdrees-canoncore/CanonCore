@@ -119,8 +119,9 @@ say to avoid using a familiar gesture for an action unique to the app
 (developer.apple.com/design/human-interface-guidelines/gestures, read 9 Oct 2026).
 
 **Still open, by ADR 0023:** on the web, the pick sits inside the web prototype's side-by-side
-comparison of untitled-look, Apple Music-look and Arc-look stories, picked per block and per screen
-(CC-38; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
+comparison of untitled-look, Apple Music-look, Brink-look and Arc-look stories, in the looks the
+Owner chose for each block, picked per block and per screen (CC-38; amended 15 Nov 2026, Brink's
+look added, ADR 0025; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
 have; amended 2 Nov 2026, ADR 0025, it named only untitled's look and Arc's), and whether the frosted tint counts as a
 decorative gradient under Arc's rules is decided there. On Apple, the Apple prototype (CC-39)
 settles whether Arc's rules apply. Each verdict is recorded beside the pick when it is made.
@@ -308,7 +309,7 @@ folder's extend that role. Each is Motion's duration-based spring: duration is t
 | `stagger.folder-gallery` | 0.05 s a step from the centred card | cards flying out |
 | `stagger.folder-home` | 0.03 s a step from the middle card | cards flying home; the front shuts once the last has landed |
 | `--duration-folder-corner` | 450 ms | the matte's corner, 9% to 3.5% and back, as a flight starts |
-| `duration.standard` (Arc's, 0.24 s today) | 240 ms | the gallery's scrim fading in and out |
+| `duration.standard` (Arc's 0.24 s when recorded; 0.2 s in Arc's registry on 15 Nov 2026) | 240 ms, as recorded | the gallery's scrim fading in and out |
 | `--ease-folder` | `cubic-bezier(0.25, 0.1, 0.25, 1)` (CSS `ease`) | both of the above, as the original and the Apple build time them |
 | press | scale 0.98 over 160 ms on `cubic-bezier(0.23, 1, 0.32, 1)` | a press on the folder, on a fine pointer only (web) |
 
@@ -322,14 +323,18 @@ is not decided here: the two builds differ, and nothing traced either curve.
 For the web prototype's verdicts (ADR 0023), not settled here:
 
 - **Bounce.** Arc keeps visible bounce for playful moments; the folder's springs bounce from 0.1
-  to 0.35, and are its signature.
+  to 0.35, and are its signature. (Noted 15 Nov 2026: Arc's registry tokens no longer bounce at
+  all, `snappy`, `smooth` and `morph` at bounce 0, though Arc's `motion` skill still describes
+  bounce; the web prototype judges the folder against the Arc it refreshed to, CC-401.)
 - **Shadows.** Arc puts shadows only on floating layers and never stacks them; the folder's back
   stacks three, and its cards rest on two.
 - **The frosted tint** is a gradient; whether it is decorative is the prototype's call.
-- **The press** scales to 0.98, against Arc's 0.97.
+- **The press** scales to 0.98, against Arc's 0.97 (Arc's `button` scales 0.985 above 220px wide
+  and 0.96 at 48px or less, read 15 Nov 2026).
 - **The arrow.** The build draws Phosphor's `arrow-up-right` (bold, MIT) as fayazara does, and SF
   Symbols' `arrow.up.right` on Apple; Arc's icons are lucide's.
-- **The hint's 28px** sits off Arc's 4px spacing tokens, which have no `--space-7`.
+- **The hint's 28px** sits off Arc's spacing tokens, which have no `--space-7` (amended 15 Nov
+  2026: Arc's compact scale is no longer a 4px step).
 - **Focus on the web** (10 Oct 2026). Keyboard focus fans the folder, and Arc's keyboard ring now shows beside the fan: the folder drops its own `outline: none` (ADR 0023, amended). The ring follows the button's rectangle, not the tab's silhouette, and the fanned cards rise above it; how that reads is the prototype's call.
 
 ## Apple TV

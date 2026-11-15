@@ -4,7 +4,7 @@ Observed 11 Oct 2026 on Plex Web **4.160.0** (the copy bundled with Plex Media S
 
 This note records how Plex Web, Plex's browser client, is built and behaves: its screens and the server calls each makes, how it chooses between direct play, direct stream and a server transcode, what it decodes itself, and what it keeps in the browser. It was written for CC-289, a ticket of the Plex sweep (ADR 0024). It describes behaviour in CanonCore's own words (`GLOSSARY.md`); where Plex's own term is needed it is given once in code formatting. No Plex payload, file, code or screenshot is copied here, and every capture stayed outside the repository.
 
-Each claim carries its evidence, and names the copy it came from: **bundled** (4.160.0, served by the server at `/web`) or **hosted** (4.162.1, app.plex.tv).
+Each claim carries its evidence, and names the copy it came from: **bundled** (4.160.0, served by the server at `/web`) or **hosted** (4.162.1, app.plex.tv). (Noted 15 Nov 2026: app.plex.tv now serves 4.163.0; this note was not re-read against it, so a study citing a hosted row cites 4.162.1, and the hosted copy was never played, see below.)
 
 - **observed**: seen in Orca's browser or in a request made to this server on the date above, or read from the static JavaScript of the named copy.
 - **documented**: stated by Plex, with the URL given.
