@@ -50,6 +50,13 @@
 > below that say these values come only from recordings, or that recordings are the primary source,
 > are history for [untitled] too. Under the device rules of the same day, an agent may sign in to
 > the app itself (`plan-2026-09-30.md`, "Driving the iPhone").
+>
+> **Revised 16 Nov 2026** (the Owner, the lean path). Neither app is rebuilt. Brink's look reads
+> 1.2.47's code (CC-388) and the captures held, with Mobbin as an older build's context, and one
+> phone session records only the gaps; the [untitled] app replica keeps its values from code,
+> inventories and assets and records nothing more. The sentences above and below on recording to
+> prove every value, or building key screens, are history (`plan-2026-09-30.md`;
+> `docs/research/recording-less-2026-11-16.md`).
 
 Research note, 30 Sep 2026. Question from Jacob: how easy is it really to recreate three
 closed-source iPhone apps as SwiftUI replicas of their key screens (Brink: Podcast Player, MD

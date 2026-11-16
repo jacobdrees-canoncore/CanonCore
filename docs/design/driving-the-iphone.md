@@ -294,7 +294,8 @@ MACOS, it links AppKit and nothing from iOSSupport); its bundle names it "[untit
 Desktop" is only its App Store listing name. It is a different design from the iPhone app,
 a desktop layout with a sidebar (App Store screenshots), so it does not replace recording the
 phone. Since 3 Oct 2026 it is in the untitled app replica's scope (CC-36), recorded and driven on
-the Mac; whether computer-use reads its accessibility tree is untested.
+the Mac; whether computer-use reads its accessibility tree is untested. (16 Nov 2026: CC-36 no
+longer records the Mac app.)
 
 ## What each route gives
 
@@ -324,7 +325,7 @@ the Mac; whether computer-use reads its accessibility tree is untested.
 4. **Device Hub and Accessibility Inspector** for Jacob's own spot checks by eye.
 5. Not usable: `idevicescreenshot`, the simulator for App Store apps, the Mac App Store copies,
    Switch or Voice Control. (The iPhone app is not offered on the Mac; the separate Mac app is its
-   own design, recorded on the Mac for CC-36's Mac part.)
+   own design, recorded on the Mac for CC-36's Mac part. 16 Nov 2026: CC-36 no longer records the Mac app.)
 
 **First thing to measure:** one 5 s `devicectl` recording of a Brink swipe, then `ffprobe` for
 `r_frame_rate`, `avg_frame_rate` and per-frame timestamps. If it holds 60 or 120 fps with even
@@ -337,7 +338,7 @@ spacing, route 1 answers the timing question and everything else is only navigat
 - [x] Install Brink and MD Vinyl from the App Store (done 30 Sep).
 - Sign in to [untitled] (already installed): no longer Jacob's item (amended 15 Nov 2026, the Owner);
   the agent signs in itself, asking for any sign-in code through Main, `plan-2026-09-30.md`,
-  "Driving the iPhone".
+  "Driving the iPhone". (16 Nov 2026: no untitled session remains, CC-226 retired.)
 - [x] Settings -> Developer -> Enable UI Automation: on (done 30 Sep).
 - [ ] Settings -> Accessibility -> Zoom: off.
 - [ ] Keep the phone unlocked on the desk and on charge for a session. (Amended 4 Nov 2026, the

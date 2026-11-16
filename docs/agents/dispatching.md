@@ -9,23 +9,23 @@ frontier or creates a worktree.
 Design references specs are built in order: Brink's look (CC-33), the untitled app replica (CC-36),
 the web prototype (CC-38), then the Apple prototype (CC-39), and after them project 1, Play Rose on
 every device (CC-2). Each finishes, its audit at its clean round, before the next one's first ticket
-starts, and the board enforces it: Brink's audit CC-217 blocks the replica's first recording ticket
-(its Mac driver, CC-225) and its iPhone tickets; CC-242 blocks the web prototype's first building
-blocks, CC-298, CC-299, CC-300, CC-314 and CC-321; and CC-281 blocks CC-39 and CC-2. The one
-exception: the replica's setup tickets (CC-218, which creates its repository, and CC-220 to CC-224) and its
-values from untitled's code (CC-391, which records nothing; the Owner, 15 Nov 2026)
-run alongside Brink's look. Brink's look records and builds from Brink iOS 1.2.47 (the Owner, 15 Nov
-2026, after 1.2.47 reached his iPhone; 1.2.46 from 6 Nov) and starts once
-the asking rule (`workflow.md`, step 6) has landed. No measured recording of the look is made
+starts, and the board enforces it: Brink's audit CC-217 and the untitled app replica's audit
+CC-242, each trimmed to what was built (the Owner, 16 Nov 2026), and the Arc refresh CC-401 block the
+web prototype's first building blocks, CC-298, CC-299, CC-300, CC-314 and CC-321, and CC-217 also
+blocks CC-401; and CC-281 blocks CC-39 and CC-2. The one exception: the untitled app replica's kept
+tickets (setup, CC-218, which creates its repository, and CC-220 to CC-224; values from untitled's
+code, CC-391; adaptation notes, CC-241) run alongside Brink's look, since the replica records
+nothing and rebuilds no screens (the Owner, 16 Nov 2026). Brink's look reads Brink iOS 1.2.47's code
+and records its gaps on it, in one phone session, with no build (the Owner, 16 Nov 2026; 1.2.47
+since 15 Nov, 1.2.46 from 6 Nov) and starts once the asking rule (`workflow.md`, step 6) has landed. No measured recording of the look is made
 before Extractor's full pass of its current build, decompile included, is in, and the values read from
 code are re-read on each new build ("Re-read Brink's values from code on 1.2.47", CC-388). "Re-read Brink's values from code
-on 1.2.46", a ticket of CC-33, marks each value changed since 1.2.45 and blocks CC-213, CC-214 and
-CC-215 (the Owner, 6 Nov 2026, superseding "once Extractor's decompile of Brink 1.2.45 shows
+on 1.2.46", a ticket of CC-33, marks each value changed since 1.2.45 and blocks CC-213 and CC-214,
+now cards for the blocks' needs only (CC-215 retired 16 Nov 2026) (the Owner, 6 Nov 2026, superseding "once Extractor's decompile of Brink 1.2.45 shows
 functions above 0", EXT-54, of 4 Nov 2026). CC-209's route proof on 1.2.46 is not a measured
-recording. The untitled app replica records and builds from untitled iOS 1.28.0 and Mac 1.13.0 (the
-Owner, 15 Nov 2026). No measured recording of either is made before Extractor's full pass of that
-build, decompile included, is in, and the values read from code are re-read on each new build, as
-Brink's are. The Apple prototype (CC-39) also waits for the clean round of Extractor's REA spec's
+recording. The untitled app replica reads its values from the code of untitled iOS 1.28.0 and Mac
+1.13.0 (CC-391), re-read on each new build as Brink's are; it records nothing and rebuilds no
+screens (the Owner, 16 Nov 2026). The Apple prototype (CC-39) also waits for the clean round of Extractor's REA spec's
 audit, EXT-67, since it uses that spec's `hermes` Stage output for Plex; Linear cannot draw that
 edge across workspaces, so it is held here and in a CC-39 comment (the Owner, 6 Nov 2026). The gate stays (the Owner, 15 Nov 2026), with a risk noted: hermes-decomp reads Hermes bytecode up to version 99, and Plex iOS 2026.22.0's bundle is still version 96 (EXT-63's run, 15 Nov 2026). The Plex sweep (CC-285, ADR 0024) left the order on 2 Nov 2026:
 its audit, CC-294, is canceled and the sweep closes on its merged notes. The folder, CC-37, first in
@@ -35,7 +35,8 @@ prototype, and its building blocks are filed as CC-298 to CC-321, with its scree
 its audit CC-281 last. Inside the current spec, every unblocked ticket runs in parallel within the
 ceiling below. Main plans the next spec alongside the current build (its fixes, check rounds and
 `/to-tickets`). Amended 15 Nov 2026, the Owner: the prototypes (Brink's look, the untitled app
-replica, the web prototype, the Apple prototype) are built one after another, but every prototype's
+replica, the web prototype, the Apple prototype) are built one after another (since 16 Nov 2026
+Brink's look and the replica build nothing: their specs run and close in order), but every prototype's
 preparation (its re-pass: grill, trace, re-spec, re-ticket, check, and research) runs together, now,
 not one spec ahead. The product projects (CC-2 onward) stay sequential and start after the
 prototypes.
@@ -51,10 +52,10 @@ on Main's review:
   CC-60) included; the iPad trace on hardware, CC-190, was canceled 8 Oct 2026 (the Owner has no
   iPad, and the Mac trace stands in; the Apple prototype judges the iPad on the iPad Pro 13-inch (M5)
   simulator, iOS 27.0, in the simulator lane, 15 Nov 2026). Since the spec order above, the lane holds only the current
-  spec's recordings, so the phone passes from Brink's look to the untitled app replica by the spec
-  edges; inside the replica the Mac's recordings come before the iPhone's. The Apple prototype's
+  spec's recordings: the phone serves Brink's gap session, then the Apple prototype's gap captures
+  at its turn; the untitled app replica records nothing (the Owner, 16 Nov 2026). The Apple prototype's
   capture of the Owner's Apple TV joins this lane too (the Owner, 2 Nov 2026), holding the simulator
-  lane with it; its first session proves the recording from Device Hub's live view on the Mac (15 Nov
+  lane with it, for gaps only; its first session proves the recording from Device Hub's live view on the Mac (15 Nov
   2026; the design plan, Driving the iPhone, owns the capture's rules). Dispatch hands the lane on
   as it hands on the Chrome lane (the Owner, 6 Oct 2026; order superseded 8 Oct 2026).
 - **One simulator lane.** One agent at a time runs Apple's simulators or builds for a device:
@@ -72,8 +73,8 @@ on Main's review:
   the ticket names. Orca registers a design sibling repository only while its spec has its turn,
   so the four (untitled-replica, prototype-snapshot, folder-component and design-prototype) are
   unregistered until then (the Owner, 31 Oct 2026). The app replica's own repository,
-  untitled-app-replica (CC-218, 15 Nov 2026), registers for its setup tickets during Brink's look
-  (2 Nov 2026). The Apple prototype's own repository, apple-prototype, is made by its setup ticket at
+  untitled-app-replica (CC-218, 15 Nov 2026), registers for its kept tickets during Brink's look
+  (2 Nov 2026; since 16 Nov 2026 the only tickets it has left). The Apple prototype's own repository, apple-prototype, is made by its setup ticket at
   its spec's turn, after the web prototype's audit reaches its clean round, and registers then (the
   Owner, 15 Nov 2026).
 - **The review cap.** No new dispatch while about 3 PRs wait on Main's review: an agent started then
@@ -89,8 +90,8 @@ After every merge, look across every lane and the free spikes for anything that 
 the next ticket in the merged one's lane, and start what does: the Owner asked for this on 2 Oct 2026.
 In Design references that means the current spec's tickets only; a later spec's
 ticket, browserless or not, waits for its spec's turn (8 Oct 2026), except the untitled app
-replica's setup tickets and CC-391, its values from code, which run alongside Brink's look (2 Nov
-2026; CC-391 added 15 Nov 2026). The Apple prototype's setup and infrastructure tickets are no such
+replica's kept tickets (setup, CC-391 and CC-241, above), which run alongside Brink's look (2 Nov
+2026; CC-391 added 15 Nov 2026; the rest retired 16 Nov 2026). The Apple prototype's setup and infrastructure tickets are no such
 exception: they wait for its turn (the Owner, 15 Nov 2026).
 
 Every agent runs locally, on the Owner's Mac; none runs in a cloud session.
