@@ -50,7 +50,7 @@ checked out at `~/orca/projects/CanonCore/docs/agents/workflow.md`.
 - `auditing-a-spec`: the audit ticket every spec ends with. Its last, clean round carries the Owner's
   walk, the accessibility pass and the README additions.
 - `design-panel`: the Owner invokes it, to put one UI question past nine design lenses.
-- `setup-orca-linear-project`: the Owner invokes it, to stand up a project or add a repository.
+- `setup-orca-linear-project`: the Owner invokes it, to stand up a project or add a repository. Its [`ci.md`](https://github.com/jacobdrees/claude-skills/blob/main/setup-orca-linear-project/ci.md) (`~/.claude/skills/setup-orca-linear-project/ci.md`) is the standard every repository's CI is held to.
 <!-- standard:end -->
 
 ## Rebuilding
