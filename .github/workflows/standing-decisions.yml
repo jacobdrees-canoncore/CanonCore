@@ -26,6 +26,7 @@ jobs:
           fetch-depth: 0
           # Blobless: the step reads one file at two commits, so it fetches only those blobs.
           # Timed against full history in CC-422 (5 runs each): checkout p50 2 s against 7 s.
+          # Those blobs are fetched without credentials, which works because the repository is public.
           filter: blob:none
           persist-credentials: false
       - name: Start the budget clock

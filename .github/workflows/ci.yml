@@ -8,10 +8,12 @@ on:
 permissions:
   contents: read
 
-# A new commit cancels its branch's run still in progress; a push to main always runs to the end.
+# A new commit cancels its PR's run still in progress. A push to main gets a group of its own,
+# its commit's, so it always runs to the end: a group holds one pending run and cancels an older
+# pending one whatever cancel-in-progress says, so a shared main group would drop a merge's CI.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Every job has two limits. `timeout-minutes` is the backstop for a hang. The budget, in seconds,
 # covers the job's real steps: a clock starts after setup and the last step, budget.py, fails the
@@ -29,13 +31,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       # GitHub's own secret scanning needs paid Secret Protection on private repos.
       # gitleaks covers the same ground for free. Run the binary directly rather than
       # gitleaks-action, which requires a paid licence key for organisation repos.
       # `git` replaced `detect --source` in v8.19.0; the old form is deprecated and hidden.
       # Pinned to the digest of v8.30.1, so the tool cannot change under the check without a PR.
-      - name: Start the budget clock
-        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: Run gitleaks
         run: |
           docker run --rm -v "$PWD:/repo" \
