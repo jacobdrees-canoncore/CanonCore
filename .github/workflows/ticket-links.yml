@@ -18,10 +18,13 @@ jobs:
   ticket-links:
     name: Ticket links
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: .github/scripts
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       # Read live, not from the event: a failed run stays on the head beside any later pass, and
       # dispatch's gate refuses a head with a failure. A re-run replays its event's old payload, so
       # only a live read lets `gh run rerun` of the failed run see the corrected text and pass.
@@ -38,3 +41,6 @@ jobs:
           TITLE=$(jq -r .title <<<"$pr") BODY=$(jq -r .body <<<"$pr") \
             LABELS=$(jq -r '[.labels[].name] | join(",")' <<<"$pr") \
             python3 .github/scripts/ticket_links.py
+      # Its budget in seconds, as in ci.yml: the live read is a network call, hence 10 s, not 5.
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 10
