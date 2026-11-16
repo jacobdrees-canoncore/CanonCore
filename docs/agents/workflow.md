@@ -77,6 +77,12 @@ For anything else.
 Keep steps 1 to 5 in one unbroken context, so the spec, the tickets and the check are built on the
 grill's thinking rather than a summary of it. Each `/implement` starts fresh from its ticket.
 
+**Every ticket is written through `/to-tickets` and checked before it is dispatched** (the Owner,
+16 Nov 2026), not only a spec's set: a one-off ticket too (a retro finding, a bug fix, an audit's
+follow-up, a ticket filed mid-wave). A spec's set gets the spec check (`check`'s SPEC.md, rounds
+until clean); a one-off gets `check`'s single-ticket pass, fixed and re-checked by a fresh agent
+until clean. Main dispatches nothing unchecked.
+
 ## Off the flow
 
 - A question talk cannot settle detours through `/prototype`.
