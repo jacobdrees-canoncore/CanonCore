@@ -133,6 +133,9 @@ per run and add that limit here.
   its looks. Its setup and infrastructure tickets (the apple-prototype repository, which
   `setup-orca-linear-project` makes, and the tickets that build no screen) and its audit are
   dispatched as usual at its turn, and ask the Owner through Main (the Owner, 15 Nov 2026).
+  CC-408 (filing the Apple screens, after the web prototype's phase 2) builds no screen but is
+  never dispatched either: the Owner works it with Main, as CC-323 for the web (added 16 Nov 2026,
+  from CC-39's spec check).
 
 ## Where a merged slice lands
 
