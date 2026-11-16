@@ -24,6 +24,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Blobless: the step reads one file at two commits, so it fetches only those blobs.
+          # Timed against full history in CC-422 (5 runs each): checkout p50 2 s against 7 s.
+          filter: blob:none
           persist-credentials: false
       - name: Start the budget clock
         run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
