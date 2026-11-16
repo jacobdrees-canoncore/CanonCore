@@ -19,11 +19,14 @@ jobs:
   standing:
     name: Standing decisions
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: A change to the section carries Main's label at this head
         env:
           REPO: ${{ github.repository }}
@@ -56,3 +59,6 @@ jobs:
             diff <(section_at "$fork") <(section_at "$HEAD") || true
             exit 1
           fi
+      # Its budget in seconds, as in ci.yml: the fetch of the PR's head is a network call.
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 10

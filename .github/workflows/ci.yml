@@ -8,10 +8,21 @@ on:
 permissions:
   contents: read
 
+# A new commit cancels its branch's run still in progress; a push to main always runs to the end.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Every job has two limits. `timeout-minutes` is the backstop for a hang. The budget, in seconds,
+# covers the job's real steps: a clock starts after setup and the last step, budget.py, fails the
+# job when they ran past it. The budgets and the runs they were set from are in
+# docs/research/ci-speed-2026-11-16.md and CC-422's PR.
+
 jobs:
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -20,16 +31,25 @@ jobs:
       # gitleaks covers the same ground for free. Run the binary directly rather than
       # gitleaks-action, which requires a paid licence key for organisation repos.
       # `git` replaced `detect --source` in v8.19.0; the old form is deprecated and hidden.
+      # Pinned to the digest of v8.30.1, so the tool cannot change under the check without a PR.
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: Run gitleaks
         run: |
-          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+          docker run --rm -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             git --no-banner --redact --verbose /repo
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 30
 
   docs:
     name: Agent docs
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: CLAUDE.md stays under 200 lines
         run: |
           lines=$(wc -l < CLAUDE.md)
@@ -60,12 +80,17 @@ jobs:
             [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
           done
           exit $fail
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 5
 
   hooks:
     name: Claude hooks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: The launch hook refuses a raw Claude launch and allows the rest
         run: |
           set +e  # the cases expect exit 2; Actions runs bash with -e
@@ -88,14 +113,21 @@ jobs:
           expect 0 'orca terminal create --worktree path:/Users/me/.claude/x --command zsh'
           expect 0 'orca terminal list --json'
           exit $fail
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 5
 
   ticket-links-guard:
     name: Ticket links guard
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      - name: Start the budget clock
+        run: echo "BUDGET_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: The ticket-links script fails a PR that closes a ticket it only mentions
         run: python3 -m unittest discover -s .github/scripts -v
+      - name: Within the budget
+        run: python3 .github/scripts/budget.py 5
 
   # Add lint / typecheck / test jobs here once a stack exists. Keep them as separate
   # jobs so a red check names the thing that broke.
