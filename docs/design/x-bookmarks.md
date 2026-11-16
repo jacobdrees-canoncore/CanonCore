@@ -18,7 +18,7 @@ Every bookmark sits in exactly one of these, decided before the round began:
 - **Inspiration**: a design idea for the prototype, kept as its card and nothing more.
 - **Skip**: dropped.
 
-An app with no website is recreated as a **SwiftUI replica** of its key screens, built from its App Store screenshots, screen recordings and any TestFlight build (amended 6 Oct 2026: and from the reference screenshots in `~/canoncore/reference-screens/` and Extractor's builds; amended 15 Nov 2026: for Brink since 4 Nov and [untitled]'s app since 15 Nov, values are read from the build's decompiled code first and the recordings prove them, `plan-2026-09-30.md`), since that is the stack of CanonCore's own apps.
+An app with no website is recreated as a **SwiftUI replica** of its key screens, built from its App Store screenshots, screen recordings and any TestFlight build (amended 6 Oct 2026: and from the reference screenshots in `~/canoncore/reference-screens/` and Extractor's builds; amended 15 Nov 2026: for Brink since 4 Nov and [untitled]'s app since 15 Nov, values are read from the build's decompiled code first and the recordings prove them, `plan-2026-09-30.md`), since that is the stack of CanonCore's own apps. (Amended 16 Nov 2026, the Owner: neither app replica rebuilds its screens. untitled's app replica keeps its values from code, inventories and assets; Brink's look is its values from code and the captures held, with Mobbin as an older build's context and a capture only for a gap, `plan-2026-09-30.md`.)
 
 ## Decisions
 
