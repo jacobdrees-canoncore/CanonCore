@@ -60,8 +60,9 @@ For anything else.
    that audit at its clean round, and by any follow-up of it that the later spec needs. In Design
    references every spec waits for the previous one's clean round whether or not it builds on it,
    with the one exception `dispatching.md`'s "One spec at a time" names.
-5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch;
-   after two rounds, what still blocks goes to the Owner, who decides. Nothing is dispatched until then.
+5. **Check.** `check` over the spec and every ticket, always. Only blocking findings hold dispatch. A
+   run that is not clean by `check`'s checkpoint, or that stalls, goes to the Owner, who funds a round,
+   keeps the findings or stops (`check`'s SPEC.md §4 owns when). Nothing is dispatched until then.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
    Orca worktree, and Main gives it the full review and merges. A worker needing the Owner asks through
    Main, never in its own tab: `dispatch`'s `asking.md` owns the rule (the Owner, 2 Nov 2026). A defect found at merge goes back through `/implement`, never as a free-text fix. Each
@@ -81,7 +82,9 @@ grill's thinking rather than a summary of it. Each `/implement` starts fresh fro
 16 Nov 2026), not only a spec's set: a one-off ticket too (a retro finding, a bug fix, an audit's
 follow-up, a ticket filed mid-wave). A spec's set gets the spec check (`check`'s SPEC.md, rounds
 until clean); a one-off gets `check`'s single-ticket pass, fixed and re-checked by a fresh agent
-until clean. Main dispatches nothing unchecked.
+until clean, or until the Owner decides at `check`'s pause (`check`'s SPEC.md and SKILL.md own
+when). Main dispatches nothing unchecked; a ticket whose findings the Owner kept is dispatched with
+them open.
 
 ## Off the flow
 
