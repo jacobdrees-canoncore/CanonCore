@@ -66,9 +66,9 @@ For anything else.
 6. **Implement.** `/dispatch` starts each ticket on the frontier; `/implement` runs it, one ticket per
    Orca worktree, and Main gives it the full review and merges. A worker needing the Owner asks through
    Main, never in its own tab: `dispatch`'s `asking.md` owns the rule (the Owner, 2 Nov 2026). A defect found at merge goes back through `/implement`, never as a free-text fix. Each
-   ticket ends with `/retro` on the worker's own session, its findings in the PR body. At the next
-   go Main puts the findings of every PR merged since the last go to the Owner as one list, and
-   files each one accepted in the repository that owns the fix (`dispatch`'s `asking.md`).
+   ticket ends with `/retro` on the worker's own session, its findings in the PR body. Main files
+   the agent-buildable findings through `/to-tickets` and brings only ADR/glossary and Owner-only
+   findings to the Owner (`dispatch`'s `asking.md` owns the rule).
 7. **Audit.** The audit ticket runs `auditing-a-spec`: it files every blocking gap as a follow-up
    with a re-audit, and after round 2 the Owner decides: fund a blocking-only round, accept what is
    left, or move it to the owning spec's backlog. The last clean round (no blocking gap) carries the
