@@ -49,6 +49,39 @@ Since 2 Oct (ADR 0023), Arc's rules bind the web client and the web prototype: G
 - ~~Look into https://x.com/dhruvmakes/status/2034645922492375185.~~ Done 3 Oct (CC-66): it links to an X Article showing that bookmark 72's cards are Paper's `Warp` shader (`@paper-design/shaders-react`, Apache-2.0 per GitHub on 3 Oct 2026) on a canvas, with colours and layout set by prompting Claude. Its card is in the archive's `analysis/2034645922492375185/`. The verdict on CC-38: a variant only as the placeholder backdrop on Item and Collection screens that have no backdrop image, coloured from the poster's palette, with a still frame for reduced motion; anywhere else it is a decorative gradient under Arc's rule. (Since 11 Oct 2026 the web prototype is Storybook only and builds its building blocks before its screens, so this variant is a story. Amended 11 Oct 2026, the Owner: it is built in phase 1 by Block: Item hero (CC-308), not deferred to the screens.)
 - ~~Retry backgrounds.supply, which failed with a Cloudflare SSL error on 30 Sep.~~ Dropped 30 Sep, after the verification (`plan-2026-09-30.md`).
 
+## The second round (21 Nov 2026)
+
+On 20 Nov 2026 XMCP synced the archive to 494 bookmarks, and every one was carded with the `analysing-design-bookmarks` skill and given a research note (`research` skill), in a run that resumes from `~/.xmcp/analysis/_resume/RESUME.md`. The cards now live in XMCP's own archive, `~/.xmcp/analysis/<post_id>/` (the `xmcp/` copy in this repository's folder is stale from 3 Oct). Eight were dropped before research; 49 are explicit and carry no description; 44 Doctor Who posts and 110 marked "nothing for CanonCore" were set aside. Jacob ticked 26 of the rest on a picker page and the grill took them one at a time, with each post's media, link captures and research open. The full answers are in `~/.xmcp/analysis/_resume/grill-log.tsv`. What was decided:
+
+- **Mascot and icon:** the felt-and-embroidery picture-book look of Midjourney `--sref 3598594574` (post 1964239797775397165) is the direction. It was made on V7 and needs `--sv 6` on today's V8.2. A company earning over $1M a year needs the Pro or Mega plan, and SCBWI bars text-prompted AI art from children's illustration. The blister-pack toy-car icon (2104867574068678990) is not the direction. This feeds the brand work (CC-8); nothing is made now.
+- **Marketing page:** Jacob loves ElevenLabs' site (1970850896281321777): its soft gradient-orb "blossom" carousels, custom KMR Waldenburg type by Kimera and basement.studio's visuals. Beside it, a soft blurred gradient field with crisp white cards and tiles (2105335372821790941, a concept by @_heyrico). Both are for CanonCore's marketing page, not the app. Orchid's unshipped video hero, a serif headline beside a slowly shifting defocused light field (2093399459564544381), is liked as mood with no place yet.
+- **Takes for later blocks:**
+  - An Item's artwork rendered as ASCII and fading to the page colour, for Empty states (CC-312) and Sign-in (CC-321), thought of with AppleMusic27's full-screen artwork colour on phone and Brink's artwork-tinted pages (2052384488781676818).
+  - A Library artwork explorer for Browse grid (CC-305): posters on a globe you spin, flip a card for the Item, flatten to the grid (Cloud Canvas, 2076084365008732308; no licence, so rebuilt, not copied).
+  - Onboarding told with light for Sign-in, setup and pairing (CC-321): word-by-word statements with lit keywords and a colour glow per step (2117283243041128486).
+  - Item card (CC-301) as an A/B: artwork inset on white against artwork full-bleed with text on a gradient into near black; book and comic covers are never cropped behind text (2117514715098415204).
+- **Components:** from React Bits Micro (2100868487631475113; MIT plus Commons Clause, ported for Motion 14.0.0 under Arc's rules), PaperCrumple for deleting (CC-303, with undo in CC-312), PeekRating for ratings (CC-300 or CC-308) and PulseHeart for Favourites (CC-301 or CC-308). For scans, imports and matches, Arc's own `dot-matrix-loader` (Pro, as shipped) replaces LatticeLoader (CC-312, CC-318).
+- **Emil Kowalski's skills are core to how the prototype is built** (2116583281332503038, 2117996960028450836, 2120151439100031270). They run on every block's takes in his order: remove-animations, improve-animations, animation-performance for what exists; find-animation-opportunities, animate (or choreograph when several things move), review-animations for what is added. Where his rules and Arc's disagree (Arc's ease-in exit curve, its zero-duration reduced motion, the sliding highlight on tabs and segmented controls), the block's grill settles it. The research note is claude-skills' `docs/research/2026-11-21-emil-kowalski-skills.md`.
+- **A writing rule for the prototype:** cut taglines and decorative secondary text in the chrome and fix the layout instead, but keep labels and short hints on form fields, as Apple's HIG, NN/g and GOV.UK all advise (2113254050170843418).
+- **Later, not now:** an album shown in its physical format, a jewel case that opens to its booklet (2109628328093364452; no licence). Jacob thinks untitled already does physical media well; it is revisited after phase 2.
+
+### Dither and ASCII: the toolkit
+
+The dither and ASCII theme stays a mood, never a block's default, but every reference is filed with the tool behind it (the Owner, 21 Nov 2026). Prices and terms as read on 20 and 21 Nov 2026:
+
+| Tool | What it makes | Price and terms | Seen in |
+| --- | --- | --- | --- |
+| Grainient (grainient.supply) | Dither gradient stills (Dither Gradient I and II), 4K to 12K | Lifetime $299 on sale (listed $759), commercial licence | 2086046675282624551, 2081348173864316992 |
+| Grainrad | ASCII, dithering and retro effects in the browser (WebGPU) | Free, no account | 2016076104210284717, 2052384488781676818 |
+| ASCII Magic (ascii-magic.com) | Images and video to ASCII, pixel, voxel, halftone, glitch | Free tier for the core styles; AI credits beyond | 2113003309477007561 |
+| Devault ASCII generator (devault-ascii.pages.dev) | 14 styles and 19 presets for images and video; JPEG, WebP, MP4 to 4K | Free, sign-in to export, no watermark; its letter tiles reuse ascii-sharks' values without the MIT notice | 2115096910113739210, 2117251714881642747 |
+| ascii-sharks (github.com/stackedlol/ascii-sharks) | Procedural creatures in character cells, Canvas 2D | MIT | 2112415874011590972 |
+| Morflax Studio | Gradient maps, palettes, RGB dithering, CRT and bloom on renders | Pro $108 a year, Pro Max $228 a year; commercial licence on Pro | 2111088978808193317, 2113265882843734144 |
+| dither-kit | Dithered charts for shadcn/ui | No LICENSE file (the package says MIT), so not yet cleared | 2075780400199446966 |
+| Nano Banana Pro (Gemini 3 Pro Image) | Generated ASCII-overlay backgrounds | Paid API per image; SynthID watermark in every image | 2052384488781676818 |
+| Unicorn Studio, with Claude and Figma | A hand-animated dithered hero | Not established | 2051625457510912210 |
+| Textures from Pinterest and Behance | Glitch, scanline and halftone textures | Uncredited; one is CC BY-NC-SA, so none is cleared for a product | 2030723939207434423 |
+
 ## Every bookmark
 
 ### Recreate (4, plus the foundation and one dropped)
