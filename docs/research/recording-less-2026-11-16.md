@@ -2,7 +2,7 @@
 
 Corrected on landing, 16 Nov 2026, after a claims check (Main): the Linear states of CC-388 and the CC-36 screen tickets, the re-read's branch, what Library session 3 reached, the tally, the count of transitions and what Mobbin shows of Brink. The Owner's answers the same day, which the lean-path trace records, are folded in: system motion a web block must imitate is recorded, each clip is recorded once, and the untitled app replica records nothing more.
 
-Note, 21 Nov 2026: "The four looks" below quotes CC-38 as it stood on 16 Nov. Since the Owner's decision of 21 Nov 2026 (ADR 0025, amended) the references are inputs to one combined design, CC-298 builds one combined shared set on untitled's look and tries its takes in that look only, and each later block's grill decides whether it tries picked pieces or a whole look.
+Note, 21 Nov 2026: "The four looks" below quotes CC-38 as it stood on 16 Nov. Since the Owner's decision of 21 Nov 2026 (ADR 0025, amended) the references are inputs to one combined design, CC-298 builds one combined shared set on untitled's look and tries its takes in that look only, and each later block's grill decides whether it uses CC-298's combined set, tries picked pieces or tries a whole look (ADR 0025, corrected 22 Nov 2026).
 
 # Does "record less, only what CanonCore needs" make sense?
 
