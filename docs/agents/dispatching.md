@@ -140,7 +140,8 @@ per run and add that limit here.
   (Design prototype: web) and CC-39 (Design prototype: Apple), steered or dispatched, audit included,
   shows Main everything it built after `/implement`'s code-review and before its done message: each
   screen and state it touched, with screenshots or a walk, and what changed. Main puts it to the
-  Owner, and the merge waits until he has asked for any change (the Owner, 22 Nov 2026).
+  Owner, and the merge waits until he has asked for any change (the Owner, 22 Nov 2026). A prototype
+  is opened for the Owner in Orca's browser, never Chrome (the Owner, 22 Nov 2026).
 
 ## Where a merged slice lands
 
