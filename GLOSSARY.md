@@ -301,7 +301,7 @@ One variant of a building block or screen in the web prototype, built as a story
 _Avoid_: variant (outside the stories' code), option, version (Version is a domain term)
 
 **Combined set**:
-The web prototype's one shared set of overrides of Arc's roles: untitled's look as its base, with pieces from AppleMusic27, Brink and Arc only where the Owner picks them, each marked by its source. Built by Navigation and header (CC-298) and used by every later block (ADR 0025, amended 21 Nov 2026).
+The web prototype's one shared set of overrides of Arc's roles: untitled's look as its base, with pieces from AppleMusic27, Brink and Arc only where the Owner picks them, each marked by its source. Built by Navigation and header (CC-298); each later block's grill decides whether its stories use it, try picked pieces or try a whole look, and builds whatever set it needs (ADR 0025, amended 21 Nov 2026).
 _Avoid_: shared looks (the three-set plan it replaced), theme
 
 **Replica**:
