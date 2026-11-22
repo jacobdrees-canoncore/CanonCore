@@ -136,6 +136,11 @@ per run and add that limit here.
   CC-408 (filing the Apple screens, after the web prototype's phase 2) builds no screen but is
   never dispatched either: the Owner works it with Main, as CC-323 for the web (added 16 Nov 2026,
   from CC-39's spec check).
+- **A prototype ticket shows Main everything before it reports done.** Every ticket of CC-38
+  (Design prototype: web) and CC-39 (Design prototype: Apple), steered or dispatched, audit included,
+  shows Main everything it built after `/implement`'s code-review and before its done message: each
+  screen and state it touched, with screenshots or a walk, and what changed. Main puts it to the
+  Owner, and the merge waits until he has asked for any change (the Owner, 22 Nov 2026).
 
 ## Where a merged slice lands
 
