@@ -122,7 +122,7 @@ say to avoid using a familiar gesture for an action unique to the app
 comparison of untitled-look, Apple Music-look, Brink-look and Arc-look stories, in the looks the
 Owner chose for each block, picked per block and per screen (CC-38; amended 15 Nov 2026, Brink's
 look added, ADR 0025; amended 11 Oct 2026, it said the Look switch, which the Storybook-only prototype does not
-have; amended 2 Nov 2026, ADR 0025, it named only untitled's look and Arc's), and whether the frosted tint counts as a
+have; amended 2 Nov 2026, ADR 0025, it named only untitled's look and Arc's; amended 21 Nov 2026, the Owner, ADR 0025: the references are inputs to one combined design, so the pick is a piece the Owner takes into it, not a whole look winning), and whether the frosted tint counts as a
 decorative gradient under Arc's rules is decided there. On Apple, the Apple prototype (CC-39)
 settles whether Arc's rules apply. (Partly settled 15 Nov 2026, the Owner: Arc's focus ring does not
 apply on Apple, where focus is the system's and the fan the one exception, ADR 0023; whether the

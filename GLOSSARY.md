@@ -292,6 +292,18 @@ _Avoid_: bandwidth cap (as the term), quota
 
 These name how CanonCore's design is studied, not anything in the product.
 
+**Look**:
+One design reference's whole visual treatment as a source for the web prototype: untitled.stream's, Apple Music's (through AppleMusic27), Brink's or Arc's. Since 21 Nov 2026 a look is an input, not a rival finished design: the Owner picks pieces from looks into one Combined set, and a block's grill may still try a whole look (ADR 0025).
+_Avoid_: theme (for this), skin, style (alone)
+
+**Take**:
+One variant of a building block or screen in the web prototype, built as a story beside its siblings on snapshot data, with a one-line name, and judged by the Owner at a pick.
+_Avoid_: variant (outside the stories' code), option, version (Version is a domain term)
+
+**Combined set**:
+The web prototype's one shared set of overrides of Arc's roles: untitled's look as its base, with pieces from AppleMusic27, Brink and Arc only where the Owner picks them, each marked by its source. Built by Navigation and header (CC-298) and used by every later block (ADR 0025, amended 21 Nov 2026).
+_Avoid_: shared looks (the three-set plan it replaced), theme
+
 **Replica**:
 A private repository that studies one third-party product, its apps or its website, for a design reference, and rebuilds as much of it as the study needs: the web replica (`untitled-replica`) rebuilds untitled.stream's website; the app replica (`untitled-app-replica`) holds untitled's iPhone and Mac apps' values from code, inventories and assets, its screens not rebuilt (16 Nov 2026); `brink-replica` holds Brink's values from code and captures, with no build; AppleMusic27 is the Owner's replica of Apple Music. The word also names an app rebuilt inside one. A replica commits the study's words, values and tooling, and the files its rebuild loads: fonts, images, icons, shaders and the like (the Owner, 6 Oct 2026). Recordings, stills, accessibility trees and decompiled dumps stay outside git: a replica under `~/canoncore/` keeps them in a folder beside its checkout named for it with `-data` (`brink-replica-data`), and Extractor's store keeps each Build's dumps; AppleMusic27 keeps its own layout. Nothing passes from a replica into CanonCore except what the prototypes' picks decide, and, for Brink, the names the Owner's own research notes cite as evidence (ADR 0025).
 _Avoid_: recreation, the replica (where the web replica and the app replica could be confused)
